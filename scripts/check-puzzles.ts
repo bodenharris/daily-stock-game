@@ -21,7 +21,6 @@ if (catalog.isExample)
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CACHE_DIR = path.join(ROOT, '.cache', 'tiingo');
 const MIN_MOVE_PCT = 0.3;
-const FIRST_PLAY_DATE = '2026-11-14';
 
 type RawBar = { date: string; close: number; splitFactor?: number };
 type Bar = { date: string; close: number };
@@ -50,12 +49,6 @@ function pct(from: number, to: number) {
 
 function fmtPct(n: number) {
 	return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
-}
-
-function addDays(iso: string, days: number) {
-	const d = new Date(`${iso}T00:00:00Z`);
-	d.setUTCDate(d.getUTCDate() + days);
-	return d.toISOString().slice(0, 10);
 }
 
 type Result = {
@@ -120,7 +113,7 @@ function main() {
 	}
 
 	console.log(
-		`${pad('#', 3)} ${pad('play date', 10)} ${pad('ticker', 6)} ${pad('headline', 30)} ` +
+		`${pad('#', 3)} ${pad('ticker', 6)} ${pad('headline', 30)} ` +
 			`${pad('step', 4)} ${pad('context', 8)} calls`
 	);
 	let ups = 0;
@@ -132,7 +125,7 @@ function main() {
 	for (const r of results) {
 		const p = r.puzzle;
 		const head =
-			`${pad(String(r.index + 1), 3)} ${addDays(FIRST_PLAY_DATE, r.index)} ${pad(p.ticker, 6)} ` +
+			`${pad(String(r.index + 1), 3)} ${pad(p.ticker, 6)} ` +
 			`${pad(p.headline, 30)} ${pad(String(p.stepBars), 4)} ` +
 			`${pad(r.contextMove === undefined ? '-' : fmtPct(r.contextMove), 8)}`;
 		const calls = r.moves.map((m) => `${m >= 0 ? 'U' : 'D'} ${pad(fmtPct(m), 7)}`).join(' ');

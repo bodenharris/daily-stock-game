@@ -12,8 +12,8 @@ const at = (iso: string) => new Date(iso);
 const HOUR = 3_600_000;
 
 describe('config', () => {
-	it('launches on 2026-11-14 in New York time', () => {
-		expect(LAUNCH_DATE).toBe('2026-11-14');
+	it('launches on 2026-11-01 in New York time', () => {
+		expect(LAUNCH_DATE).toBe('2026-11-01');
 		expect(PUZZLE_TIME_ZONE).toBe('America/New_York');
 	});
 });
@@ -38,28 +38,34 @@ describe('easternDateString', () => {
 
 describe('puzzleNumberFor', () => {
 	it('is #1 from midnight Eastern on launch day', () => {
-		expect(puzzleNumberFor(at('2026-11-14T05:00:00Z'))).toBe(1);
-		expect(puzzleNumberFor(at('2026-11-14T17:00:00Z'))).toBe(1);
-		expect(puzzleNumberFor(at('2026-11-15T04:59:59.999Z'))).toBe(1);
+		// Launch day is the fall-back Sunday: it starts in EDT (UTC-4) and lasts 25 hours.
+		expect(puzzleNumberFor(at('2026-11-01T04:00:00Z'))).toBe(1);
+		expect(puzzleNumberFor(at('2026-11-01T17:00:00Z'))).toBe(1);
+		expect(puzzleNumberFor(at('2026-11-02T04:59:59.999Z'))).toBe(1);
 	});
 
 	it('rolls over at midnight Eastern, not midnight UTC', () => {
-		expect(puzzleNumberFor(at('2026-11-15T00:00:00Z'))).toBe(1);
-		expect(puzzleNumberFor(at('2026-11-15T05:00:00Z'))).toBe(2);
+		expect(puzzleNumberFor(at('2026-11-02T00:00:00Z'))).toBe(1);
+		expect(puzzleNumberFor(at('2026-11-02T05:00:00Z'))).toBe(2);
+	});
+
+	it('is #14 on 2026-11-14', () => {
+		expect(puzzleNumberFor(at('2026-11-14T05:00:00Z'))).toBe(14);
+		expect(puzzleNumberFor(at('2026-11-15T04:59:59.999Z'))).toBe(14);
 	});
 
 	it('serves #1 before launch and reports how far before', () => {
-		expect(puzzleNumberFor(at('2026-11-14T04:59:59.999Z'))).toBe(1);
-		expect(daysSinceLaunch(at('2026-11-14T04:59:59.999Z'))).toBe(-1);
+		expect(puzzleNumberFor(at('2026-11-01T03:59:59.999Z'))).toBe(1);
+		expect(daysSinceLaunch(at('2026-11-01T03:59:59.999Z'))).toBe(-1);
 		expect(puzzleNumberFor(at('2026-01-01T12:00:00Z'))).toBe(1);
-		expect(daysSinceLaunch(at('2026-11-14T05:00:00Z'))).toBe(0);
+		expect(daysSinceLaunch(at('2026-11-01T04:00:00Z'))).toBe(0);
 	});
 
 	it('counts calendar days across the spring-forward change', () => {
 		// 2027-03-14 is the spring-forward Sunday; that day is 23 hours long.
-		expect(puzzleNumberFor(at('2027-03-14T05:00:00Z'))).toBe(121);
-		expect(puzzleNumberFor(at('2027-03-15T03:59:59Z'))).toBe(121);
-		expect(puzzleNumberFor(at('2027-03-15T04:00:00Z'))).toBe(122);
+		expect(puzzleNumberFor(at('2027-03-14T05:00:00Z'))).toBe(134);
+		expect(puzzleNumberFor(at('2027-03-15T03:59:59Z'))).toBe(134);
+		expect(puzzleNumberFor(at('2027-03-15T04:00:00Z'))).toBe(135);
 	});
 
 	it('counts calendar days across the fall-back change', () => {
@@ -71,10 +77,10 @@ describe('puzzleNumberFor', () => {
 	});
 
 	it('is one puzzle per day for a year', () => {
-		expect(puzzleNumberFor(at('2027-11-14T05:00:00Z'))).toBe(366);
-		let previous = puzzleNumberFor(at('2026-11-14T05:00:00Z'));
+		expect(puzzleNumberFor(at('2027-11-01T04:00:00Z'))).toBe(366);
+		let previous = puzzleNumberFor(at('2026-11-01T04:00:00Z'));
 		for (let hours = 1; hours < 24 * 400; hours++) {
-			const n = puzzleNumberFor(new Date(Date.UTC(2026, 10, 14, 5) + hours * HOUR));
+			const n = puzzleNumberFor(new Date(Date.UTC(2026, 10, 1, 4) + hours * HOUR));
 			expect(n - previous).toBeGreaterThanOrEqual(0);
 			expect(n - previous).toBeLessThanOrEqual(1);
 			previous = n;

@@ -161,3 +161,8 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 - **Today's page keeps its rules.** A stale tab that tries to start yesterday's chart after midnight is still sent to the new chart, and it can finish a game it started before midnight. Only the archive's own pages play past days.
 - **Entry points:** a "Past charts" button replaces Bonus next to Share in the reveal, and on screens 640px and up a calendar icon sits in the header. On phones the header has no room for a fourth icon.
 - **DEV_DAY_OFFSET** (development only) shifts which day it is, to try the archive and day rollover without waiting for midnight. Testing it once wrote puzzle #2's schedule entry about five hours early. That's the same entry the scheduler would have written at midnight, since the catalog didn't change.
+
+## Launch moved to Nov 1
+- **The game now starts on 2026-11-01, so there are 13 past days to play.** Today (Nov 14) is #14. The data for the old #1 moved with it: the GameStop schedule entry, plus 20 games and 92 calls, all local dev test plays (checked first: no real plays existed). The early #2 became #15. Then the crowd and finish aggregates were refreshed for those hours. Nothing was dropped.
+- **Nov 1–13 were scheduled once, from the same secret-keyed picker, excluding #14 and #15.** That way no puzzle repeats within the pass. #1 opens with the COVID crash, and GameStop stays today's chart.
+- Launch day is the fall-back Sunday (a 25-hour day), and the date tests now cover it.

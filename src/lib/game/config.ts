@@ -96,7 +96,7 @@ export const ARCHETYPE_RULES = {
 } as const;
 
 /** Calendar date (in PUZZLE_TIME_ZONE) of puzzle #1. */
-export const LAUNCH_DATE = '2026-11-14';
+export const LAUNCH_DATE = '2026-11-01';
 
 /** The daily puzzle rolls over at midnight in this time zone. */
 export const PUZZLE_TIME_ZONE = 'America/New_York';
