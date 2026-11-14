@@ -178,7 +178,7 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<!-- Balance: the one number that matters. -->
-	<div class="flex items-end justify-between gap-3 px-1 pt-1">
+	<div class="flex items-end justify-between gap-3 pt-1">
 		<div>
 			<p class="type-label-md text-on-surface-variant">
 				{finished ? 'Final balance' : 'Balance'}
@@ -244,20 +244,13 @@
 					{/key}
 				{:else}
 					<div>
-						<p class="type-title-md text-on-surface">Up or down over {stretch}?</p>
-						<p class="hint type-body-sm text-balance text-on-surface-variant">
-							A famous market moment, name hidden till the end. Win more when the crowd gets it
-							wrong.
-						</p>
+						<p class="type-title-md text-balance text-on-surface">Up or down over {stretch}?</p>
 					</div>
 				{/if}
 			</div>
 
 			{#if !view.finished}
 				<div class="mt-3">
-					<p class="mb-2 text-center type-label-md text-on-surface-variant">
-						Stake for call {Math.min(results.length + 1, view.calls)} of {view.calls}
-					</p>
 					<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
 				</div>
 
@@ -305,6 +298,11 @@
 		min-height: 200px;
 	}
 	/* The tapped call lights up at once; the other steps back while the stretch is revealed. */
+	/* Up and Down wear the brand: primary container, the tapped one fills to primary. */
+	.calls :global(.call) {
+		background: var(--md-sys-color-primary-container);
+		color: var(--md-sys-color-on-primary-container);
+	}
 	.calls :global(.call.chosen) {
 		background: var(--md-sys-color-primary);
 		color: var(--md-sys-color-on-primary);
@@ -338,9 +336,6 @@
 		}
 		.calls :global(.call) {
 			--btn-h: 64px;
-		}
-		.hint {
-			display: none;
 		}
 	}
 </style>

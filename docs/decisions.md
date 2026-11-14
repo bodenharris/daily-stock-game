@@ -119,3 +119,12 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 
 - **All 107 tickers are loaded:** 936,332 daily bars from 1980 to today, 47 of 48 yearly chunks compressed, 36 MB → 12 MB.
 - **Load prices before launch, not during a day.** Bonus rounds are derived from the set of eligible tickers, so adding tickers changes the bonus charts for any day that hasn't been fully played, including today. Puzzles themselves are unaffected (they are fixed by the stored schedule).
+
+## After the design critique
+
+- **Brand green on the main actions.** Up and Down sit on the primary container colour and the selected stake on primary; the grey-green secondary roles are gone from the play screen.
+- **Revealed stretches are drawn in the brand green; right or wrong is a small mark at each stretch's end** (and on the score dots). Colouring the line by right/wrong made a rising stretch red when the call was wrong, which reads as "it fell"; colouring by direction would bring back the two-meanings-of-green problem the first playtester hit.
+- **The next stretch is a soft green zone with small drawn arrows; later stretches are faint dotted outlines** instead of grey slabs.
+- **Less text on the play screen:** the hint line, "Stake for call N of 5" and the timeframe caption are gone (the pips, the prompt and the first-visit help cover them). At most one gridline each way.
+- **The ending card takes the result's colour** (primary container for a profit, a quiet surface for a loss), pops in on a spring, and Share goes full width once the bonus is done. On very short screens the hindsight line is hidden so the card and Share stay above the fold.
+- **Scrims at 50%** (32% barely separated a sheet from the page in dark mode).

@@ -11,7 +11,7 @@
 	<Drawer.Content>
 		<div class="mx-auto w-full max-w-md px-6 pb-6">
 			<Drawer.Header class="px-0">
-				<Drawer.Title>How to play</Drawer.Title>
+				<Drawer.Title class="type-title-lg-emphasized">How to play</Drawer.Title>
 			</Drawer.Header>
 			<div class="flex flex-col gap-3 type-body-lg text-on-surface">
 				<p>

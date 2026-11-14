@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { rise } from '#lib/m3/transitions.ts';
+	import { pop, rise } from '#lib/m3/transitions.ts';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { page } from '$app/state';
 	import Share2 from '@lucide/svelte/icons/share-2';
@@ -104,7 +104,7 @@
 		{/if}
 		{#if reveal.hindsight && !playingBonus}
 			{@const h = reveal.hindsight}
-			<p class="mt-1 type-body-md text-on-surface-variant">
+			<p class="hindsight mt-1 type-body-md text-on-surface-variant">
 				In hindsight: a year later it was
 				<span class="text-on-surface type-numeric">{price(h.close)}</span>
 				<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
@@ -129,18 +129,26 @@
 			{/snippet}
 		</svelte:boundary>
 	{:else}
-		<div class="rounded-m3-lg bg-surface-container px-4 py-3" in:rise={{ delay: d(450) }}>
+		<div
+			class={[
+				'rounded-m3-xl px-5 py-4',
+				view.balanceCents >= 10000
+					? 'bg-primary-container text-on-primary-container'
+					: 'bg-surface-container-high text-on-surface'
+			]}
+			in:pop={{ delay: d(450), start: 0.92 }}
+		>
 			<div class="flex items-baseline justify-between gap-3">
-				<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
+				<p class="type-title-lg-emphasized">{archetype.label}</p>
 				{#if standing}
-					<p class="shrink-0 type-label-lg text-on-surface-variant type-numeric">{standing}</p>
+					<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
 				{/if}
 			</div>
-			<p class="type-body-sm text-on-surface-variant">{archetype.line}</p>
+			<p class="type-body-sm opacity-80">{archetype.line}</p>
 		</div>
 
 		<div class="flex flex-col gap-2" in:rise={{ delay: d(650) }}>
-			<div class="grid grid-cols-[1fr_auto] gap-2">
+			<div class={['grid gap-2', view.bonus ? 'grid-cols-1' : 'grid-cols-[1fr_auto]']}>
 				<Button variant="filled" size="md" onclick={share} aria-live="polite">
 					{#if copied}
 						<Check /> Copied
@@ -172,3 +180,11 @@
 		</div>
 	{/if}
 </section>
+
+<style>
+	@media (max-height: 640px) {
+		.hindsight {
+			display: none;
+		}
+	}
+</style>

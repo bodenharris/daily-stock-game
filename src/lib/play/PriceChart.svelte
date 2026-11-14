@@ -41,7 +41,7 @@
 		padLeft: 4,
 		padRight: 4,
 		padTop: labels ? 26 : 14,
-		padBottom: labels ? 30 : 22,
+		padBottom: labels ? 30 : 14,
 		contextShare: 0.5
 	});
 
@@ -177,17 +177,16 @@
 		const up = Math.exp(hi.current - base) - 1;
 		const down = 1 - Math.exp(lo.current - base);
 		const span = Math.max(up, down);
-		const step = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].find((s) => span / s <= 2.5) ?? 20;
+		const step = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].find((s) => span / s <= 1.6) ?? 20;
 		const lines: { y: number; text: string }[] = [];
-		for (let p = step; p <= up; p += step) {
-			lines.push({ y: y(base + Math.log(1 + p)), text: `+${Math.round(p * 100)}%` });
-		}
-		for (let p = step; p < down && p < 1; p += step) {
-			lines.push({ y: y(base + Math.log(1 - p)), text: `−${Math.round(p * 100)}%` });
+		// One line each way at most: enough for scale, never a busy axis.
+		if (step <= up)
+			lines.push({ y: y(base + Math.log(1 + step)), text: `+${Math.round(step * 100)}%` });
+		if (step < down && step < 1) {
+			lines.push({ y: y(base + Math.log(1 - step)), text: `−${Math.round(step * 100)}%` });
 		}
 		return lines;
 	});
-	const months = $derived(Math.max(1, Math.round(shape.contextBars / 21)));
 
 	/** A plain-language summary for screen readers. */
 	const summary = $derived.by(() => {
@@ -214,6 +213,10 @@
 	{#if width > 0 && height > 0}
 		<svg {width} {height} viewBox="0 0 {width} {height}" aria-hidden="true">
 			<defs>
+				<!-- Lines never spill into the header while the range eases out to fit a spike. -->
+				<clipPath id="{uid}-plot">
+					<rect x="-4" y="0" width={width + 8} {height} />
+				</clipPath>
 				<linearGradient id="{uid}-fill" x1="0" x2="0" y1="0" y2="1">
 					<stop offset="0" stop-color="var(--chart-ink)" stop-opacity="0.09" />
 					<stop offset="1" stop-color="var(--chart-ink)" stop-opacity="0" />
@@ -224,11 +227,6 @@
 				<line class="grid" x1={frame.padLeft} x2={width - frame.padRight} y1={g.y} y2={g.y} />
 				<text class="grid-label" x={frame.padLeft + 2} y={g.y - 4}>{g.text}</text>
 			{/each}
-			{#if !labels}
-				<text class="grid-label" x={frame.padLeft + 2} y={height - 5}
-					>{months === 1 ? 'Last month' : `Last ${months} months`}, daily · then {shape.calls} calls</text
-				>
-			{/if}
 
 			<!-- The future: one rounded slot per call. -->
 			{#each slots as s (s.step)}
@@ -240,22 +238,23 @@
 					y={frame.padTop - 4}
 					width={Math.max(0, s.x1 - s.x0 - 3)}
 					height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
-					rx="10"
+					rx="14"
 				/>
 			{/each}
 
 			{#if nextStep && !pending}
 				{@const [sx0, sx1] = slotBounds(nextStep, shape, frame)}
 				<line class="level" x1={head.x} x2={sx1 - 4} y1={levelY} y2={levelY} />
-				<text class="slot-label" x={(sx0 + sx1) / 2} y={frame.padTop + 10} text-anchor="middle"
-					>up</text
-				>
-				<text
-					class="slot-label"
-					x={(sx0 + sx1) / 2}
-					y={height - frame.padBottom - 2}
-					text-anchor="middle">down</text
-				>
+				{@const cx = (sx0 + sx1) / 2}
+				<path
+					class="slot-arrow"
+					d="M{cx - 5} {frame.padTop + 12} L{cx} {frame.padTop + 6} L{cx + 5} {frame.padTop + 12}"
+				/>
+				<path
+					class="slot-arrow"
+					d="M{cx - 5} {height - frame.padBottom - 8} L{cx} {height - frame.padBottom - 2} L{cx +
+						5} {height - frame.padBottom - 8}"
+				/>
 			{/if}
 
 			{#if pending && nextStep}
@@ -266,17 +265,26 @@
 				</g>
 			{/if}
 
-			<path class="fill" d={fillPath} fill="url(#{uid}-fill)" />
-			<path class="line context" d={contextPath} />
-			{#each segments as seg (seg.step)}
-				<!-- Where this stretch started: above this line is up, below is down. -->
-				<line class="base" x1={seg.x0} x2={seg.x1} y1={seg.baseY} y2={seg.baseY} />
-				<!-- Neutral while it draws: the colour (right or wrong) only lands with the last bar. -->
-				<path
-					class="line seg"
-					class:right={seg.drawn && seg.right}
-					class:wrong={seg.drawn && !seg.right}
-					d={seg.d}
+			<g clip-path="url(#{uid}-plot)">
+				<path class="fill" d={fillPath} fill="url(#{uid}-fill)" />
+				<path class="line context" d={contextPath} />
+				{#each segments as seg (seg.step)}
+					<!-- Where this stretch started: above this line is up, below is down. -->
+					<line class="base" x1={seg.x0} x2={seg.x1} y1={seg.baseY} y2={seg.baseY} />
+					<!-- Revealed stretches wear the brand colour; right or wrong is marked at their end. -->
+					<path class="line seg" d={seg.d} />
+				{/each}
+			</g>
+
+			<!-- Right or wrong marks the end of each stretch, once it has fully drawn. -->
+			{#each segments.filter((x) => x.drawn) as seg (seg.step)}
+				<circle
+					class="mark"
+					class:right={seg.right}
+					class:wrong={!seg.right}
+					cx={seg.x1}
+					cy={y(logs[contextEnd + seg.step * shape.stepBars])}
+					r="4"
 				/>
 			{/each}
 
@@ -332,35 +340,21 @@
 		stroke: var(--chart-ink);
 	}
 	.seg {
-		stroke: var(--chart-ink);
+		stroke: var(--md-sys-color-primary);
 		stroke-width: 3;
-		transition: stroke 250ms ease;
-	}
-	.seg.right {
-		stroke: var(--chart-up);
-	}
-	.seg.wrong {
-		stroke: var(--chart-down);
-	}
-	.move {
-		font: 600 11px/1 var(--md-ref-typeface-plain, sans-serif);
-		font-variant-numeric: tabular-nums;
-		animation: appear 250ms ease-out;
-	}
-	.move.right {
-		fill: var(--chart-up);
-	}
-	.move.wrong {
-		fill: var(--chart-down);
 	}
 	.slot {
-		fill: var(--chart-mask);
-		opacity: 0.6;
-		transition: opacity 300ms ease;
+		fill: none;
+		stroke: var(--md-sys-color-outline-variant);
+		stroke-width: 1;
+		stroke-dasharray: 2 4;
+		transition:
+			opacity 300ms ease,
+			fill 250ms ease;
 	}
 	.slot.next {
-		fill: var(--md-sys-color-surface-container-highest);
-		opacity: 1;
+		fill: color-mix(in srgb, var(--md-sys-color-primary-container) 55%, transparent);
+		stroke: none;
 	}
 	.slot.done {
 		opacity: 0;
@@ -377,10 +371,24 @@
 		stroke-dasharray: 4 4;
 		opacity: 0.7;
 	}
-	.slot-label {
-		font: 600 10px/1 var(--md-ref-typeface-plain, sans-serif);
-		letter-spacing: 0.02em;
-		fill: var(--chart-axis);
+	.slot-arrow {
+		fill: none;
+		stroke: var(--md-sys-color-on-primary-container);
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		opacity: 0.7;
+	}
+	.mark {
+		stroke: var(--md-sys-color-surface);
+		stroke-width: 2;
+		animation: appear 200ms ease-out;
+	}
+	.mark.right {
+		fill: var(--chart-up);
+	}
+	.mark.wrong {
+		fill: var(--chart-down);
 	}
 	.grid {
 		stroke: var(--chart-grid);
@@ -388,7 +396,7 @@
 		opacity: 0.6;
 	}
 	.grid-label {
-		font: 500 10px/1 var(--md-ref-typeface-plain, sans-serif);
+		font: 500 11px/1 var(--md-ref-typeface-plain, sans-serif);
 		font-variant-numeric: tabular-nums;
 		fill: var(--chart-axis);
 		opacity: 0.8;

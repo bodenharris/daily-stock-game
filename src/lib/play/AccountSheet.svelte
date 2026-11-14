@@ -58,7 +58,7 @@
 		<div class="mx-auto w-full max-w-md px-6 pb-8">
 			{#if view.signedIn}
 				<Drawer.Header class="px-0">
-					<Drawer.Title>Your streak</Drawer.Title>
+					<Drawer.Title class="type-title-lg-emphasized">Your streak</Drawer.Title>
 					<Drawer.Description>{view.email}</Drawer.Description>
 				</Drawer.Header>
 				<p class="type-display-sm-emphasized text-on-surface type-numeric">
@@ -72,7 +72,9 @@
 				</Button>
 			{:else}
 				<Drawer.Header class="px-0">
-					<Drawer.Title>{mode === 'signup' ? 'Save your progress' : 'Welcome back'}</Drawer.Title>
+					<Drawer.Title class="type-title-lg-emphasized"
+						>{mode === 'signup' ? 'Save your progress' : 'Welcome back'}</Drawer.Title
+					>
 					<Drawer.Description>
 						{mode === 'signup'
 							? 'Keep your games and start a daily streak, on any device.'

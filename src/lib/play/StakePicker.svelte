@@ -5,7 +5,7 @@
 	/**
 	 * The stake chips: an M3 connected button group (small, tonal toggles) built on native radio
 	 * inputs, so it needs no UI library on first paint and works with arrow keys for free.
-	 * Selected chip: secondary fill, fully round. Others: secondary container, 8px inner corners.
+	 * Selected chip: primary fill, fully round. Others: a quiet surface, 8px inner corners.
 	 */
 	let {
 		value = $bindable(),
@@ -54,8 +54,8 @@
 		cursor: pointer;
 		user-select: none;
 		-webkit-tap-highlight-color: transparent;
-		background: var(--md-sys-color-secondary-container);
-		color: var(--md-sys-color-on-secondary-container);
+		background: var(--md-sys-color-surface-container-highest);
+		color: var(--md-sys-color-on-surface);
 		border-radius: var(--inner);
 		transition:
 			border-radius var(--md-sys-motion-spring-fast-spatial-duration, 300ms)
@@ -84,11 +84,12 @@
 	}
 	.chip.on {
 		border-radius: var(--outer);
-		background: var(--md-sys-color-secondary);
-		color: var(--md-sys-color-on-secondary);
+		background: var(--md-sys-color-primary);
+		color: var(--md-sys-color-on-primary);
 	}
 	.pct {
-		opacity: 0.72;
+		opacity: 0.75;
+		font-size: 0.75rem;
 	}
 	.chip.disabled {
 		cursor: default;
@@ -102,7 +103,7 @@
 		cursor: inherit;
 	}
 	.chip:has(input:focus-visible) {
-		outline: 3px solid var(--md-sys-color-secondary);
+		outline: 3px solid var(--md-sys-color-primary);
 		outline-offset: 2px;
 	}
 </style>

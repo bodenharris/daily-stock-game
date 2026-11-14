@@ -104,7 +104,7 @@
 	{/if}
 
 	{#if s.finished > 0 && s.medianCents != null && s.bestCents != null}
-		<p class="mt-3 px-1 type-body-lg text-on-surface-variant">
+		<p class="mt-3 type-body-lg text-on-surface-variant">
 			Median finish <span class="text-on-surface type-numeric"
 				>{dollars(s.medianCents, { cents: false })}</span
 			>, best

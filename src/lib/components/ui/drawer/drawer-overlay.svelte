@@ -3,7 +3,7 @@
 	import { cn } from '#lib/utils.js';
 	import { getDrawerContext } from './context.js';
 
-	// Scrim: `scrim` at 32%; fades on default-effects (in) / fast-effects (out).
+	// Scrim: `scrim` at 50% (32% barely separated the sheet in dark mode); fades on default-effects (in) / fast-effects (out).
 	let {
 		ref = $bindable(null),
 		class: className,
@@ -16,7 +16,7 @@
 <DrawerPrimitive.Overlay
 	bind:ref
 	data-slot="drawer-overlay"
-	class={cn('inset-0 bg-scrim/32', ctx.container ? 'absolute z-10' : 'fixed z-50', className)}
+	class={cn('inset-0 bg-scrim/50', ctx.container ? 'absolute z-10' : 'fixed z-50', className)}
 	{...restProps}
 />
 
