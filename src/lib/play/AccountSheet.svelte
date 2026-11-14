@@ -72,10 +72,10 @@
 				</Button>
 			{:else}
 				<Drawer.Header class="px-0">
-					<Drawer.Title>{mode === 'signup' ? 'Keep your streak' : 'Welcome back'}</Drawer.Title>
+					<Drawer.Title>{mode === 'signup' ? 'Save your progress' : 'Welcome back'}</Drawer.Title>
 					<Drawer.Description>
 						{mode === 'signup'
-							? 'Save your games and your daily streak on any device.'
+							? 'Keep your games and start a daily streak, on any device.'
 							: 'Sign in to pick up your streak.'}
 					</Drawer.Description>
 				</Drawer.Header>

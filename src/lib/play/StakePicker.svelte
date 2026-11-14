@@ -30,7 +30,7 @@
 				aria-label="Bet {o.percent}%, {dollars(o.cents)}"
 			/>
 			<span class="flex items-baseline gap-1.5">
-				<span class="type-label-lg type-numeric">{dollars(o.cents, { cents: false })}</span>
+				<span class="type-label-lg type-numeric">{dollars(o.cents)}</span>
 				<span class="pct type-label-sm type-numeric">{o.percent}%</span>
 			</span>
 		</label>

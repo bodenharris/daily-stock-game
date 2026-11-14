@@ -47,7 +47,7 @@
 <section class="flex flex-col gap-3 pt-1 pb-6" in:fly={{ y: 16, duration: 400, easing: cubicOut }}>
 	<div class="flex items-baseline justify-between gap-3">
 		<div>
-			<h2 class="type-title-lg-emphasized text-on-surface">Real or random?</h2>
+			<h2 class="type-title-lg-emphasized text-on-surface">Real or Random?</h2>
 			<p class="type-body-sm text-on-surface-variant">
 				A real stock, or a chart a computer made up?
 			</p>

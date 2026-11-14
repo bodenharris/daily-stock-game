@@ -245,14 +245,15 @@
 				{:else}
 					<div>
 						<p class="type-title-md text-on-surface">Up or down over {stretch}?</p>
-						<p class="hint type-body-sm text-on-surface-variant">
-							Win more when the crowd gets it wrong.
+						<p class="hint type-body-sm text-balance text-on-surface-variant">
+							A famous market moment, name hidden till the end. Win more when the crowd gets it
+							wrong.
 						</p>
 					</div>
 				{/if}
 			</div>
 
-			{#if !finished}
+			{#if !view.finished}
 				<div class="mt-3">
 					<p class="mb-2 text-center type-label-md text-on-surface-variant">
 						Stake for call {Math.min(results.length + 1, view.calls)} of {view.calls}
@@ -279,6 +280,17 @@
 						</Button>
 					{/each}
 				</div>
+			{:else}
+				<p
+					class="unmasking mt-6 text-center type-title-md text-on-surface-variant"
+					tabindex="-1"
+					{@attach (node) => {
+						// The Up/Down buttons just went away; keep keyboard focus on the game.
+						if (document.activeElement === document.body) node.focus({ preventScroll: true });
+					}}
+				>
+					Unmasking the chart…
+				</p>
 			{/if}
 
 			{#if error}
@@ -298,6 +310,20 @@
 		color: var(--md-sys-color-on-primary);
 		--btn-r: var(--btn-r-square);
 		pointer-events: none;
+	}
+	.unmasking {
+		outline: none;
+		animation: breathe 1.4s ease-in-out infinite;
+	}
+	@keyframes breathe {
+		50% {
+			opacity: 0.45;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.unmasking {
+			animation: none;
+		}
 	}
 	.calls :global(.call.other) {
 		opacity: 0.5;

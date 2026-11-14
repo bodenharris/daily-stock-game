@@ -21,6 +21,19 @@
 		HelpSheet ??= (await import('#lib/play/HelpSheet.svelte')).default as Sheet;
 		helpOpen = true;
 	}
+
+	// First visit ever, before any call: show how to play once, like Wordle does.
+	$effect(() => {
+		if (view.results.length > 0) return;
+		let seen = true;
+		try {
+			seen = localStorage.getItem('hindsight:seen-help') === '1';
+			localStorage.setItem('hindsight:seen-help', '1');
+		} catch {
+			// Storage blocked: skip the auto-open rather than nag on every visit.
+		}
+		if (!seen) void openHelp();
+	});
 	async function openAccount() {
 		AccountSheet ??= (await import('#lib/play/AccountSheet.svelte')).default as Sheet;
 		accountOpen = true;

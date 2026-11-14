@@ -83,7 +83,14 @@
 	</section>
 
 	{#if s.you}
-		<section class="mt-6 rounded-m3-xl bg-primary-container px-5 py-4 text-on-primary-container">
+		<section
+			class={[
+				'mt-6 rounded-m3-xl px-5 py-4',
+				s.you.balanceCents >= 10000
+					? 'bg-up-container text-on-up-container'
+					: 'bg-surface-container-high text-on-surface'
+			]}
+		>
 			<p>
 				<span class="type-display-sm-emphasized type-numeric"
 					>{dollars(s.you.balanceCents, { cents: false })}</span
@@ -129,10 +136,6 @@
 		<div class="mt-3">
 			<HourlyCalls hourly={s.hourly} />
 		</div>
-		<p class="mt-3 type-body-sm text-on-surface-variant type-numeric">
-			{fmt(s.allTime.calls)}
-			{s.allTime.calls === 1 ? 'call' : 'calls'} since launch
-		</p>
 	</section>
 
 	<footer class="mt-auto pt-10">

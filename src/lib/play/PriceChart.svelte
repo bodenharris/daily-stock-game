@@ -41,7 +41,7 @@
 		padLeft: 4,
 		padRight: 4,
 		padTop: labels ? 26 : 14,
-		padBottom: labels ? 30 : 16,
+		padBottom: labels ? 30 : 22,
 		contextShare: 0.5
 	});
 
@@ -58,9 +58,17 @@
 	// svelte-ignore state_referenced_locally
 	const hi = new Spring(domainFor(logs, 0.1)[1], { stiffness: 0.1, damping: 0.9 });
 
+	// The vertical range only ever grows during a game: revealing a stretch adds room for it but
+	// never re-zooms what the player has already studied.
+	// svelte-ignore state_referenced_locally
+	let range = { first: values[0], length: values.length, lo: lo.target, hi: hi.target };
 	$effect(() => {
 		const instant = prefersReducedMotion.current;
-		const [a, b] = domainFor(logs, 0.1);
+		const [fa, fb] = domainFor(logs, 0.1);
+		const sameGame = values[0] === range.first && values.length >= range.length;
+		const a = sameGame ? Math.min(range.lo, fa) : fa;
+		const b = sameGame ? Math.max(range.hi, fb) : fb;
+		range = { first: values[0], length: values.length, lo: a, hi: b };
 		if (instant) {
 			drawEnd.set(lastIndex, { duration: 0 });
 			lo.set(a, { instant: true });
@@ -159,13 +167,36 @@
 		];
 	});
 
+	/**
+	 * Faint gridlines at round % moves from today's level, so a big move has a sense of scale
+	 * without giving away the price (hidden once the real prices are shown).
+	 */
+	const grid = $derived.by(() => {
+		if (labels) return [];
+		const base = logs[lastIndex];
+		const up = Math.exp(hi.current - base) - 1;
+		const down = 1 - Math.exp(lo.current - base);
+		const span = Math.max(up, down);
+		const step = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].find((s) => span / s <= 2.5) ?? 20;
+		const lines: { y: number; text: string }[] = [];
+		for (let p = step; p <= up; p += step) {
+			lines.push({ y: y(base + Math.log(1 + p)), text: `+${Math.round(p * 100)}%` });
+		}
+		for (let p = step; p < down && p < 1; p += step) {
+			lines.push({ y: y(base + Math.log(1 - p)), text: `−${Math.round(p * 100)}%` });
+		}
+		return lines;
+	});
+	const months = $derived(Math.max(1, Math.round(shape.contextBars / 21)));
+
 	/** A plain-language summary for screen readers. */
 	const summary = $derived.by(() => {
 		const ctx = values[contextEnd] / values[0] - 1;
 		const parts = [`Price chart. Before the first call it moved ${fmtMove(ctx)}.`];
 		for (const s of segments.filter((x) => x.drawn)) {
+			const move = results.find((r) => r.step === s.step)?.move;
 			parts.push(
-				`Call ${s.step}: ${fmtMove(s.move)}, ${s.right ? 'you were right' : 'you missed'}.`
+				`Call ${s.step}: ${fmtMove(move == null ? s.move : move / 100)}, ${s.right ? 'you were right' : 'you missed'}.`
 			);
 		}
 		if (!finished) parts.push(`Call ${callsMade + 1} of ${shape.calls} is next.`);
@@ -189,6 +220,16 @@
 				</linearGradient>
 			</defs>
 
+			{#each grid as g (g.text)}
+				<line class="grid" x1={frame.padLeft} x2={width - frame.padRight} y1={g.y} y2={g.y} />
+				<text class="grid-label" x={frame.padLeft + 2} y={g.y - 4}>{g.text}</text>
+			{/each}
+			{#if !labels}
+				<text class="grid-label" x={frame.padLeft + 2} y={height - 5}
+					>{months === 1 ? 'Last month' : `Last ${months} months`}, daily · then {shape.calls} calls</text
+				>
+			{/if}
+
 			<!-- The future: one rounded slot per call. -->
 			{#each slots as s (s.step)}
 				<rect
@@ -204,8 +245,17 @@
 			{/each}
 
 			{#if nextStep && !pending}
-				{@const [, sx1] = slotBounds(nextStep, shape, frame)}
-				<line class="level" x1={head.x} x2={sx1 - 5} y1={levelY} y2={levelY} />
+				{@const [sx0, sx1] = slotBounds(nextStep, shape, frame)}
+				<line class="level" x1={head.x} x2={sx1 - 4} y1={levelY} y2={levelY} />
+				<text class="slot-label" x={(sx0 + sx1) / 2} y={frame.padTop + 10} text-anchor="middle"
+					>up</text
+				>
+				<text
+					class="slot-label"
+					x={(sx0 + sx1) / 2}
+					y={height - frame.padBottom - 2}
+					text-anchor="middle">down</text
+				>
 			{/if}
 
 			{#if pending && nextStep}
@@ -322,9 +372,26 @@
 		opacity: 0.55;
 	}
 	.level {
-		stroke: var(--chart-baseline);
-		stroke-width: 1.5;
-		stroke-dasharray: 3 4;
+		stroke: var(--chart-ink);
+		stroke-width: 2;
+		stroke-dasharray: 4 4;
+		opacity: 0.7;
+	}
+	.slot-label {
+		font: 600 10px/1 var(--md-ref-typeface-plain, sans-serif);
+		letter-spacing: 0.02em;
+		fill: var(--chart-axis);
+	}
+	.grid {
+		stroke: var(--chart-grid);
+		stroke-width: 1;
+		opacity: 0.6;
+	}
+	.grid-label {
+		font: 500 10px/1 var(--md-ref-typeface-plain, sans-serif);
+		font-variant-numeric: tabular-nums;
+		fill: var(--chart-axis);
+		opacity: 0.8;
 	}
 	.ghost path,
 	.ghost circle {

@@ -105,7 +105,7 @@
 				In hindsight: a year later it was
 				<span class="text-on-surface type-numeric">{price(h.close)}</span>
 				<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
-					>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}%)</span
+					>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}% from here)</span
 				>.
 			</p>
 		{/if}
@@ -156,7 +156,7 @@
 			{/if}
 			<p class="text-center type-body-sm text-on-surface-variant">
 				{#if view.bonus}
-					<span>Real or random {view.bonus.correct}/{view.bonus.total}</span>
+					<span>Real or Random {view.bonus.correct}/{view.bonus.total}</span>
 					<span aria-hidden="true">&nbsp;·&nbsp;</span>
 				{/if}
 				<Countdown to={view.nextPuzzleAt} />
