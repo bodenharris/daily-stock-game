@@ -2,14 +2,18 @@ name: PR
 
 # For pull requests from branches in this repo (PRs from forks never get these secrets).
 #
-# With PREVIEW_ENABLED = 'true': fork the production database, run this PR's migrations on
-# the fork, deploy the PR to the single preview site on that fork, smoke-test it, and comment
-# the link on the PR. The newest push wins the preview; the fork it replaces is deleted.
+# Database forks on our Tiger plan are backup restores that take several minutes and bill
+# against the team's credits, so they are only made when they matter:
 #
-# Otherwise, with TIGER_SERVICE_ID set: the same database check without a preview. Fork,
-# migrate, start the app in CI and smoke-test it, then delete the fork.
+# - The database check forks prod and runs the PR's migrations on the fork, but only when the
+#   PR changes migrations or the schema (drizzle/, src/lib/server/db/).
+# - The preview (PREVIEW_ENABLED = 'true') keeps its fork between deploys. It reforks prod when
+#   the PR changes migrations, when it has no fork yet, or when you ask for a fresh one by
+#   running this workflow by hand (Actions > PR > Run workflow) with "Fresh database" ticked.
+#   The newest push wins the preview.
 #
-# Run it by hand (Actions > PR > Run workflow) to put any open PR back on the preview.
+# Optional variables TIGER_FORK_CPU_MILLIS and TIGER_FORK_MEMORY_GBS size the forks (blank means
+# the same as prod); the smallest size saves credits.
 
 on:
   pull_request:
@@ -19,6 +23,10 @@ on:
       pr:
         description: Number of the PR to put on the preview
         required: true
+      fresh_database:
+        description: Fresh database (refork prod for the preview)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,20 +47,39 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.TIGER_SERVICE_ID != '' && vars.PREVIEW_ENABLED != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     concurrency:
       group: pr-database-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+        with:
+          fetch-depth: 0
+
+      - name: Does this PR change the database?
+        id: changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git diff --name-only "$BASE"...HEAD | grep -qE '^(drizzle/|src/lib/server/db/)'; then
+            echo "database=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No migration or schema changes: nothing to check on a fork."
+            echo "database=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.changes.outputs.database == 'true'
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci --no-audit --no-fund
-      - run: npm run build
+      - if: steps.changes.outputs.database == 'true'
+        run: npm ci --no-audit --no-fund
+      - if: steps.changes.outputs.database == 'true'
+        run: npm run build
 
       - name: Fork the production database
+        if: steps.changes.outputs.database == 'true'
         id: fork
         uses: timescale/fork-service@37e52d9689d83cf6521395711c71d41c396f28b3 # v1.0.0
         with:
@@ -61,9 +88,12 @@ jobs:
           api_key: ${{ secrets.TIGERDATA_API_KEY }}
           fork_strategy: last-snapshot
           name: ci-pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          cpu_millis: ${{ vars.TIGER_FORK_CPU_MILLIS }}
+          memory_gbs: ${{ vars.TIGER_FORK_MEMORY_GBS }}
           cleanup: true
 
       - name: Point at the fork
+        if: steps.changes.outputs.database == 'true'
         env:
           PASSWORD: ${{ steps.fork.outputs.initial_password }}
           HOST: ${{ steps.fork.outputs.host }}
@@ -76,21 +106,24 @@ jobs:
           echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
 
       - name: Run this PR's migrations on the fork
+        if: steps.changes.outputs.database == 'true'
         run: npm run db:migrate
 
       - name: Start the app on the fork
+        if: steps.changes.outputs.database == 'true'
         run: |
           export PORT=3000 HOST=127.0.0.1 PLAY_SOURCE=dev
           export BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
           nohup node build > app.log 2>&1 &
           for _ in $(seq 1 60); do
-            curl -fsS -o /dev/null http://127.0.0.1:3000/ && exit 0
+            curl -fs -o /dev/null http://127.0.0.1:3000/ && exit 0
             sleep 1
           done
           cat app.log
           exit 1
 
       - name: Smoke test (pages load, nothing spoiled)
+        if: steps.changes.outputs.database == 'true'
         run: node scripts/smoke.ts http://127.0.0.1:3000
 
   preview:
@@ -100,7 +133,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment:
       name: preview
       url: ${{ vars.PREVIEW_URL }}
@@ -113,6 +146,7 @@ jobs:
         with:
           # The PR's own commit, not GitHub's merge preview.
           ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', inputs.pr) }}
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
@@ -127,13 +161,31 @@ jobs:
           private-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
 
-      - name: Find the fork the preview uses now
-        id: old
+      - name: Decide whether the preview needs a fresh database
+        id: plan
+        env:
+          FRESH: ${{ inputs.fresh_database }}
         run: |
-          id="$(ssh deploy-host 'cat /srv/hindsight/preview/shared/service-id 2>/dev/null || true')"
-          echo "service_id=$id" >> "$GITHUB_OUTPUT"
+          old="$(ssh deploy-host 'cat /srv/hindsight/preview/shared/service-id 2>/dev/null || true')"
+          echo "old_service_id=$old" >> "$GITHUB_OUTPUT"
+          base="$(git merge-base HEAD origin/main)"
+          if [ -z "$old" ]; then
+            reason="the preview has no database yet"
+          elif [ "$FRESH" = "true" ]; then
+            reason="a fresh database was requested"
+          elif git diff --name-only "$base" HEAD | grep -qE '^(drizzle/|src/lib/server/db/)'; then
+            reason="this PR changes migrations or the schema"
+          fi
+          if [ -n "${reason:-}" ]; then
+            echo "Reforking prod: $reason."
+            echo "fork=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Keeping the preview's current database."
+            echo "fork=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Fork the production database
+        if: steps.plan.outputs.fork == 'true'
         id: fork
         uses: timescale/fork-service@37e52d9689d83cf6521395711c71d41c396f28b3 # v1.0.0
         with:
@@ -142,9 +194,12 @@ jobs:
           api_key: ${{ secrets.TIGERDATA_API_KEY }}
           fork_strategy: last-snapshot
           name: preview-pr-${{ env.PR_NUMBER }}-${{ github.run_id }}
+          cpu_millis: ${{ vars.TIGER_FORK_CPU_MILLIS }}
+          memory_gbs: ${{ vars.TIGER_FORK_MEMORY_GBS }}
           cleanup: false
 
       - name: Point at the fork
+        if: steps.plan.outputs.fork == 'true'
         env:
           PASSWORD: ${{ steps.fork.outputs.initial_password }}
           HOST: ${{ steps.fork.outputs.host }}
@@ -157,11 +212,13 @@ jobs:
           echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
 
       - name: Run this PR's migrations on the fork
+        if: steps.plan.outputs.fork == 'true'
         run: npm run db:migrate
 
       # The preview's own settings live in /etc/hindsight/preview.env; only the database
-      # changes per deploy, so it goes in a file the deploy user owns.
+      # changes per fork, so it goes in a file the deploy user owns.
       - name: Give the preview its new database
+        if: steps.plan.outputs.fork == 'true'
         id: record
         env:
           NEW_ID: ${{ steps.fork.outputs.service_id }}
@@ -170,6 +227,13 @@ jobs:
             'set -e; mkdir -p /srv/hindsight/preview/shared; cd /srv/hindsight/preview/shared;
              umask 077; cat > runtime.env.next; mv runtime.env.next runtime.env'
           printf '%s\n' "$NEW_ID" | ssh deploy-host 'cat > /srv/hindsight/preview/shared/service-id'
+
+      - name: Use the preview's current database for the smoke test
+        if: steps.plan.outputs.fork != 'true'
+        run: |
+          url="$(ssh deploy-host "sed -n 's/^DATABASE_URL=//p' /srv/hindsight/preview/shared/runtime.env")"
+          echo "::add-mask::$url"
+          echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
 
       - name: Ship, switch and health-check
         uses: ./.github/actions/ship
@@ -187,17 +251,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           URL: ${{ vars.PREVIEW_URL }}
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          FRESH: ${{ steps.plan.outputs.fork }}
         run: |
+          if [ "$FRESH" = "true" ]; then db="a fresh fork of the production database"; else db="the preview's existing database fork"; fi
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --edit-last --create-if-none \
-            --body "Preview: $URL (commit ${SHA::7}), on a fresh fork of the production database. The next push to any PR replaces it."
+            --body "Preview: $URL (commit ${SHA::7}), on $db. The next push to any PR replaces it."
 
-      # Delete the fork this deploy replaced. If the deploy stopped before the preview switched
-      # to the new fork, delete the new one instead, so nothing is left running and billed.
+      # After a refork, delete the fork it replaced. If the deploy stopped before the preview
+      # switched to the new fork, delete the new one instead, so nothing is left running and billed.
       - name: Clean up forks
-        if: always()
+        if: always() && steps.fork.outputs.service_id != ''
         env:
           API_KEY: ${{ secrets.TIGERDATA_API_KEY }}
-          OLD_ID: ${{ steps.old.outputs.service_id }}
+          OLD_ID: ${{ steps.plan.outputs.old_service_id }}
           NEW_ID: ${{ steps.fork.outputs.service_id }}
           SWITCHED: ${{ steps.record.outcome == 'success' }}
           PROD_ID: ${{ vars.TIGER_SERVICE_ID }}
