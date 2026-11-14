@@ -1,6 +1,7 @@
 import { dev } from '$app/env';
 import { PLAY_SOURCE } from '$app/env/private';
 import { client } from '#lib/server/db/index.ts';
+import { exactStanding } from '#lib/play/standing.ts';
 
 /** Same rule as the game: real players only, plus dev/sim plays on a dev server. */
 const SOURCES =
@@ -197,18 +198,30 @@ const sharedRank = shared(10_000, async (key: string): Promise<Standing> => {
 });
 
 /**
- * Share of today's other finishers (0–1) that a final balance beat, read from the Toolkit
- * percentile sketch in `finals_hourly`. Null when nobody else has finished yet. Shared per
- * balance for 10 seconds, so a page left open costs almost nothing.
+ * Where a final balance stands among the day's finishers, estimated from the Toolkit percentile
+ * sketch in `finals_hourly` (shared per balance for 10 seconds). The game screen's fallback when
+ * its leaderboard can't be read.
  */
-export async function betterThan(
-	puzzleNumber: number,
-	balanceCents: number
-): Promise<number | null> {
-	return (await sharedRank(`${puzzleNumber}:${balanceCents}`)).betterThan;
-}
-
-/** Where a final balance stands among today's finishers (same shared, cached query). */
 export function standingOf(puzzleNumber: number, balanceCents: number): Promise<Standing> {
 	return sharedRank(`${puzzleNumber}:${balanceCents}`);
+}
+
+const sharedExact = shared(3_000, async (key: string): Promise<Standing> => {
+	const [puzzleNumber, balanceCents] = key.split(':').map(Number);
+	const [row] = await client<{ place: number; finished: number }[]>`
+		select (count(*) filter (where balance_cents > ${balanceCents}))::int + 1 as place,
+			count(*)::int as finished
+		from games
+		where puzzle_number = ${puzzleNumber} and finished_at is not null
+			and source = any(${SOURCES})`;
+	return exactStanding(row?.place ?? 1, row?.finished ?? 0);
+});
+
+/**
+ * Exact place of a final balance among the day's finishers, by the same rule as the game's
+ * leaderboard (ties share the better place), so the stats page and the game never disagree.
+ * One count over the day's finished games; shared per balance for the length of a stats tick.
+ */
+export function exactStandingOf(puzzleNumber: number, balanceCents: number): Promise<Standing> {
+	return sharedExact(`${puzzleNumber}:${balanceCents}`);
 }

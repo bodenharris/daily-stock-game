@@ -10,6 +10,7 @@
 	import { toRecords } from './records.ts';
 	import { standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
+	import Leaderboard from './Leaderboard.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import type { GameView } from './types.ts';
 
@@ -171,6 +172,12 @@
 			{/if}
 		</p>
 	</div>
+
+	{#if view.leaderboard}
+		<div class="pt-2" in:rise={{ delay: d(850) }}>
+			<Leaderboard board={view.leaderboard} yours={archetype} {archive} />
+		</div>
+	{/if}
 </section>
 
 <style>

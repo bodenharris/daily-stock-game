@@ -28,10 +28,11 @@
 		if (s.finished > 1 && s.bestCents != null && you.balanceCents >= s.bestCents) {
 			return 'The best finish today';
 		}
-		if (you.betterThan == null) return s.finished <= 1 ? 'The first to finish today' : null;
+		if (you.betterThan == null) return you.finished <= 1 ? 'The first to finish today' : null;
 		// Small crowds read better as a place than a percentile ("3rd of 4", not "better than 0%").
-		if (s.finished <= 20) {
-			const place = Math.max(1, s.finished - Math.round(you.betterThan * (s.finished - 1)));
+		// The place and count are exact, the same ones the game's leaderboard shows.
+		if (you.finished <= 20) {
+			const place = Math.max(1, you.finished - Math.round(you.betterThan * (you.finished - 1)));
 			const suffix =
 				place % 10 === 1 && place % 100 !== 11
 					? 'st'
@@ -40,7 +41,7 @@
 						: place % 10 === 3 && place % 100 !== 13
 							? 'rd'
 							: 'th';
-			return `${place}${suffix} of ${s.finished} players today`;
+			return `${place}${suffix} of ${you.finished} players today`;
 		}
 		const pct = Math.round(you.betterThan * 100);
 		return pct >= 50

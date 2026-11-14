@@ -1,4 +1,17 @@
 /**
+ * A standing from an exact place (1-based, ties sharing the better place) among `finished`
+ * games. Shaped like the sketch's standing so standingText turns it back into the same place.
+ */
+export function exactStanding(
+	place: number,
+	finished: number
+): { betterThan: number | null; finished: number } {
+	if (finished < 2) return { betterThan: null, finished };
+	const betterThan = (finished - place) / (finished - 1);
+	return { betterThan: Math.min(1, Math.max(0, betterThan)), finished };
+}
+
+/**
  * Where a finish stands among the day's players, in a few friendly words. `among` is 'today'
  * for today's chart, or 'players' for a past day played from the archive.
  */

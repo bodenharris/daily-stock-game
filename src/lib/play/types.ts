@@ -76,6 +76,30 @@ export interface GameView {
 	standing: { betterThan: number | null; finished: number } | null;
 	/** "Name it" for a finished game; null before the last call. */
 	nameIt: NameIt | null;
+	/** The day's best finishes, sent with the reveal only. */
+	leaderboard: Leaderboard | null;
+}
+
+/** One finish on the leaderboard. Players are never named: the board shows how they played. */
+export interface LeaderboardRow {
+	/** 1-based position in the day's order (ties listed by who finished first). Unique. */
+	pos: number;
+	/** 1-based place by final balance; tied balances share a place. */
+	place: number;
+	/** Another finish that day has the same balance (whether or not it is listed). */
+	tied: boolean;
+	balanceCents: number;
+	/** Archetype key stored on the game (see archetype.ts); null if unknown. */
+	archetype: string | null;
+	/** This viewer's own game. */
+	you: boolean;
+}
+
+export interface Leaderboard {
+	/** The top finishes in order, then the viewer's own row if it didn't make the top. */
+	rows: LeaderboardRow[];
+	/** Finished games on this day, the viewer's included. */
+	finished: number;
 }
 
 export interface CallResponse {
