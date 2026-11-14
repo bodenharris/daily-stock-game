@@ -56,10 +56,15 @@
 	 * small bell centred on its $10 bucket, and the curve is their sum. Bell width follows
 	 * Silverman's rule, kept within a sensible share of the axis, so a handful of players reads
 	 * as one shape rather than a row of spikes, and a big crowd still shows its bumps.
+	 *
+	 * Smoothing spreads every finish a little to each side, so the curve is only drawn from just
+	 * below the lowest finish to just above the highest, and never crosses the start line onto a
+	 * side nobody finished on: a day where everyone made money shows no red at all.
 	 */
 	const SAMPLES = 81;
 	const HEADROOM = 8;
 	const curve = $derived.by(() => {
+		if (finishes.length === 0) return { line: '', area: '', mine: null };
 		const half = FINISH_BUCKET_CENTS / 2;
 		const total = chart.total || 1;
 		const mean = finishes.reduce((s, f) => s + (f.cents + half) * f.count, 0) / total;
@@ -67,12 +72,19 @@
 			finishes.reduce((s, f) => s + (f.cents + half - mean) ** 2 * f.count, 0) / total
 		);
 		const h = Math.min(
-			chart.end / 6,
+			chart.end / 10,
 			Math.max(chart.end / 40, sd > 0 ? 0.75 * sd * total ** -0.2 : chart.end / 20)
 		);
 		const density = (x: number) =>
 			finishes.reduce((s, f) => s + f.count * Math.exp(-0.5 * ((x - f.cents - half) / h) ** 2), 0);
-		const xs = Array.from({ length: SAMPLES }, (_, i) => (i / (SAMPLES - 1)) * chart.end);
+		// Two bell-widths past the outermost finishes, where a bell has faded to an eighth.
+		const lowest = Math.min(...finishes.map((f) => f.cents));
+		const highest = Math.min(chart.end, Math.max(...finishes.map((f) => f.cents)) + 2 * half);
+		let from = Math.max(0, lowest - 2 * h);
+		let to = Math.min(chart.end, highest + 2 * h);
+		if (lowest >= START_BALANCE_CENTS) from = Math.max(from, START_BALANCE_CENTS);
+		if (highest <= START_BALANCE_CENTS) to = Math.min(to, START_BALANCE_CENTS);
+		const xs = Array.from({ length: SAMPLES }, (_, i) => from + (i / (SAMPLES - 1)) * (to - from));
 		const ys = xs.map(density);
 		const peak = Math.max(...ys) || 1;
 		// Drawn in a 100×100 box stretched to fit, so x and y are percentages of the plot.
@@ -89,6 +101,12 @@
 		};
 	});
 	const id = $props.id();
+
+	// "$0" sits at the left edge and "Start $100" is centred on the start line. On a wide range
+	// the line sits near the edge, so "$0" is dropped rather than touch it: it needs roughly the
+	// width of both labels (about 56px) between the edge and the line.
+	let axisWidth = $state(0);
+	const showZero = $derived(axisWidth > 0 && (startAt / 100) * axisWidth >= 56);
 
 	const label = $derived.by(() => {
 		const { groups, mine, total } = chart;
@@ -155,10 +173,14 @@
 			{/if}
 		</div>
 	</div>
-	<figcaption class="relative mt-1.5 h-4 type-label-sm text-on-surface-variant" aria-hidden="true">
-		<!-- On a wide range the start label sits near the left edge; drop "$0" rather than overlap. -->
-		{#if startAt >= 15}<span class="absolute left-0">$0</span>{/if}
-		<span class="absolute -translate-x-1/2" style:left="{startAt}%"
+	<figcaption
+		class="relative mt-1.5 h-4 type-label-sm text-on-surface-variant"
+		aria-hidden="true"
+		bind:clientWidth={axisWidth}
+	>
+		{#if showZero}<span class="absolute left-0">$0</span>{/if}
+		<!-- Kept far enough in that a start line near the edge can't push its label off it. -->
+		<span class="absolute -translate-x-1/2" style:left="max({startAt}%, 1.875rem)"
 			>Start {money(START_BALANCE_CENTS)}</span
 		>
 		<span class="absolute right-0"
