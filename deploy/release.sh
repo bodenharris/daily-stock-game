@@ -2,11 +2,11 @@
 # Switch a slot to an unpacked release, check it's healthy, and roll back if it isn't.
 # Runs on the server as the deploy user, from inside the new release:
 #
-#   bash /srv/hindsight/<slot>/releases/<id>/deploy/release.sh <slot> <id> <port>
+#   bash /srv/thewolf/<slot>/releases/<id>/deploy/release.sh <slot> <id> <port>
 #
-# Layout:  /srv/hindsight/<slot>/releases/<id>/   one directory per deploy (build/ + package.json)
-#          /srv/hindsight/<slot>/current          symlink to the live release
-#          /srv/hindsight/<slot>/shared/          survives deploys (the preview's runtime.env)
+# Layout:  /srv/thewolf/<slot>/releases/<id>/   one directory per deploy (build/ + package.json)
+#          /srv/thewolf/<slot>/current          symlink to the live release
+#          /srv/thewolf/<slot>/shared/          survives deploys (the preview's runtime.env)
 set -euo pipefail
 
 slot=${1:?slot}
@@ -16,8 +16,8 @@ port=${3:?port}
 [[ $id =~ ^[A-Za-z0-9._-]+$ ]] || { echo "bad release id: $id" >&2; exit 2; }
 [[ $port =~ ^[0-9]+$ ]] || { echo "bad port: $port" >&2; exit 2; }
 
-# HINDSIGHT_ROOT only exists for testing this script somewhere other than the server.
-base=${HINDSIGHT_ROOT:-/srv/hindsight}/$slot
+# THEWOLF_ROOT only exists for testing this script somewhere other than the server.
+base=${THEWOLF_ROOT:-/srv/thewolf}/$slot
 release=$base/releases/$id
 [[ -f $release/build/index.js ]] || { echo "no build in $release" >&2; exit 1; }
 
@@ -44,18 +44,18 @@ if [[ -L $base/current ]]; then
 	[[ $previous == "$base"/releases/* ]] || previous=
 fi
 point_at "$release"
-sudo /usr/bin/systemctl restart "hindsight@$slot"
+sudo /usr/bin/systemctl restart "thewolf@$slot"
 
 if ! healthy; then
 	echo "Release $id failed its health check." >&2
 	if [[ -n $previous && -d $previous && $previous != "$release" ]]; then
 		echo "Rolling back to $(basename "$previous")." >&2
 		point_at "$previous"
-		sudo /usr/bin/systemctl restart "hindsight@$slot"
+		sudo /usr/bin/systemctl restart "thewolf@$slot"
 		if healthy; then
 			echo "Rolled back: $(basename "$previous") is serving again." >&2
 		else
-			echo "The rollback is unhealthy too. Check: journalctl -u hindsight@$slot" >&2
+			echo "The rollback is unhealthy too. Check: journalctl -u thewolf@$slot" >&2
 		fi
 	fi
 	exit 1

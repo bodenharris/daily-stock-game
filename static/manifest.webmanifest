@@ -1,6 +1,6 @@
 {
-	"name": "Hindsight",
-	"short_name": "Hindsight",
+	"name": "The Wolf",
+	"short_name": "The Wolf",
 	"description": "One famous stock chart a day, name hidden. Five up-or-down calls on what it did next.",
 	"start_url": "/",
 	"display": "standalone",

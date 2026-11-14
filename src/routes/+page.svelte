@@ -28,8 +28,8 @@
 		if (view.results.length > 0) return;
 		let seen = true;
 		try {
-			seen = localStorage.getItem('hindsight:seen-help') === '1';
-			localStorage.setItem('hindsight:seen-help', '1');
+			seen = localStorage.getItem('thewolf:seen-help') === '1';
+			localStorage.setItem('thewolf:seen-help', '1');
 		} catch {
 			// Storage blocked: skip the auto-open rather than nag on every visit.
 		}
