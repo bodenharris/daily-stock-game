@@ -73,3 +73,15 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 - **No archetype mentions direction**, and the share text is one Wordle-style row (🟩 right, 🟥 wrong, ⭐ right against the crowd) in whole dollars. The three-row stake grid confused the playtester.
 - **No global keyboard shortcuts.** Arrow keys used to place irreversible bets from anywhere on the page.
 - **Help and account sheets load on first open**, and the stake chips are a native radio group, so the first page doesn't ship the drawer and toggle-group libraries (eager JS on the home page roughly halved).
+
+## After the second playtest (a non-investor)
+
+- **Show the crowd as people, not percentages,** while it is small: "3 of 4 players called down." Over 20 players it switches to a percentage. "You're one of the first" now only appears when you really are first.
+- **Prices at the reveal are as quoted on the day.** Prices stay stored split-adjusted (product.md), but a small `splits` table lets the reveal undo later splits, so GameStop peaks at $348 like everyone remembers, not $87.
+- **"In hindsight": where the stock was a year later**, read with TimescaleDB's `last()` over the prices hypertable. It gives the name its payoff and costs 0.13 ms.
+- **The fifth call gets its own beat** (1.8 s) before the ending takes over; the playtester missed their biggest bet's result.
+- **Each settled stretch keeps a faint dashed line at its starting level,** so a V-shaped stretch that ends lower reads as down at a glance.
+- **The prompt names the stretch length** ("Up or down over the next 2 trading days?"), so +353% in one call makes sense.
+- **Stake chips show their percentage and reset to 25% after every call.** A leftover 50% selection made it easy to bet half the balance by accident.
+- **Share never fails silently.** When the clipboard is blocked (some in-app browsers), the text appears ready to select.
+- **Small crowds get a place, not a percentile** on the stats page ("3rd of 4 players today"), and the bottom half is told "Tomorrow is another chart."
