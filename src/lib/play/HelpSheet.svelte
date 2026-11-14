@@ -1,7 +1,9 @@
 <script lang="ts">
 	import * as Drawer from '#lib/components/ui/drawer/index.js';
 
-	let { open = $bindable(false) }: { open?: boolean } = $props();
+	// `view` is accepted (and ignored) so both lazily loaded sheets share one prop shape.
+	// eslint-disable-next-line svelte/no-unused-props
+	let { open = $bindable(false) }: { open?: boolean; view?: unknown } = $props();
 </script>
 
 <Drawer.Root bind:open>
@@ -24,8 +26,8 @@
 				<li class="flex gap-3">
 					<span class="num">3</span>
 					<span
-						>Bet 10%, 25% or 50% of your $100 each time. Being right when most players called the
-						other way pays more.</span
+						>Bet 10%, 25% or 50% of your balance each time. You start with $100. Being right when
+						most players called the other way pays more.</span
 					>
 				</li>
 				<li class="flex gap-3">

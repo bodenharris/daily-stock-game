@@ -6,10 +6,10 @@
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as ButtonGroup from '#lib/components/ui/button-group/index.js';
 	import { START_BALANCE_CENTS, STAKE_OPTIONS } from '#lib/game/config.ts';
-	import { makeCall } from '#lib/remote/game.remote.ts';
+	import { getGame, makeCall } from '#lib/remote/game.remote.ts';
 	import PriceChart from './PriceChart.svelte';
+	import StakePicker from './StakePicker.svelte';
 	import CallPips from './CallPips.svelte';
 	import Reveal from './Reveal.svelte';
 	import { dollars, multiplier, percent } from './money.ts';
@@ -83,10 +83,15 @@
 			setTimeout(() => buzz(res.result.correct ? [8, 60, 16] : 40), 650);
 		} catch (e) {
 			const status = (e as { status?: number }).status;
-			error =
-				status === 409
-					? ((e as { body?: { message?: string } }).body?.message ?? 'Refresh to continue.')
-					: 'That call did not go through. Try again.';
+			if (status === 409) {
+				// A new day started, or this call was already made in another tab: catch up.
+				await getGame().refresh();
+				error = (e as { body?: { message?: string } }).body?.message ?? null;
+			} else {
+				error = navigator.onLine
+					? 'That call did not go through. Try again.'
+					: 'You are offline. Try again when you are back.';
+			}
 		} finally {
 			pending = null;
 		}
@@ -180,21 +185,7 @@
 				<p class="mb-2 text-center type-label-md text-on-surface-variant">
 					Bet on call {callsMade + 1} of {view.calls}
 				</p>
-				<ButtonGroup.Root
-					type="single"
-					variant="connected"
-					size="sm"
-					itemVariant="tonal"
-					required
-					bind:value={stakePercent}
-					aria-label="Stake"
-				>
-					{#each stakeOptions as o (o.value)}
-						<ButtonGroup.Item value={o.value} aria-label="Bet {o.percent}% ({dollars(o.cents)})">
-							<span class="type-numeric">{dollars(o.cents, { cents: false })}</span>
-						</ButtonGroup.Item>
-					{/each}
-				</ButtonGroup.Root>
+				<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={!!pending} />
 			</div>
 
 			<div class="grid grid-cols-2 gap-3">

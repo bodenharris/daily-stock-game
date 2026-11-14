@@ -1,8 +1,8 @@
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNotNull, sql } from 'drizzle-orm';
 import { dev } from '$app/env';
 import { db } from '#lib/server/db/index.ts';
 import { games, guesses } from '#lib/server/db/schema.ts';
-import { CALLS_PER_GAME, START_BALANCE_CENTS } from '#lib/game/config.ts';
+import { START_BALANCE_CENTS } from '#lib/game/config.ts';
 import { blendedShare, lockMultiplier, settleCall, stakeOptionFor } from '#lib/game/economy.ts';
 import { classifyGame } from '#lib/game/archetype.ts';
 import { todayPuzzle } from '#lib/game/daily.ts';
@@ -104,17 +104,19 @@ export async function streakFor(userId: string, todayNumber: number): Promise<nu
 	return streak;
 }
 
-export async function buildView(
+type Crowd = Map<number, { up: number; down: number }>;
+
+function assembleView(
 	today: Today,
 	game: GameRow | null,
 	gameGuesses: GuessRow[],
-	user: Player | null
-): Promise<GameView> {
+	user: Player | null,
+	crowd: Crowd,
+	streak: number
+): GameView {
 	const p = today.puzzle;
 	const callsMade = game?.step ?? 0;
 	const finished = callsMade >= p.calls;
-	const crowd = callsMade > 0 ? await crowdFor(today.number) : new Map();
-	const streak = user ? await streakFor(user.id, today.number) : 0;
 	return {
 		number: today.number,
 		date: today.date,
@@ -124,7 +126,9 @@ export async function buildView(
 		totalBars: p.closes.length,
 		bars: visibleBars(p, callsMade),
 		balanceCents: game?.balanceCents ?? START_BALANCE_CENTS,
-		results: gameGuesses.sort((a, b) => a.step - b.step).map((g) => toResult(g, crowd.get(g.step))),
+		results: [...gameGuesses]
+			.sort((a, b) => a.step - b.step)
+			.map((g) => toResult(g, crowd.get(g.step))),
 		finished,
 		reveal: finished
 			? {
@@ -148,15 +152,39 @@ export async function buildView(
 	};
 }
 
+/** Today's view for a player. Every query runs in parallel: one database round trip. */
 export async function viewFor(user: Player | null, now = new Date()): Promise<GameView> {
 	const today = await loadToday(now);
-	if (!user) return buildView(today, null, [], null);
-	const [game] = await db
-		.select()
-		.from(games)
-		.where(and(eq(games.userId, user.id), eq(games.puzzleNumber, today.number)));
-	const rows = game ? await db.select().from(guesses).where(eq(guesses.gameId, game.id)) : [];
-	return buildView(today, game ?? null, rows, user);
+	if (!user) return assembleView(today, null, [], null, new Map(), 0);
+	const [gameRows, guessRows, crowd, streak] = await Promise.all([
+		db
+			.select()
+			.from(games)
+			.where(and(eq(games.userId, user.id), eq(games.puzzleNumber, today.number))),
+		db
+			.select({ g: guesses })
+			.from(guesses)
+			.innerJoin(games, eq(games.id, guesses.gameId))
+			.where(
+				and(
+					eq(games.userId, user.id),
+					eq(games.puzzleNumber, today.number),
+					eq(guesses.puzzleNumber, today.number),
+					// A puzzle is played on one Eastern day: lets TimescaleDB skip old chunks.
+					gte(guesses.ts, new Date(now.getTime() - 3 * 86_400_000))
+				)
+			),
+		crowdFor(today.number),
+		streakFor(user.id, today.number)
+	]);
+	return assembleView(
+		today,
+		gameRows[0] ?? null,
+		guessRows.map((r) => r.g),
+		user,
+		crowd,
+		streak
+	);
 }
 
 export interface PlaceCallInput {
@@ -177,7 +205,7 @@ export async function placeCall(
 ): Promise<{ view: GameView; result: CallResult }> {
 	const today = await loadToday(now);
 	if (input.puzzleNumber !== today.number) {
-		throw new PlayError(409, 'A new puzzle is out. Refresh to play it.');
+		throw new PlayError(409, 'A new chart just came out. Here it is.');
 	}
 	const p = today.puzzle;
 	if (!Number.isInteger(input.step) || input.step < 1 || input.step > p.calls) {
@@ -185,8 +213,15 @@ export async function placeCall(
 	}
 	stakeOptionFor(input.stakePercent); // throws on an unknown chip
 
+	// The crowd before this player. Read outside the transaction: a call landing a few
+	// milliseconds earlier or later makes no meaningful difference, and it keeps the lock short.
+	const crowd = await crowdForStep(today.number, input.step);
+	const multiplierHundredths = lockMultiplier(crowd, input.direction);
+	const correct = p.outcomes[input.step - 1] === input.direction;
+
 	const outcome = await db.transaction(async (tx) => {
-		await tx
+		// Create-or-lock the game row in one statement (the no-op update takes the row lock).
+		const [game] = await tx
 			.insert(games)
 			.values({
 				userId: user.id,
@@ -195,26 +230,21 @@ export async function placeCall(
 				balanceCents: START_BALANCE_CENTS,
 				source: SOURCE
 			})
-			.onConflictDoNothing();
-		const [game] = await tx
-			.select()
-			.from(games)
-			.where(and(eq(games.userId, user.id), eq(games.puzzleNumber, today.number)))
-			.for('update');
+			.onConflictDoUpdate({
+				target: [games.userId, games.puzzleNumber],
+				set: { step: sql`${games.step}` }
+			})
+			.returning();
 		if (game.step !== input.step - 1) {
 			throw new PlayError(409, 'That call was already made.');
 		}
 
-		const crowd = await crowdForStep(today.number, input.step);
-		const multiplierHundredths = lockMultiplier(crowd, input.direction);
-		const correct = p.outcomes[input.step - 1] === input.direction;
 		const s = settleCall({
 			balanceCents: game.balanceCents,
 			stakePercent: input.stakePercent,
 			multiplierHundredths,
 			correct
 		});
-		const upShare = blendedShare(crowd, 'up');
 
 		const [guess] = await tx
 			.insert(guesses)
@@ -226,7 +256,7 @@ export async function placeCall(
 				up: input.direction === 'up',
 				stakeBp: Math.round(input.stakePercent * 100),
 				stakeCents: s.stakeCents,
-				crowdUpShare: upShare,
+				crowdUpShare: blendedShare(crowd, 'up'),
 				multiplier: multiplierHundredths / 100,
 				correct,
 				deltaCents: s.deltaCents,
@@ -235,38 +265,40 @@ export async function placeCall(
 			})
 			.returning();
 
-		const finished = input.step === p.calls;
-		const all = await tx.select().from(guesses).where(eq(guesses.gameId, game.id));
+		let archetype: string | undefined;
+		if (input.step === p.calls) {
+			const all = await tx.select().from(guesses).where(eq(guesses.gameId, game.id));
+			archetype = classifyGame(all.map(toStoredCall), s.balanceAfterCents).key;
+		}
 		const [updated] = await tx
 			.update(games)
 			.set({
 				step: input.step,
 				balanceCents: s.balanceAfterCents,
-				...(finished
-					? {
-							finishedAt: now,
-							archetype: classifyGame(
-								all.map((g) => ({
-									step: g.step,
-									direction: g.up ? ('up' as const) : ('down' as const),
-									stakePercent: g.stakeBp / 100,
-									correct: g.correct,
-									multiplierHundredths: Math.round(g.multiplier * 100),
-									crowdUpShareAtCall: g.crowdUpShare
-								})),
-								s.balanceAfterCents
-							).key
-						}
-					: {})
+				...(archetype ? { finishedAt: now, archetype } : {})
 			})
 			.where(eq(games.id, game.id))
 			.returning();
-		return { game: updated, guesses: all, guess };
+		return { game: updated, guess };
 	});
 
-	const view = await buildView(today, outcome.game, outcome.guesses, user);
+	const [all, crowdNow, streak] = await Promise.all([
+		db.select().from(guesses).where(eq(guesses.gameId, outcome.game.id)),
+		crowdFor(today.number),
+		streakFor(user.id, today.number)
+	]);
+	const view = assembleView(today, outcome.game, all, user, crowdNow, streak);
 	const result = view.results.find((r) => r.step === input.step)!;
 	return { view, result };
 }
 
-export { CALLS_PER_GAME };
+function toStoredCall(g: GuessRow) {
+	return {
+		step: g.step,
+		direction: g.up ? ('up' as const) : ('down' as const),
+		stakePercent: g.stakeBp / 100,
+		correct: g.correct,
+		multiplierHundredths: Math.round(g.multiplier * 100),
+		crowdUpShareAtCall: g.crowdUpShare
+	};
+}

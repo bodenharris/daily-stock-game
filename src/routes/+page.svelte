@@ -5,13 +5,26 @@
 	import { IconButton } from '#lib/components/ui/icon-button/index.js';
 	import { getGame } from '#lib/remote/game.remote.ts';
 	import Game from '#lib/play/Game.svelte';
-	import HelpSheet from '#lib/play/HelpSheet.svelte';
-	import AccountSheet from '#lib/play/AccountSheet.svelte';
+	import type { Component } from 'svelte';
 	import { GAME_NAME } from '#lib/game/config.ts';
 
 	const view = $derived(await getGame());
 	let helpOpen = $state(false);
 	let accountOpen = $state(false);
+
+	// The sheets (and their drawer library) load on first open, keeping the first paint light.
+	type Sheet = Component<{ open?: boolean; view: typeof view }>;
+	let HelpSheet = $state<Sheet | null>(null);
+	let AccountSheet = $state<Sheet | null>(null);
+
+	async function openHelp() {
+		HelpSheet ??= (await import('#lib/play/HelpSheet.svelte')).default as Sheet;
+		helpOpen = true;
+	}
+	async function openAccount() {
+		AccountSheet ??= (await import('#lib/play/AccountSheet.svelte')).default as Sheet;
+		accountOpen = true;
+	}
 </script>
 
 <svelte:head>
@@ -32,7 +45,7 @@
 			>
 		{/if}
 		<div class="ml-auto flex items-center">
-			<IconButton aria-label="How to play" onclick={() => (helpOpen = true)}>
+			<IconButton aria-label="How to play" onclick={openHelp}>
 				<CircleHelp />
 			</IconButton>
 			<IconButton href="/stats" aria-label="Live stats">
@@ -40,7 +53,7 @@
 			</IconButton>
 			<IconButton
 				aria-label={view.signedIn ? 'Your account' : 'Save your streak'}
-				onclick={() => (accountOpen = true)}
+				onclick={openAccount}
 			>
 				<CircleUser />
 			</IconButton>
@@ -49,5 +62,9 @@
 	<Game {view} />
 </main>
 
-<HelpSheet bind:open={helpOpen} />
-<AccountSheet bind:open={accountOpen} {view} />
+{#if HelpSheet}
+	<HelpSheet bind:open={helpOpen} {view} />
+{/if}
+{#if AccountSheet}
+	<AccountSheet bind:open={accountOpen} {view} />
+{/if}
