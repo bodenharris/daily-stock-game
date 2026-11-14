@@ -18,6 +18,8 @@ export interface BonusChart {
 
 export interface BonusAnswer {
 	real: boolean;
+	/** Company or fund name, for real charts. */
+	name: string | null;
 	/** Only for real charts, after answering. */
 	ticker: string | null;
 	from: string | null;
@@ -34,12 +36,12 @@ const cache = new Map<number, Promise<BonusRound[]>>();
 /** Only windows after US stocks went decimal (2001), so old 1/8-dollar ticks can't give real charts away. */
 const SINCE = '2001-06-01';
 
-async function candidates(): Promise<{ symbol: string; bars: number }[]> {
-	const rows = await client<{ symbol: string; bars: number }[]>`
-		select t.symbol, count(p.ts)::int as bars
+async function candidates(): Promise<{ symbol: string; name: string; bars: number }[]> {
+	const rows = await client<{ symbol: string; name: string; bars: number }[]>`
+		select t.symbol, t.name, count(p.ts)::int as bars
 		from tickers t join prices p on p.ticker = t.symbol and p.ts >= ${SINCE}
 		where not exists (select 1 from puzzles z where z.ticker = t.symbol)
-		group by t.symbol
+		group by t.symbol, t.name
 		having count(p.ts) >= ${BARS * 4}
 		order by t.symbol`;
 	return rows.filter((r) => !EXCLUDED.has(r.symbol));
@@ -68,6 +70,7 @@ async function build(puzzleNumber: number): Promise<BonusRound[]> {
 				answer: {
 					real: true,
 					ticker: pick.symbol,
+					name: pick.name,
 					from: window[0].ts,
 					to: window.at(-1)!.ts
 				}
@@ -76,7 +79,7 @@ async function build(puzzleNumber: number): Promise<BonusRound[]> {
 			const vol = Math.min(0.06, Math.max(0.008, dailyVolatility(closes)));
 			rounds.push({
 				values: normalise(syntheticPath(rand, BARS, vol)),
-				answer: { real: false, ticker: null, from: null, to: null }
+				answer: { real: false, ticker: null, name: null, from: null, to: null }
 			});
 		}
 	}

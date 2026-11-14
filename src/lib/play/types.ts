@@ -28,7 +28,7 @@ export interface Reveal {
 	story: string;
 	/** ISO dates for every bar in `closes`. */
 	dates: string[];
-	/** Real split-adjusted closes for every bar (context + all stretches). */
+	/** Closes as quoted on each day (later splits undone), for every bar. */
 	closes: number[];
 	/** Percent move of each stretch, e.g. -12.3. */
 	moves: number[];

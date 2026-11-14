@@ -13,7 +13,6 @@
 	import CallPips from './CallPips.svelte';
 	import Reveal from './Reveal.svelte';
 	import { dollars, multiplier, percent } from './money.ts';
-	import { sameSideShare } from './records.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
 	let { view }: { view: GameView } = $props();
@@ -49,7 +48,26 @@
 	const results = $derived(view.results.slice(0, shown));
 	const latest = $derived<CallResult | null>(results.at(-1) ?? null);
 	const revealing = $derived(shown < view.results.length);
-	const finished = $derived(view.finished && !revealing);
+
+	// After the fifth call lands, give it its own beat before the ending takes over.
+	// svelte-ignore state_referenced_locally
+	let endingReady = $state(view.finished);
+	$effect(() => {
+		if (!view.finished) {
+			endingReady = false;
+			return;
+		}
+		if (revealing || endingReady) return;
+		const id = setTimeout(() => (endingReady = true), prefersReducedMotion.current ? 0 : 1800);
+		return () => clearTimeout(id);
+	});
+	const finished = $derived(view.finished && !revealing && endingReady);
+
+	// Back to the middle chip after each call, so a big bet is always a choice, never a leftover.
+	$effect(() => {
+		void shown;
+		stakePercent = '25';
+	});
 	const balanceCents = $derived(latest?.balanceAfterCents ?? START_BALANCE_CENTS);
 	const callsMade = $derived(view.results.length);
 
@@ -67,24 +85,37 @@
 
 	const resultLine = $derived.by(() => {
 		if (!latest) return '';
-		const paid = multiplier(paidHundredths(latest));
-		const others = latest.crowd.up + latest.crowd.down - 1;
-		if (others < 3) {
-			return latest.correct
-				? `Right. You're one of the first today. Paid ${paid}.`
-				: `Missed. You're one of the first today.`;
-		}
-		const share = percent(sameSideShare(latest));
-		const minority = sameSideShare(latest) < 0.5;
-		if (latest.correct) {
-			return minority
-				? `Right, and only ${share} saw it coming. Paid ${paid}.`
-				: `Right, but ${share} saw it too. Paid ${paid}.`;
-		}
-		return minority
-			? `Missed. Only ${share} called ${latest.direction}.`
-			: `Missed, along with ${share} of players.`;
+		const total = latest.crowd.up + latest.crowd.down;
+		const same = latest.direction === 'up' ? latest.crowd.up : latest.crowd.down;
+		const paid = paidHundredths(latest);
+		const crowd =
+			total <= 1
+				? `You're the first to call this one.`
+				: total <= 20
+					? `${same} of ${total} players called ${latest.direction}.`
+					: `${percent(same / total)} of players called ${latest.direction}.`;
+		if (!latest.correct) return `Missed. ${crowd}`;
+		const payout =
+			paid > 100
+				? `Crowd bonus: paid ${multiplier(paid)}.`
+				: paid === 100
+					? 'Paid even money.'
+					: `Most saw it coming, so it paid ${multiplier(paid)}.`;
+		return `Right. ${crowd} ${payout}`;
 	});
+
+	/** How long each call covers, in plain words. */
+	const stretch = $derived(
+		view.stepBars === 1
+			? 'the next day'
+			: view.stepBars === 5
+				? 'the next week'
+				: view.stepBars === 10
+					? 'the next two weeks'
+					: view.stepBars >= 20 && view.stepBars <= 22
+						? 'the next month'
+						: `the next ${view.stepBars} trading days`
+	);
 
 	const stakeOptions = $derived(
 		STAKE_OPTIONS.map((o) => ({
@@ -208,7 +239,7 @@
 					{/key}
 				{:else}
 					<div>
-						<p class="type-title-md text-on-surface">Up or down next?</p>
+						<p class="type-title-md text-on-surface">Up or down over {stretch}?</p>
 						<p class="hint type-body-sm text-on-surface-variant">
 							Win more when the crowd gets it wrong.
 						</p>
@@ -216,32 +247,34 @@
 				{/if}
 			</div>
 
-			<div class="mt-3">
-				<p class="mb-2 text-center type-label-md text-on-surface-variant">
-					Stake for call {Math.min(results.length + 1, view.calls)} of {view.calls}
-				</p>
-				<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
-			</div>
+			{#if !view.finished}
+				<div class="mt-3">
+					<p class="mb-2 text-center type-label-md text-on-surface-variant">
+						Stake for call {Math.min(results.length + 1, view.calls)} of {view.calls}
+					</p>
+					<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
+				</div>
 
-			<div class="calls mt-3 grid grid-cols-2 gap-3">
-				{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
-					<Button
-						variant="tonal"
-						size="hero"
-						class="call {chosen === b.dir ? 'chosen' : ''} {chosen && chosen !== b.dir
-							? 'other'
-							: ''}"
-						disabled={busy && chosen !== b.dir}
-						aria-label="Call {b.label.toLowerCase()}"
-						onclick={() => call(b.dir)}
-					>
-						{#if b.dir === 'up'}<ArrowUp strokeWidth={2.5} />{:else}<ArrowDown
-								strokeWidth={2.5}
-							/>{/if}
-						{b.label}
-					</Button>
-				{/each}
-			</div>
+				<div class="calls mt-3 grid grid-cols-2 gap-3">
+					{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
+						<Button
+							variant="tonal"
+							size="hero"
+							class="call {chosen === b.dir ? 'chosen' : ''} {chosen && chosen !== b.dir
+								? 'other'
+								: ''}"
+							disabled={busy && chosen !== b.dir}
+							aria-label="Call {b.label.toLowerCase()}"
+							onclick={() => call(b.dir)}
+						>
+							{#if b.dir === 'up'}<ArrowUp strokeWidth={2.5} />{:else}<ArrowDown
+									strokeWidth={2.5}
+								/>{/if}
+							{b.label}
+						</Button>
+					{/each}
+				</div>
+			{/if}
 
 			{#if error}
 				<p class="mt-2 text-center type-body-sm text-error" role="alert">{error}</p>

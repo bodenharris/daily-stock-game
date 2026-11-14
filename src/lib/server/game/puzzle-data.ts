@@ -15,6 +15,8 @@ export interface PuzzleData {
 	calls: number;
 	dates: string[];
 	closes: number[];
+	/** Closes as quoted on the day (later splits undone), for display at the reveal. */
+	quoted: number[];
 	/** Outcome of each call, 1-based step at index step - 1. */
 	outcomes: Direction[];
 	/** Percent move of each stretch. */
@@ -88,13 +90,21 @@ async function load(slug: string): Promise<PuzzleData> {
 		select last(close, ts) as close, last(ts, ts)::text as ts from prices
 		where ticker = ${p.ticker} and ts > ${end.ts}::date
 			and ts <= ${end.ts}::date + interval '1 year'`;
+	const splitRows = await client<{ ts: string; factor: number }[]>`
+		select ts::text as ts, factor from splits
+		where ticker = ${p.ticker} and ts > ${rows[0].ts}::date`;
+	// Undo later splits for display: the price as it was quoted on that day.
+	const quotedOn = (date: string, adjusted: number) =>
+		splitRows.reduce((v, s) => (s.ts > date ? v * Number(s.factor) : v), adjusted);
+	const quoted = rows.map((r, i) => quotedOn(r.ts, closes[i]));
+
 	const lastClose = closes[closes.length - 1];
 	const yearOn = Date.parse(end.ts) + 330 * 86_400_000;
 	const hindsight =
 		later?.close != null && later.ts != null && Date.parse(later.ts) >= yearOn
 			? {
 					date: later.ts,
-					close: Number(later.close),
+					close: quotedOn(later.ts, Number(later.close)),
 					change: Math.round((Number(later.close) / lastClose - 1) * 1000) / 10
 				}
 			: null;
@@ -109,6 +119,7 @@ async function load(slug: string): Promise<PuzzleData> {
 		calls: p.calls,
 		dates: rows.map((r) => r.ts),
 		closes,
+		quoted,
 		outcomes,
 		moves,
 		hindsight

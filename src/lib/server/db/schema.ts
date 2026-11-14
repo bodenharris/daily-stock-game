@@ -44,6 +44,20 @@ export const prices = pgTable(
 	(t) => [primaryKey({ columns: [t.ticker, t.ts] })]
 );
 
+/**
+ * Stock splits from Tiingo. Prices are stored split-adjusted; this lets the reveal show the
+ * quotes people actually saw at the time (GameStop's $347, not $87).
+ */
+export const splits = pgTable(
+	'splits',
+	{
+		ticker: text('ticker').notNull(),
+		ts: date('ts').notNull(),
+		factor: doublePrecision('factor').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.ticker, t.ts] })]
+);
+
 /** Hand-picked famous market moments. Ordinary table, seeded from the catalog in code. */
 export const puzzles = pgTable('puzzles', {
 	slug: text('slug').primaryKey(),

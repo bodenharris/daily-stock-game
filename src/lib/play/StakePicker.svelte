@@ -29,7 +29,10 @@
 				{disabled}
 				aria-label="Bet {o.percent}%, {dollars(o.cents)}"
 			/>
-			<span class="type-label-lg type-numeric">{dollars(o.cents, { cents: false })}</span>
+			<span class="flex items-baseline gap-1.5">
+				<span class="type-label-lg type-numeric">{dollars(o.cents, { cents: false })}</span>
+				<span class="pct type-label-sm type-numeric">{o.percent}%</span>
+			</span>
 		</label>
 	{/each}
 </div>
@@ -83,6 +86,9 @@
 		border-radius: var(--outer);
 		background: var(--md-sys-color-secondary);
 		color: var(--md-sys-color-on-secondary);
+	}
+	.pct {
+		opacity: 0.72;
 	}
 	.chip.disabled {
 		cursor: default;

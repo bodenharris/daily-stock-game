@@ -62,8 +62,18 @@
 			copied = true;
 			setTimeout(() => (copied = false), 2000);
 		} catch {
-			window.prompt('Copy your result', text);
+			// Clipboard blocked (some in-app browsers): show the text so it can be copied by hand.
+			manualCopy = text;
 		}
+	}
+
+	let manualCopy = $state<string | null>(null);
+	function selectAll(node: HTMLElement) {
+		const range = document.createRange();
+		range.selectNodeContents(node);
+		const selection = window.getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(range);
 	}
 
 	const d = (ms: number) => (fresh ? ms : 0);
@@ -71,42 +81,44 @@
 		n >= 100 ? `$${Math.round(n)}` : n >= 10 ? `$${n.toFixed(1)}` : `$${n.toFixed(2)}`;
 </script>
 
-{#if playingBonus}
-	<svelte:boundary>
-		<BonusRound number={view.number} onDone={() => (playingBonus = false)} />
-		{#snippet failed(error, reset)}
-			<div class="flex flex-col items-start gap-2 py-6">
-				<p class="type-body-lg text-on-surface">The bonus round didn't load.</p>
-				<p class="sr-only">{String((error as { message?: string })?.message ?? '')}</p>
-				<div class="flex gap-2">
-					<Button variant="tonal" size="sm" onclick={reset}>Try again</Button>
-					<Button variant="text" size="sm" onclick={() => (playingBonus = false)}>Back</Button>
-				</div>
-			</div>
-		{/snippet}
-	</svelte:boundary>
-{:else}
-	<section class="flex flex-col gap-4 pt-1 pb-6">
-		<div in:rise={{ delay: d(250) }}>
-			<h2 class="type-headline-sm-emphasized text-balance text-on-surface">
-				{reveal.headline}
-			</h2>
-			<p class="mt-0.5 type-label-lg text-chart-reveal">
-				<span class="type-numeric">{reveal.ticker}</span> · {range}
-			</p>
+<section class="flex flex-col gap-4 pt-1 pb-6">
+	<div in:rise={{ delay: d(250) }}>
+		<h2 class="type-headline-sm-emphasized text-balance text-on-surface">
+			{reveal.headline}
+		</h2>
+		<p class="mt-0.5 type-label-lg text-chart-reveal">
+			<span class="type-numeric">{reveal.ticker}</span> · {range}
+		</p>
+		{#if !playingBonus}
 			<p class="mt-2 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
-			{#if reveal.hindsight}
-				{@const h = reveal.hindsight}
-				<p class="mt-1 type-body-md text-on-surface-variant">
-					In hindsight: a year later it was
-					<span class="text-on-surface type-numeric">{price(h.close)}</span>
-					<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
-						>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}%)</span
-					>.
-				</p>
-			{/if}
-		</div>
+		{/if}
+		{#if reveal.hindsight && !playingBonus}
+			{@const h = reveal.hindsight}
+			<p class="mt-1 type-body-md text-on-surface-variant">
+				In hindsight: a year later it was
+				<span class="text-on-surface type-numeric">{price(h.close)}</span>
+				<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
+					>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}%)</span
+				>.
+			</p>
+		{/if}
+	</div>
 
+	{#if playingBonus}
+		<svelte:boundary>
+			<BonusRound number={view.number} onDone={() => (playingBonus = false)} />
+			{#snippet failed(error, reset)}
+				<div class="flex flex-col items-start gap-2 py-6">
+					<p class="type-body-lg text-on-surface">The bonus round didn't load.</p>
+					<p class="sr-only">{String((error as { message?: string })?.message ?? '')}</p>
+					<div class="flex gap-2">
+						<Button variant="tonal" size="sm" onclick={reset}>Try again</Button>
+						<Button variant="text" size="sm" onclick={() => (playingBonus = false)}>Back</Button>
+					</div>
+				</div>
+			{/snippet}
+		</svelte:boundary>
+	{:else}
 		<div class="rounded-m3-lg bg-surface-container px-4 py-3" in:rise={{ delay: d(450) }}>
 			<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
 			<p class="type-body-sm text-on-surface-variant">{archetype.line}</p>
@@ -127,6 +139,14 @@
 					</Button>
 				{/if}
 			</div>
+			{#if manualCopy}
+				<div class="rounded-m3-lg bg-surface-container px-4 py-3">
+					<p class="type-label-md text-on-surface-variant">Copy this and paste it to a friend:</p>
+					<pre
+						class="mt-1 type-body-md whitespace-pre-wrap text-on-surface select-all"
+						{@attach selectAll}>{manualCopy}</pre>
+				</div>
+			{/if}
 			<p class="text-center type-body-sm text-on-surface-variant">
 				{#if view.bonus}
 					<span>Real or random {view.bonus.correct}/{view.bonus.total}</span>
@@ -135,5 +155,5 @@
 				<Countdown to={view.nextPuzzleAt} />
 			</p>
 		</div>
-	</section>
-{/if}
+	{/if}
+</section>

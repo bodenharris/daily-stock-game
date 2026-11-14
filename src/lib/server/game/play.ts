@@ -199,7 +199,7 @@ function assembleView(
 					headline: p.headline,
 					story: p.story,
 					dates: p.dates,
-					closes: p.closes,
+					closes: p.quoted,
 					moves: p.moves,
 					hindsight: p.hindsight
 				}

@@ -54,9 +54,9 @@
 	// svelte-ignore state_referenced_locally
 	const drawEnd = new Tween(values.length - 1, { duration: 900, easing: cubicOut });
 	// svelte-ignore state_referenced_locally
-	const lo = new Spring(domainFor(logs, 0.1)[0], { stiffness: 0.08, damping: 0.6 });
+	const lo = new Spring(domainFor(logs, 0.1)[0], { stiffness: 0.1, damping: 0.9 });
 	// svelte-ignore state_referenced_locally
-	const hi = new Spring(domainFor(logs, 0.1)[1], { stiffness: 0.08, damping: 0.6 });
+	const hi = new Spring(domainFor(logs, 0.1)[1], { stiffness: 0.1, damping: 0.9 });
 
 	$effect(() => {
 		const instant = prefersReducedMotion.current;
@@ -106,7 +106,9 @@
 				d: drawEnd.current > from ? (pathOf(pointsFor(logs, from, to, drawEnd.current)) ?? '') : '',
 				drawn: drawEnd.current >= to - 0.01,
 				move: values[to] / values[from] - 1,
-				cx: (x0 + x1) / 2
+				x0,
+				x1,
+				baseY: y(logs[from])
 			};
 		})
 	);
@@ -145,7 +147,6 @@
 
 	const priceLabels = $derived.by(() => {
 		if (!labels) return null;
-		const scale = labels.closes[contextEnd] / values[contextEnd];
 		let iMax = 0;
 		let iMin = 0;
 		values.forEach((v, i) => {
@@ -153,8 +154,8 @@
 			if (v < values[iMin]) iMin = i;
 		});
 		return [
-			{ i: iMax, text: fmtPrice(values[iMax] * scale), above: true },
-			{ i: iMin, text: fmtPrice(values[iMin] * scale), above: false }
+			{ i: iMax, text: fmtPrice(labels.closes[iMax]), above: true },
+			{ i: iMin, text: fmtPrice(labels.closes[iMin]), above: false }
 		];
 	});
 
@@ -218,6 +219,8 @@
 			<path class="fill" d={fillPath} fill="url(#{uid}-fill)" />
 			<path class="line context" d={contextPath} />
 			{#each segments as seg (seg.step)}
+				<!-- Where this stretch started: above this line is up, below is down. -->
+				<line class="base" x1={seg.x0} x2={seg.x1} y1={seg.baseY} y2={seg.baseY} />
 				<path class="line seg" class:right={seg.right} class:wrong={!seg.right} d={seg.d} />
 			{/each}
 
@@ -303,6 +306,12 @@
 	}
 	.slot.done {
 		opacity: 0;
+	}
+	.base {
+		stroke: var(--chart-baseline);
+		stroke-width: 1;
+		stroke-dasharray: 2 4;
+		opacity: 0.55;
 	}
 	.level {
 		stroke: var(--chart-baseline);

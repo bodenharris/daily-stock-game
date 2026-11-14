@@ -82,7 +82,9 @@
 					<p class="type-body-lg text-on-surface" role="status">
 						<span class="sr-only">{right ? 'Right.' : 'Wrong.'}</span>
 						{#if done.answer.real && done.answer.ticker && done.answer.from && done.answer.to}
-							Real: {done.answer.ticker}, {fmt(done.answer.from)} – {fmt(done.answer.to)}
+							Real: {done.answer.name ?? done.answer.ticker} ({done.answer.ticker}), {fmt(
+								done.answer.from
+							)} – {fmt(done.answer.to)}
 						{:else}
 							Random: a computer made this one up.
 						{/if}

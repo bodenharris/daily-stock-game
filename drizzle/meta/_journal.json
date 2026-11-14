@@ -29,6 +29,13 @@
       "when": 1794659629198,
       "tag": "0003_schedule_and_bonus_guesses",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794660861563,
+      "tag": "0004_splits",
+      "breakpoints": true
     }
   ]
 }

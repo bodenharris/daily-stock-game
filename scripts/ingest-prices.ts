@@ -84,6 +84,14 @@ async function main() {
 						close = excluded.close,
 						volume = excluded.volume`;
 			}
+			const splitRows = raw
+				.filter((b) => b.splitFactor && b.splitFactor !== 1)
+				.map((b) => ({ ticker, ts: b.date.slice(0, 10), factor: b.splitFactor! }));
+			if (splitRows.length) {
+				await tx`
+					insert into splits ${tx(splitRows, 'ticker', 'ts', 'factor')}
+					on conflict (ticker, ts) do update set factor = excluded.factor`;
+			}
 		});
 		total += rows.length;
 		console.log(`${ticker}: ${rows.length} bars (${first} → ${last})`);
