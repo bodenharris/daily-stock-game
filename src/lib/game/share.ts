@@ -50,6 +50,8 @@ export interface ShareInput {
 	/** @deprecated Ignored: the one-row text has no empty cells to colour. Still accepted. */
 	readonly theme?: 'dark' | 'light';
 	readonly gameName?: string;
+	/** Optional standing, e.g. "2nd of 5 today", added to the archetype line. Spoils nothing. */
+	readonly standing?: string | null;
 	readonly startBalanceCents?: number;
 }
 
@@ -92,7 +94,7 @@ export function buildShareText(input: ShareInput): string {
 	const lines = [
 		`${name} #${puzzleNumber.toLocaleString('en-US')} · ${formatWholeDollars(start)} → ${formatWholeDollars(final)}`,
 		shareRow(calls),
-		`${archetype.emoji} ${archetype.label}`
+		`${archetype.emoji} ${archetype.label}${input.standing ? ` · ${input.standing}` : ''}`
 	];
 	if (input.bonus) {
 		const { label, correct, total } = input.bonus;

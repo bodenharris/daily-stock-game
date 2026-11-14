@@ -8,6 +8,7 @@ import { blendedShare, lockMultiplier, settleCall, stakeOptionFor } from '#lib/g
 import { classifyGame } from '#lib/game/archetype.ts';
 import { easternDateString, midnightIn, puzzleNumberFor } from '#lib/game/daily.ts';
 import { puzzleForNumber, visibleBars, type PuzzleData } from './puzzle-data.ts';
+import { standingOf, type Standing } from '#lib/server/stats.ts';
 import type { CallResult, Direction, GameView } from '#lib/play/types.ts';
 
 /**
@@ -174,7 +175,8 @@ function assembleView(
 	gameGuesses: GuessRow[],
 	user: Player | null,
 	crowd: Crowd,
-	streak: number
+	streak: number,
+	standing: Standing | null = null
 ): GameView {
 	const p = day.puzzle;
 	const callsMade = game?.step ?? 0;
@@ -211,8 +213,15 @@ function assembleView(
 			game?.bonusCorrect != null && game.bonusTotal != null
 				? { correct: game.bonusCorrect, total: game.bonusTotal }
 				: null,
-		streak
+		streak,
+		standing: finished ? standing : null
 	};
+}
+
+/** Standing for a finished game; never lets a stats hiccup break the game view. */
+function standingFor(day: Day, game: GameRow | null): Promise<Standing | null> {
+	if (!game || game.finishedAt == null) return Promise.resolve(null);
+	return standingOf(day.number, game.balanceCents).catch(() => null);
 }
 
 /**
@@ -239,11 +248,12 @@ export async function viewFor(user: Player | null, now = new Date()): Promise<Ga
 
 	const day = unfinishedYesterday ? await loadDay(today.number - 1) : today;
 	const game = unfinishedYesterday ? yesterdays! : todays;
-	const [gameGuesses, crowd] = await Promise.all([
+	const [gameGuesses, crowd, standing] = await Promise.all([
 		game ? guessesOf(game) : Promise.resolve([]),
-		crowdFor(day.number)
+		crowdFor(day.number),
+		standingFor(day, game)
 	]);
-	return assembleView(day, game, gameGuesses, user, crowd, streak);
+	return assembleView(day, game, gameGuesses, user, crowd, streak, standing);
 }
 
 export interface PlaceCallInput {
@@ -357,12 +367,13 @@ export async function placeCall(
 		return updated;
 	});
 
-	const [all, crowdNow, streak] = await Promise.all([
+	const [all, crowdNow, streak, standing] = await Promise.all([
 		guessesOf(outcome),
 		crowdFor(day.number),
-		streakFor(user.id, today.number)
+		streakFor(user.id, today.number),
+		standingFor(day, outcome)
 	]);
-	const view = assembleView(day, outcome, all, user, crowdNow, streak);
+	const view = assembleView(day, outcome, all, user, crowdNow, streak, standing);
 	const result = view.results.find((r) => r.step === input.step)!;
 	return { view, result };
 }

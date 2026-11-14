@@ -175,17 +175,25 @@ export function statsFor(puzzleNumber: number): Promise<Stats> {
 	return sharedStats(puzzleNumber);
 }
 
-const sharedRank = shared(10_000, async (key: string): Promise<number | null> => {
+export interface Standing {
+	/** Share (0–1) of today's other finishers this balance beat; null if nobody else finished. */
+	betterThan: number | null;
+	/** Finished games today, including this one. */
+	finished: number;
+}
+
+const sharedRank = shared(10_000, async (key: string): Promise<Standing> => {
 	const [puzzleNumber, balanceCents] = key.split(':').map(Number);
 	const [row] = await client<{ rank: number | null; games: number }[]>`
 		select approx_percentile_rank(${balanceCents}, rollup(balance_pct)) as rank,
 			coalesce(sum(games), 0)::int as games
 		from finals_hourly
 		where puzzle_number = ${puzzleNumber} and source = any(${SOURCES})`;
-	if (!row || row.rank == null || row.games < 2) return null;
+	const finished = row?.games ?? 0;
+	if (!row || row.rank == null || finished < 2) return { betterThan: null, finished };
 	// The sketch counts the viewer among those at or below their balance; leave them out.
-	const below = (row.rank * row.games - 1) / (row.games - 1);
-	return Math.min(1, Math.max(0, below));
+	const below = (row.rank * finished - 1) / (finished - 1);
+	return { betterThan: Math.min(1, Math.max(0, below)), finished };
 });
 
 /**
@@ -193,6 +201,14 @@ const sharedRank = shared(10_000, async (key: string): Promise<number | null> =>
  * percentile sketch in `finals_hourly`. Null when nobody else has finished yet. Shared per
  * balance for 10 seconds, so a page left open costs almost nothing.
  */
-export function betterThan(puzzleNumber: number, balanceCents: number): Promise<number | null> {
+export async function betterThan(
+	puzzleNumber: number,
+	balanceCents: number
+): Promise<number | null> {
+	return (await sharedRank(`${puzzleNumber}:${balanceCents}`)).betterThan;
+}
+
+/** Where a final balance stands among today's finishers (same shared, cached query). */
+export function standingOf(puzzleNumber: number, balanceCents: number): Promise<Standing> {
 	return sharedRank(`${puzzleNumber}:${balanceCents}`);
 }

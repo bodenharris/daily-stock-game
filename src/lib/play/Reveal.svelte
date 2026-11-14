@@ -8,6 +8,7 @@
 	import { classifyArchetype } from '#lib/game/archetype.ts';
 	import { buildShareText } from '#lib/game/share.ts';
 	import { toRecords } from './records.ts';
+	import { standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
 	import BonusRound from './BonusRound.svelte';
 	import Dices from '@lucide/svelte/icons/dices';
@@ -17,6 +18,7 @@
 	const reveal = $derived(view.reveal!);
 	const records = $derived(toRecords(view.results));
 	const archetype = $derived(classifyArchetype(records));
+	const standing = $derived(standingText(view.standing));
 	const light = new MediaQuery('(prefers-color-scheme: light)');
 
 	const range = $derived.by(() => {
@@ -40,6 +42,7 @@
 			archetype,
 			theme: light.current ? 'light' : 'dark',
 			bonus: view.bonus ? { label: 'Real or Random', ...view.bonus } : undefined,
+			standing,
 			url: page.url.origin
 		})
 	);
@@ -127,7 +130,12 @@
 		</svelte:boundary>
 	{:else}
 		<div class="rounded-m3-lg bg-surface-container px-4 py-3" in:rise={{ delay: d(450) }}>
-			<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
+			<div class="flex items-baseline justify-between gap-3">
+				<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
+				{#if standing}
+					<p class="shrink-0 type-label-lg text-on-surface-variant type-numeric">{standing}</p>
+				{/if}
+			</div>
 			<p class="type-body-sm text-on-surface-variant">{archetype.line}</p>
 		</div>
 

@@ -187,3 +187,28 @@ describe('spoilers', () => {
 		for (const a of ARCHETYPES) expect(`${a.emoji} ${a.label}`).not.toMatch(directionGlyphs);
 	});
 });
+
+describe('share standing', () => {
+	it('adds the standing to the archetype line without adding a line', async () => {
+		const { buildShareText } = await import('./share.ts');
+		const calls = [
+			{
+				direction: 'up' as const,
+				stakePercent: 25,
+				correct: true,
+				crowdShareOwn: 0.5,
+				multiplierHundredths: 100,
+				balanceAfterCents: 12500
+			}
+		];
+		const without = buildShareText({ puzzleNumber: 3, calls, url: 'https://x.test' });
+		const withIt = buildShareText({
+			puzzleNumber: 3,
+			calls,
+			url: 'https://x.test',
+			standing: '2nd of 5 today'
+		});
+		expect(withIt.split(/\n/)).toHaveLength(without.split(/\n/).length);
+		expect(withIt).toContain(' · 2nd of 5 today');
+	});
+});

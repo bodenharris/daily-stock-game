@@ -60,6 +60,8 @@ export interface GameView {
 	/** Email of a signed-in (non-anonymous) player. */
 	email: string | null;
 	streak: number;
+	/** Where this finish stands among today's players (finished games only). */
+	standing: { betterThan: number | null; finished: number } | null;
 	/** Real or Random score, once played. */
 	bonus: { correct: number; total: number } | null;
 }
