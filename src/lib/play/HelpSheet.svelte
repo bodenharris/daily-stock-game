@@ -44,7 +44,7 @@
 		place-items: center;
 		min-width: 1.5rem;
 		padding: 0 0.3rem;
-		border-radius: 6px;
+		border-radius: 0;
 		background: var(--md-sys-color-surface-container-highest);
 		color: var(--md-sys-color-on-surface);
 		font: inherit;

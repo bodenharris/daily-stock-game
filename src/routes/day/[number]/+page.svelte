@@ -29,7 +29,7 @@
 	<header class="-mx-2 flex h-14 items-center gap-1">
 		<a
 			href="/archive"
-			class="grid size-12 shrink-0 place-items-center rounded-full text-on-surface-variant hover:bg-on-surface/8"
+			class="grid size-12 shrink-0 place-items-center rounded-none text-on-surface-variant hover:bg-on-surface/8"
 			aria-label="Back to past charts"
 		>
 			<ArrowLeft class="size-6" />

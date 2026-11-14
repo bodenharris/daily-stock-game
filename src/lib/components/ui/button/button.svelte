@@ -35,9 +35,11 @@
 	export const buttonVariants = tv({
 		base: [
 			'group/button relative inline-flex shrink-0 cursor-pointer items-center justify-center align-middle whitespace-nowrap no-underline select-none',
+			// arcade: capitals with tracking, and a one-step press down
+			'uppercase tracking-[0.12em] active:translate-y-0.5',
 			'h-(--btn-h) gap-(--btn-gap) px-(--btn-px)',
 			// shape: rest → (selected) → pressed; "full" is the real half-height so it can animate
-			'[--btn-r-full:calc(var(--btn-h)/2)] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
+			'[--btn-r-full:0px] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
 			'[border-start-start-radius:var(--btn-r-ss,var(--btn-r))] [border-start-end-radius:var(--btn-r-se,var(--btn-r))] [border-end-start-radius:var(--btn-r-es,var(--btn-r))] [border-end-end-radius:var(--btn-r-ee,var(--btn-r))]',
 			// motion: press morph on default-effects (no bounce), colors on default-effects
 			'[--btn-shape-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)] [--btn-color-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)]',

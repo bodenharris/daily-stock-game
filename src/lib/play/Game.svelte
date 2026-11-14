@@ -216,7 +216,7 @@
 	<!-- Balance: the one number that matters. -->
 	<div class="balance-row flex items-end justify-between gap-3 pt-1">
 		<div>
-			<p class="type-label-md text-on-surface-variant">
+			<p class="neon-text type-label-md">
 				{finished ? 'Final balance' : 'Balance'}
 			</p>
 			<p class="balance type-display-sm-emphasized text-on-surface type-numeric">
@@ -226,7 +226,7 @@
 		{#if finished}
 			{@const change = view.balanceCents - START_BALANCE_CENTS}
 			<span
-				class="mb-1.5 rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
+				class="mb-1.5 rounded-none px-3 py-1 type-title-lg-emphasized type-numeric
 				{change >= 0 ? 'bg-up-container text-on-up-container' : 'bg-down-container text-on-down-container'}"
 				in:pop
 			>
@@ -235,7 +235,7 @@
 		{:else if latest}
 			{#key latest.step}
 				<span
-					class="mb-1.5 rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
+					class="mb-1.5 rounded-none px-3 py-1 type-title-lg-emphasized type-numeric
 					{latest.correct
 						? 'bg-up-container text-on-up-container'
 						: 'bg-down-container text-on-down-container'}"
@@ -304,12 +304,13 @@
 						<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
 					</div>
 
-					<div class="calls mt-3 grid grid-cols-2 gap-3">
+					<div class="calls mt-5 grid grid-cols-2 gap-6 px-1.5 pb-1.5">
 						{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
 							<Button
 								variant="tonal"
 								size="hero"
-								class="call {chosen === b.dir ? 'chosen' : ''} {chosen && chosen !== b.dir
+								class="call pixel-frame {b.dir} {chosen === b.dir ? 'chosen' : ''} {chosen &&
+								chosen !== b.dir
 									? 'other'
 									: ''}"
 								disabled={busy && chosen !== b.dir}
@@ -383,8 +384,12 @@
 		.chart-area {
 			margin-top: 0;
 			padding: 1.5rem 1.25rem 1rem;
-			border-radius: var(--md-sys-shape-corner-extra-large, 28px);
+			border-radius: 0;
 			background: var(--md-sys-color-surface-container-low);
+			box-shadow:
+				0 0 0 2px var(--pixel-ink),
+				0 0 0 4px var(--md-sys-color-outline-variant),
+				0 6px 0 4px var(--md-sys-color-shadow);
 		}
 		.balance-row {
 			padding-top: 0.5rem;
@@ -412,23 +417,40 @@
 			min-width: 1.5rem;
 			height: 1.5rem;
 			margin-left: 0.25rem;
-			border-radius: 6px;
+			border-radius: 0;
 			background: color-mix(in srgb, currentColor 12%, transparent);
 			font: inherit;
 			font-size: 0.875rem;
 			line-height: 1;
 		}
 	}
+	/* The score readout: chunky 8-bit digits. */
+	.balance {
+		font-family: var(--md-ref-typeface-pixel);
+		font-size: 1.75rem;
+		line-height: 2.75rem;
+		letter-spacing: 0;
+		text-shadow: 0 3px 0 var(--pixel-ink);
+	}
 	/* The tapped call lights up at once; the other steps back while the stretch is revealed. */
-	/* Up and Down wear the brand: primary container, the tapped one fills to primary. */
+	/* Up and Down are arcade cabinet buttons: navy face, a green or pink neon frame; the tapped
+	   one floods with its color. */
 	.calls :global(.call) {
-		background: var(--md-sys-color-primary-container);
-		color: var(--md-sys-color-on-primary-container);
+		background: var(--md-sys-color-surface-container);
+		color: var(--md-sys-color-on-surface);
+	}
+	.calls :global(.call.up) {
+		--frame: var(--up);
+	}
+	.calls :global(.call.down) {
+		--frame: var(--down);
+	}
+	.calls :global(.call:hover) {
+		background: var(--md-sys-color-surface-container-highest);
 	}
 	.calls :global(.call.chosen) {
-		background: var(--md-sys-color-primary);
-		color: var(--md-sys-color-on-primary);
-		--btn-r: var(--btn-r-square);
+		background: var(--frame);
+		color: var(--md-sys-color-surface-container-lowest);
 		pointer-events: none;
 	}
 	.unmasking {
@@ -453,7 +475,7 @@
 			min-height: 150px;
 		}
 		.balance {
-			font-size: 1.875rem;
+			font-size: 1.5rem;
 			line-height: 2.25rem;
 		}
 		.calls :global(.call) {

@@ -59,7 +59,7 @@
 	<header class="flex h-14 items-center gap-2">
 		<a
 			href="/"
-			class="-ml-2 grid size-12 place-items-center rounded-full text-on-surface-variant hover:bg-on-surface/8"
+			class="-ml-2 grid size-12 place-items-center rounded-none text-on-surface-variant hover:bg-on-surface/8"
 			aria-label="Back to the game"
 		>
 			<ArrowLeft class="size-6" />
@@ -154,7 +154,7 @@
 	.dot {
 		width: 8px;
 		height: 8px;
-		border-radius: 9999px;
+		border-radius: 0;
 		background: var(--up);
 		box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 50%, transparent);
 		animation: pulse 2s infinite;

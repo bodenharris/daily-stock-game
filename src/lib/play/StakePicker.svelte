@@ -45,7 +45,7 @@
 	.chip {
 		--h: 40px;
 		--inner: var(--md-sys-shape-corner-small, 8px);
-		--outer: calc(var(--h) / 2);
+		--outer: var(--md-sys-shape-corner-full, 0px);
 		position: relative;
 		flex: 1 1 0;
 		display: grid;

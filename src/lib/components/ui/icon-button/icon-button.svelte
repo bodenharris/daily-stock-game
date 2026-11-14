@@ -18,7 +18,7 @@
 		base: [
 			'group/icon-button relative inline-flex shrink-0 cursor-pointer items-center justify-center align-middle select-none',
 			'h-(--btn-h) w-(--btn-w) p-0',
-			'[--btn-r-full:calc(var(--btn-h)/2)] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
+			'[--btn-r-full:0px] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
 			'[border-start-start-radius:var(--btn-r-ss,var(--btn-r))] [border-start-end-radius:var(--btn-r-se,var(--btn-r))] [border-end-start-radius:var(--btn-r-es,var(--btn-r))] [border-end-end-radius:var(--btn-r-ee,var(--btn-r))]',
 			// press morph: default-effects (no bounce); toggle shape change: fast-spatial
 			'[--btn-shape-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)] [--btn-color-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)]',

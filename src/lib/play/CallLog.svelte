@@ -33,7 +33,7 @@
 		>
 			<span
 				class={[
-					'grid size-7 place-items-center rounded-full',
+					'grid size-7 place-items-center rounded-none',
 					r
 						? r.correct
 							? 'bg-up text-on-up'

@@ -8,6 +8,7 @@
 	import Game from '#lib/play/Game.svelte';
 	import type { Component } from 'svelte';
 	import { GAME_NAME } from '#lib/game/config.ts';
+	import WolfScene from '#lib/brand/WolfScene.svelte';
 
 	const view = $derived(await getGame());
 	let helpOpen = $state(false);
@@ -49,37 +50,62 @@
 	/>
 </svelte:head>
 
-<main
-	class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:max-w-2xl md:px-6 lg:max-w-7xl lg:px-8"
->
-	<header class="-mx-2 flex h-14 items-center gap-1">
-		<h1 class="px-2 type-title-lg-emphasized text-on-surface">{GAME_NAME}</h1>
-		<span class="type-label-lg text-on-surface-variant type-numeric">#{view.number}</span>
-		{#if view.streak > 1}
-			<span class="ml-1 type-label-lg text-on-surface-variant type-numeric" title="Daily streak"
-				>· {view.streak} day streak</span
+<div class="flex min-h-dvh flex-col">
+	<WolfScene>
+		<h1 class="glitch-text font-pixel text-[1.375rem] leading-none uppercase md:text-[2.5rem]">
+			{GAME_NAME}
+		</h1>
+		<p class="neon-text mt-2 type-title-md md:type-title-lg">The daily hunt</p>
+		<p class="type-label-lg tracking-[0.12em] text-on-surface-variant uppercase type-numeric">
+			Hunt #{view.number}{#if view.streak > 1}<span title="Daily streak"
+					>&ensp;·&ensp;{view.streak} day streak</span
+				>{/if}
+		</p>
+		{#snippet actions()}
+			<IconButton
+				class="pixel-panel"
+				variant="tonal"
+				size="xs"
+				aria-label="How to play"
+				onclick={openHelp}
 			>
-		{/if}
-		<div class="ml-auto flex items-center">
-			<IconButton aria-label="How to play" onclick={openHelp}>
 				<CircleHelp />
 			</IconButton>
-			<IconButton href="/archive" aria-label="Past charts" class="hidden sm:inline-flex">
+			<IconButton
+				class="pixel-panel hidden sm:inline-flex"
+				variant="tonal"
+				size="xs"
+				href="/archive"
+				aria-label="Past charts"
+			>
 				<CalendarDays />
 			</IconButton>
-			<IconButton href="/stats" aria-label="Live stats">
+			<IconButton
+				class="pixel-panel"
+				variant="tonal"
+				size="xs"
+				href="/stats"
+				aria-label="Live stats"
+			>
 				<ChartColumn />
 			</IconButton>
 			<IconButton
+				class="pixel-panel"
+				variant="tonal"
+				size="xs"
 				aria-label={view.signedIn ? 'Your account' : 'Save your streak'}
 				onclick={openAccount}
 			>
 				<CircleUser />
 			</IconButton>
-		</div>
-	</header>
-	<Game {view} />
-</main>
+		{/snippet}
+	</WolfScene>
+	<main
+		class="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-4 pb-[env(safe-area-inset-bottom)] md:max-w-2xl md:px-6 lg:max-w-7xl lg:px-8"
+	>
+		<Game {view} />
+	</main>
+</div>
 
 {#if HelpSheet}
 	<HelpSheet bind:open={helpOpen} {view} />

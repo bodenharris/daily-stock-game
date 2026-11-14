@@ -29,7 +29,7 @@
 	<header class="flex h-14 items-center gap-2">
 		<a
 			href="/"
-			class="-ml-2 grid size-12 place-items-center rounded-full text-on-surface-variant hover:bg-on-surface/8"
+			class="-ml-2 grid size-12 place-items-center rounded-none text-on-surface-variant hover:bg-on-surface/8"
 			aria-label="Back to today's chart"
 		>
 			<ArrowLeft class="size-6" />
@@ -73,7 +73,7 @@
 							>
 							<span
 								class={[
-									'rounded-full px-3 py-1 type-label-lg type-numeric',
+									'rounded-none px-3 py-1 type-label-lg type-numeric',
 									p.balanceCents >= START_BALANCE_CENTS
 										? 'bg-up-container text-on-up-container'
 										: 'bg-down-container text-on-down-container'

@@ -238,7 +238,7 @@
 					y={frame.padTop - 4}
 					width={Math.max(0, s.x1 - s.x0 - 3)}
 					height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
-					rx="14"
+					rx="0"
 				/>
 			{/each}
 
@@ -330,17 +330,21 @@
 			opacity: 0;
 		}
 	}
+	/* Arcade vector-display line: square ends, bevelled corners, a soft phosphor glow. */
 	.line {
 		fill: none;
-		stroke-width: 2.25;
-		stroke-linecap: round;
-		stroke-linejoin: round;
+		stroke-width: 2.5;
+		stroke-linecap: square;
+		stroke-linejoin: bevel;
+		filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 55%, transparent));
 	}
 	.context {
 		stroke: var(--chart-ink);
+		color: var(--chart-ink);
 	}
 	.seg {
 		stroke: var(--md-sys-color-primary);
+		color: var(--md-sys-color-primary);
 		stroke-width: 3;
 	}
 	.slot {
@@ -375,8 +379,8 @@
 		fill: none;
 		stroke: var(--md-sys-color-on-primary-container);
 		stroke-width: 2;
-		stroke-linecap: round;
-		stroke-linejoin: round;
+		stroke-linecap: square;
+		stroke-linejoin: miter;
 		opacity: 0.7;
 	}
 	.mark {
@@ -396,7 +400,7 @@
 		opacity: 0.6;
 	}
 	.grid-label {
-		font: 500 11px/1 var(--md-ref-typeface-plain, sans-serif);
+		font: 400 12px/1 var(--md-ref-typeface-plain, monospace);
 		font-variant-numeric: tabular-nums;
 		fill: var(--chart-axis);
 		opacity: 0.8;

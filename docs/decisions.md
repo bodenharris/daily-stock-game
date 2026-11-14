@@ -42,11 +42,12 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 
 ## Look
 
-- **Seed `#2E6B3A`, TonalSpot, 2021 spec.** The 2025 spec output of material-color-utilities 0.4 gave a near-black inverse surface and a non-white on-primary in light mode.
-- **Down is a harmonised coral, not red,** at lower chroma than the green so Down never shouts louder than Up. Every up/down pair passes AA.
-- **Dark mode follows the system.** No toggle, no flash on load.
+- **Arcade pixel look, after krillion.io's title screen** (replaced the green M3 Expressive scheme). A dusk sky over a city skyline at the top of the home page, a dark navy deep below where the game sits, square corners, hard pixel frames instead of soft shadows, faint CRT scanlines.
+- **The mascot is the wolf:** standing on two legs in a navy suit and pink tie, drawn as a 24×39 sprite in `src/lib/brand/wolf.json`. The site, the favicon, the app icons and the link preview all draw from that one file (`scripts/make-images.py` makes the images), always at whole-number scales so the pixels stay square.
+- **One dark scheme, hand-tuned.** No light mode, like an arcade cabinet. The M3 role names stay, so components didn't change; only the values did. The old seed generator is gone.
+- **Up is neon green, down is hot pink.** Pink and cyan are also the two halves of the wordmark's glitch split. Cyan is the signal colour (frames, focus, the chart line); the wolf's yellow eyes are the reveal accent.
 - **Lucide icons, not Material Symbols:** the icon font is several MB.
-- **Self-hosted fonts** (~250 KB): Google Sans Flex for display and numbers, Roboto Flex for body.
+- **Self-hosted pixel fonts** (~45 KB, both OFL): VT323 for all text, scaled up 125% with `size-adjust` because it runs small; Press Start 2P for the wordmark and the balance. VT323 has one weight, so faux bold is switched off and the emphasized styles differ by size only.
 
 ## Bonus round
 

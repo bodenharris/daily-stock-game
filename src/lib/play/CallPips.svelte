@@ -18,7 +18,7 @@
 		{@const r = results[i]}
 		<li class="flex flex-col items-center gap-1">
 			<span
-				class="pip grid size-7 place-items-center rounded-full
+				class="pip grid size-7 place-items-center rounded-none
 				{r
 					? r.correct
 						? 'bg-up text-on-up'
