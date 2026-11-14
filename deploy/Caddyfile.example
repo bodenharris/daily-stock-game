@@ -1,0 +1,14 @@
+# /etc/caddy/Caddyfile. Replace the domains, then: sudo systemctl reload caddy
+# Caddy gets and renews the HTTPS certificates by itself once DNS points at the server.
+
+hindsight.example {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+}
+
+# The single PR preview. Kept out of search engines.
+preview.hindsight.example {
+	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy 127.0.0.1:3001
+}

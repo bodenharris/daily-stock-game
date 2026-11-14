@@ -1,0 +1,83 @@
+name: CI
+
+# Every PR and every push to main: type check, lint and unit tests. On main, once they pass,
+# deploy to production, but only when the repository variable DEPLOY_ENABLED is 'true'.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Placeholders so the build can run in CI. The build checks these exist but never bakes them
+# in; the server reads the real values from /etc/hindsight/<slot>.env when the app starts.
+env:
+  DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+  BETTER_AUTH_SECRET: ci-placeholder-not-a-secret-0123456789abcdef
+  ORIGIN: http://localhost:3000
+
+jobs:
+  verify:
+    name: Check, lint, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run verify
+      - run: npm run build
+
+  deploy:
+    name: Deploy to production
+    needs: verify
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&
+      vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.PROD_URL }}
+    # One deploy at a time, and never cancel one halfway.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+      # Migrations only ever add things, so they are safe to run while the old version is
+      # still serving. A failed migration stops the deploy before any code changes.
+      - name: Migrate the production database
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: npm run db:migrate
+
+      - uses: ./.github/actions/setup-ssh
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          user: ${{ vars.DEPLOY_USER || 'deploy' }}
+          private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+      - name: Ship, switch and health-check
+        uses: ./.github/actions/ship
+        with:
+          slot: prod
+          port: '3000'

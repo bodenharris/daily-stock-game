@@ -1,0 +1,38 @@
+# systemd template for the app. One instance per slot:
+#   hindsight@prod     the live game     (port 3000)
+#   hindsight@preview  the PR preview    (port 3001)
+#
+# Install: sudo cp deploy/hindsight@.service /etc/systemd/system/
+#          sudo systemctl daemon-reload
+#          sudo systemctl enable hindsight@prod hindsight@preview
+#
+# Settings come from /etc/hindsight/<slot>.env (root-owned, mode 600, never in the repo).
+# The preview's DATABASE_URL changes on every preview deploy, so CI writes it to
+# /srv/hindsight/<slot>/shared/runtime.env, which is read second and wins.
+
+[Unit]
+Description=Hindsight (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hindsight
+Group=hindsight
+WorkingDirectory=/srv/hindsight/%i/current
+EnvironmentFile=/etc/hindsight/%i.env
+EnvironmentFile=-/srv/hindsight/%i/shared/runtime.env
+ExecStart=/usr/bin/node build
+Restart=on-failure
+RestartSec=2
+
+# The app only reads its release and talks to the network.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadOnlyPaths=/srv/hindsight
+
+[Install]
+WantedBy=multi-user.target

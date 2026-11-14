@@ -1,6 +1,6 @@
 # Morning report
 
-No deploy workflows exist in `.github/workflows`, so commits were pushed to `main` as we went. Nothing was deployed and the server, DNS and paid services were not touched.
+CI and deploy workflows now live in `.github/workflows` (see the README's Deployment section). Deploy and preview stay off until the repository variables `DEPLOY_ENABLED` and `PREVIEW_ENABLED` are set, so nothing has been deployed, and the server, DNS and paid services were not touched.
 
 ## Run it
 

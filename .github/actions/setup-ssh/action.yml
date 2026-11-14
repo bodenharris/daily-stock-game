@@ -1,0 +1,46 @@
+name: Set up SSH to the server
+description: >
+  Write the deploy key and the server's pinned host key, and define the `deploy-host` alias.
+  The host key is checked strictly: a server that doesn't match is refused.
+
+inputs:
+  host:
+    description: The server's address
+    required: true
+  user:
+    description: The deploy user
+    required: false
+    default: deploy
+  private-key:
+    description: The deploy user's SSH private key
+    required: true
+  known-hosts:
+    description: The server's known_hosts line(s), from `ssh-keyscan <host>` run once by a person
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        HOST: ${{ inputs.host }}
+        DEPLOY_USER: ${{ inputs.user }}
+        KEY: ${{ inputs.private-key }}
+        KNOWN_HOSTS: ${{ inputs.known-hosts }}
+      run: |
+        set -euo pipefail
+        install -m 700 -d ~/.ssh
+        printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+        cat > ~/.ssh/config <<EOF
+        Host deploy-host
+          HostName $HOST
+          User $DEPLOY_USER
+          IdentityFile ~/.ssh/deploy_key
+          IdentitiesOnly yes
+          StrictHostKeyChecking yes
+          UserKnownHostsFile ~/.ssh/known_hosts
+          ServerAliveInterval 15
+        EOF
+        chmod 600 ~/.ssh/config
