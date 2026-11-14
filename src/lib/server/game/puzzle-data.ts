@@ -19,6 +19,15 @@ export interface PuzzleData {
 	outcomes: Direction[];
 	/** Percent move of each stretch. */
 	moves: number[];
+	/** Where the price was about a year after the last stretch, if it still traded. */
+	hindsight: Hindsight | null;
+}
+
+export interface Hindsight {
+	date: string;
+	close: number;
+	/** Percent change from the last bar of the puzzle. */
+	change: number;
 }
 
 /** Tickers that were renamed after delisting: show the symbol people knew at the time. */
@@ -72,6 +81,23 @@ async function load(slug: string): Promise<PuzzleData> {
 	}
 	const closes = rows.map((r) => Number(r.close));
 	const { outcomes, moves } = outcomesFor(closes, p.contextBars, p.stepBars, p.calls);
+	const end = rows[rows.length - 1];
+	// TimescaleDB's last() hyperfunction: the latest close within a year of the puzzle's end.
+	// Only counted if the ticker was still trading near the one-year mark.
+	const [later] = await client<{ close: number | null; ts: string | null }[]>`
+		select last(close, ts) as close, last(ts, ts)::text as ts from prices
+		where ticker = ${p.ticker} and ts > ${end.ts}::date
+			and ts <= ${end.ts}::date + interval '1 year'`;
+	const lastClose = closes[closes.length - 1];
+	const yearOn = Date.parse(end.ts) + 330 * 86_400_000;
+	const hindsight =
+		later?.close != null && later.ts != null && Date.parse(later.ts) >= yearOn
+			? {
+					date: later.ts,
+					close: Number(later.close),
+					change: Math.round((Number(later.close) / lastClose - 1) * 1000) / 10
+				}
+			: null;
 	return {
 		slug: p.slug,
 		ticker: DISPLAY_TICKER[p.ticker] ?? p.ticker,
@@ -84,7 +110,8 @@ async function load(slug: string): Promise<PuzzleData> {
 		dates: rows.map((r) => r.ts),
 		closes,
 		outcomes,
-		moves
+		moves,
+		hindsight
 	};
 }
 

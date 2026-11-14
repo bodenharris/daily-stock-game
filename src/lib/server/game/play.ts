@@ -200,7 +200,8 @@ function assembleView(
 					story: p.story,
 					dates: p.dates,
 					closes: p.closes,
-					moves: p.moves
+					moves: p.moves,
+					hindsight: p.hindsight
 				}
 			: null,
 		nextPuzzleAt: day.nextPuzzleAt,

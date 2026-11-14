@@ -32,6 +32,8 @@ export interface Reveal {
 	closes: number[];
 	/** Percent move of each stretch, e.g. -12.3. */
 	moves: number[];
+	/** A year after the puzzle ended, if the stock still traded. */
+	hindsight: { date: string; close: number; change: number } | null;
 }
 
 export interface GameView {

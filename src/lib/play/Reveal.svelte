@@ -67,6 +67,8 @@
 	}
 
 	const d = (ms: number) => (fresh ? ms : 0);
+	const price = (n: number) =>
+		n >= 100 ? `$${Math.round(n)}` : n >= 10 ? `$${n.toFixed(1)}` : `$${n.toFixed(2)}`;
 </script>
 
 {#if playingBonus}
@@ -93,6 +95,16 @@
 				<span class="type-numeric">{reveal.ticker}</span> · {range}
 			</p>
 			<p class="mt-2 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
+			{#if reveal.hindsight}
+				{@const h = reveal.hindsight}
+				<p class="mt-1 type-body-md text-on-surface-variant">
+					In hindsight: a year later it was
+					<span class="text-on-surface type-numeric">{price(h.close)}</span>
+					<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
+						>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}%)</span
+					>.
+				</p>
+			{/if}
 		</div>
 
 		<div class="rounded-m3-lg bg-surface-container px-4 py-3" in:rise={{ delay: d(450) }}>
