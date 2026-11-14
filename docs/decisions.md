@@ -104,3 +104,13 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 - **Bonus rounds are seeded with an HMAC of the server secret** (not a constant in the repo), and nothing is generated until a finished game is found; the list of candidate tickers is cached.
 - **New stretches draw in neutral ink and take their right/wrong colour only when the last bar lands.** A long stretch that dips and recovers used to be green from the first frame.
 - **Accepted limitation: the public catalog plus public price data can identify a chart.** The context bars are a fingerprint, so a determined player with the repo open can look up the answer. Hiding the catalog would mean keeping it out of the public repo the judges read; there is no leaderboard to protect, and recognising a famous moment is part of the fun. Revisit if prizes or rankings are added.
+
+## After the third playtest (a daily-puzzle regular)
+
+- **How to play opens once on a first visit** (remembered in localStorage; if storage is blocked it simply doesn't auto-open). The first prompt also names the premise: a famous market moment, name hidden till the end.
+- **The chart gets a scale without a spoiler:** faint gridlines at round % moves from today's level (+50%, −20%…), and a caption, "Last 3 months, daily · then 5 calls". Real prices and dates still appear only at the reveal.
+- **The dashed "now" line is the rule, so it is drawn like one:** darker, wider, with small "up" and "down" labels in the next slot.
+- **The vertical range only grows during a game.** Each reveal can add room but never re-zooms the history the player already studied.
+- **After the fifth call, the controls give way to "Unmasking the chart…"** instead of a greyed-out stake row that looked frozen.
+- **Kept on purpose:** the stake resets to 25% after each call (the second playtester bet half by accident with a leftover selection; the third found re-picking mildly annoying; accidental big bets are worse).
+- **Not done tonight:** stake size and rank in the share text. The one-row grid tested better than the three-row version, and rank needs a stats query at share time; both are in "what I'd improve next".
