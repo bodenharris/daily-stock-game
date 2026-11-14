@@ -10,15 +10,18 @@
 	import { toRecords } from './records.ts';
 	import { standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
-	import BonusRound from './BonusRound.svelte';
-	import Dices from '@lucide/svelte/icons/dices';
+	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import type { GameView } from './types.ts';
 
-	let { view, fresh = false }: { view: GameView; fresh?: boolean } = $props();
+	let {
+		view,
+		fresh = false,
+		archive = false
+	}: { view: GameView; fresh?: boolean; archive?: boolean } = $props();
 	const reveal = $derived(view.reveal!);
 	const records = $derived(toRecords(view.results));
 	const archetype = $derived(classifyArchetype(records));
-	const standing = $derived(standingText(view.standing));
+	const standing = $derived(standingText(view.standing, archive ? 'players' : 'today'));
 	const n = $derived(view.nameIt);
 	const named = $derived(!!n && n.guess != null && n.guess === n.answer);
 	const wrongGuess = $derived(
@@ -46,7 +49,6 @@
 			calls: records,
 			archetype,
 			theme: light.current ? 'light' : 'dark',
-			bonus: view.bonus ? { label: 'Real or Random', ...view.bonus } : undefined,
 			standing,
 			named,
 			url: page.url.origin
@@ -54,7 +56,6 @@
 	);
 
 	let copied = $state(false);
-	let playingBonus = $state(false);
 
 	async function share() {
 		const text = shareText;
@@ -110,10 +111,8 @@
 		{:else if wrongGuess}
 			<p class="mt-1 type-label-lg text-on-surface-variant">You guessed {wrongGuess}</p>
 		{/if}
-		{#if !playingBonus}
-			<p class="mt-2 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
-		{/if}
-		{#if reveal.hindsight && !playingBonus}
+		<p class="mt-2 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
+		{#if reveal.hindsight}
 			{@const h = reveal.hindsight}
 			<p class="hindsight mt-1 type-body-md text-on-surface-variant">
 				In hindsight: a year later it was
@@ -125,71 +124,53 @@
 		{/if}
 	</div>
 
-	{#if playingBonus}
-		<svelte:boundary>
-			<BonusRound number={view.number} onDone={() => (playingBonus = false)} />
-			{#snippet failed(error, reset)}
-				<div class="flex flex-col items-start gap-2 py-6">
-					<p class="type-body-lg text-on-surface">The bonus round didn't load.</p>
-					<p class="sr-only">{String((error as { message?: string })?.message ?? '')}</p>
-					<div class="flex gap-2">
-						<Button variant="tonal" size="sm" onclick={reset}>Try again</Button>
-						<Button variant="text" size="sm" onclick={() => (playingBonus = false)}>Back</Button>
-					</div>
-				</div>
-			{/snippet}
-		</svelte:boundary>
-	{:else}
-		<div
-			class={[
-				'rounded-m3-xl px-5 py-4',
-				view.balanceCents >= 10000
-					? 'bg-primary-container text-on-primary-container'
-					: 'bg-surface-container-high text-on-surface'
-			]}
-			in:pop={{ delay: d(450), start: 0.92 }}
-		>
-			<div class="flex items-baseline justify-between gap-3">
-				<p class="type-title-lg-emphasized">{archetype.label}</p>
-				{#if standing}
-					<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
-				{/if}
-			</div>
-			<p class="type-body-sm opacity-80">{archetype.line}</p>
-		</div>
-
-		<div class="flex flex-col gap-2" in:rise={{ delay: d(650) }}>
-			<div class={['grid gap-2', view.bonus ? 'grid-cols-1' : 'grid-cols-[1fr_auto]']}>
-				<Button variant="filled" size="md" onclick={share} aria-live="polite">
-					{#if copied}
-						<Check /> Copied
-					{:else}
-						<Share2 /> Share
-					{/if}
-				</Button>
-				{#if !view.bonus}
-					<Button variant="tonal" size="md" onclick={() => (playingBonus = true)}>
-						<Dices /> Bonus
-					</Button>
-				{/if}
-			</div>
-			{#if manualCopy}
-				<div class="rounded-m3-lg bg-surface-container px-4 py-3">
-					<p class="type-label-md text-on-surface-variant">Copy this and paste it to a friend:</p>
-					<pre
-						class="mt-1 type-body-md whitespace-pre-wrap text-on-surface select-all"
-						{@attach selectAll}>{manualCopy}</pre>
-				</div>
+	<div
+		class={[
+			'rounded-m3-xl px-5 py-4',
+			view.balanceCents >= 10000
+				? 'bg-primary-container text-on-primary-container'
+				: 'bg-surface-container-high text-on-surface'
+		]}
+		in:pop={{ delay: d(450), start: 0.92 }}
+	>
+		<div class="flex items-baseline justify-between gap-3">
+			<p class="type-title-lg-emphasized">{archetype.label}</p>
+			{#if standing}
+				<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
 			{/if}
-			<p class="text-center type-body-sm text-on-surface-variant">
-				{#if view.bonus}
-					<span>Real or Random {view.bonus.correct}/{view.bonus.total}</span>
-					<span aria-hidden="true">&nbsp;·&nbsp;</span>
-				{/if}
-				<Countdown to={view.nextPuzzleAt} />
-			</p>
 		</div>
-	{/if}
+		<p class="type-body-sm opacity-80">{archetype.line}</p>
+	</div>
+
+	<div class="flex flex-col gap-2" in:rise={{ delay: d(650) }}>
+		<div class="grid grid-cols-[1fr_auto] gap-2">
+			<Button variant="filled" size="md" onclick={share} aria-live="polite">
+				{#if copied}
+					<Check /> Copied
+				{:else}
+					<Share2 /> Share
+				{/if}
+			</Button>
+			<Button variant="tonal" size="md" href="/archive">
+				<CalendarDays /> Past charts
+			</Button>
+		</div>
+		{#if manualCopy}
+			<div class="rounded-m3-lg bg-surface-container px-4 py-3">
+				<p class="type-label-md text-on-surface-variant">Copy this and paste it to a friend:</p>
+				<pre
+					class="mt-1 type-body-md whitespace-pre-wrap text-on-surface select-all"
+					{@attach selectAll}>{manualCopy}</pre>
+			</div>
+		{/if}
+		<p class="text-center type-body-sm text-on-surface-variant">
+			{#if archive}
+				<a href="/" class="underline-offset-4 hover:underline">Today's chart</a>
+			{:else}
+				<Countdown to={view.nextPuzzleAt} />
+			{/if}
+		</p>
+	</div>
 </section>
 
 <style>

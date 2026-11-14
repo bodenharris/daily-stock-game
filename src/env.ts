@@ -31,6 +31,14 @@ export const variables = defineEnvVars({
 			"Tag for plays from this server: 'real' (default in production) or 'dev'. Set 'dev' when running a local production build against the shared database.",
 		schema: (value) => (value === 'dev' || value === 'real' ? value : undefined)
 	},
+	DEV_DAY_OFFSET: {
+		description:
+			'Development only: shift which puzzle day it is by this many days, to try the archive and day rollover without waiting for midnight. Ignored in production.',
+		schema: (value) => {
+			const n = Number(value);
+			return value && Number.isInteger(n) ? n : undefined;
+		}
+	},
 	BETTER_AUTH_URL: {
 		description: 'Public base URL Better Auth uses for callbacks. Falls back to ORIGIN.',
 		schema: optional

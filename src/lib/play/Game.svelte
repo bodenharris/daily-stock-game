@@ -7,7 +7,7 @@
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { START_BALANCE_CENTS, STAKE_OPTIONS } from '#lib/game/config.ts';
-	import { getGame, makeCall } from '#lib/remote/game.remote.ts';
+	import { getDay, getGame, makeCall } from '#lib/remote/game.remote.ts';
 	import PriceChart from './PriceChart.svelte';
 	import StakePicker from './StakePicker.svelte';
 	import CallPips from './CallPips.svelte';
@@ -17,7 +17,8 @@
 	import { dollars, percent } from './money.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
-	let { view }: { view: GameView } = $props();
+	/** `archive`: a past day played from the archive, not today's chart. */
+	let { view, archive = false }: { view: GameView; archive?: boolean } = $props();
 
 	/** How long the chart takes to draw a new stretch. Everything else waits for it. */
 	const DRAW_MS = 900;
@@ -155,6 +156,7 @@
 		try {
 			const res = await makeCall({
 				puzzleNumber: view.number,
+				archive,
 				step: callsMade + 1,
 				direction,
 				stakePercent: Number(stakePercent)
@@ -167,7 +169,7 @@
 			if (status === 409) {
 				// A new day started, or this call was already made in another tab: catch up.
 				error = message ?? null;
-				await getGame()
+				await (archive ? getDay(view.number) : getGame())
 					.refresh()
 					.catch(() => (error = 'Refresh the page to continue.'));
 			} else if ((status === 429 || status === 503) && message) {
@@ -273,10 +275,10 @@
 		{/if}
 
 		{#if showReveal}
-			<Reveal {view} {fresh} />
+			<Reveal {view} {fresh} {archive} />
 		{:else if naming && view.nameIt}
 			<div class="controls flex flex-col">
-				<NameIt number={view.number} nameIt={view.nameIt} onAnswered={answered} />
+				<NameIt number={view.number} nameIt={view.nameIt} {archive} onAnswered={answered} />
 			</div>
 		{:else}
 			<div class="controls flex flex-col pb-4">

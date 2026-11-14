@@ -4,7 +4,6 @@
  *   Hindsight #12 · $100 → $146
  *   🟩⭐⭐🟥🟥
  *   🙃 The Contrarian
- *   🎲 Real or Random 2/3        (only after the bonus round)
  *   https://hindsight.example
  *
  * One square per call: 🟩 right, 🟥 wrong, ⭐ right while most players called it the other way.
@@ -32,19 +31,11 @@ export const SHARE_CELLS = {
 	beatCrowd: '⭐'
 } as const;
 
-export interface BonusResult {
-	/** e.g. "Real or Random" */
-	readonly label: string;
-	readonly correct: number;
-	readonly total: number;
-}
-
 export interface ShareInput {
 	readonly puzzleNumber: number;
 	readonly calls: readonly CallRecord[];
 	/** Defaults to the classification of `calls`. */
 	readonly archetype?: Archetype;
-	readonly bonus?: BonusResult;
 	/** Defaults to SITE_URL. */
 	readonly url?: string;
 	/** @deprecated Ignored: the one-row text has no empty cells to colour. Still accepted. */
@@ -98,10 +89,6 @@ export function buildShareText(input: ShareInput): string {
 		shareRow(calls) + (input.named ? ' 🎯' : ''),
 		`${archetype.emoji} ${archetype.label}${input.standing ? ` · ${input.standing}` : ''}`
 	];
-	if (input.bonus) {
-		const { label, correct, total } = input.bonus;
-		lines.push(`🎲 ${label} ${correct}/${total}`);
-	}
 	lines.push(input.url ?? SITE_URL);
 	return lines.join('\n');
 }

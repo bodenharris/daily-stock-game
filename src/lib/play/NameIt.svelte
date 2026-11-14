@@ -14,8 +14,14 @@
 	let {
 		number,
 		nameIt,
+		archive = false,
 		onAnswered
-	}: { number: number; nameIt: NameIt; onAnswered: (named: boolean) => void } = $props();
+	}: {
+		number: number;
+		nameIt: NameIt;
+		archive?: boolean;
+		onAnswered: (named: boolean) => void;
+	} = $props();
 
 	let picked = $state<number | null>(null);
 	let busy = $state(false);
@@ -29,7 +35,7 @@
 		picked = choice;
 		error = null;
 		try {
-			const view = await sendGuess({ puzzleNumber: number, choice });
+			const view = await sendGuess({ puzzleNumber: number, choice, archive });
 			const n = view.nameIt;
 			onAnswered(!!n && n.guess != null && n.guess === n.answer);
 		} catch {

@@ -76,8 +76,6 @@ export interface GameView {
 	standing: { betterThan: number | null; finished: number } | null;
 	/** "Name it" for a finished game; null before the last call. */
 	nameIt: NameIt | null;
-	/** Real or Random score, once played. */
-	bonus: { correct: number; total: number } | null;
 }
 
 export interface CallResponse {

@@ -16,5 +16,9 @@ describe('standingText', () => {
 
 	it('uses a percentage for big crowds', () => {
 		expect(standingText({ betterThan: 0.64, finished: 500 })).toBe('Beat 64% of players today');
+		expect(standingText({ betterThan: 0.64, finished: 500 }, 'players')).toBe(
+			'Beat 64% of players'
+		);
+		expect(standingText({ betterThan: 0.75, finished: 5 }, 'players')).toBe('2nd of 5 players');
 	});
 });

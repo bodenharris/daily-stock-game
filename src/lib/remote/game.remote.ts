@@ -2,8 +2,14 @@ import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
 import { command, getRequestEvent, query } from '$app/server';
 import { auth } from '#lib/server/auth.ts';
-import { PlayError, nameMoment, placeCall, viewFor } from '#lib/server/game/play.ts';
-import { BONUS_ROUNDS, bonusState, guessBonus } from '#lib/server/game/bonus.ts';
+import {
+	PlayError,
+	archiveFor,
+	dayView,
+	nameMoment,
+	placeCall,
+	viewFor
+} from '#lib/server/game/play.ts';
 import { STAKE_OPTIONS } from '#lib/game/config.ts';
 import type { CallResponse, GameView } from '#lib/play/types.ts';
 
@@ -71,18 +77,43 @@ export const getGame = query(async (): Promise<GameView> => {
 	}
 });
 
+const puzzleNumber = v.pipe(v.number(), v.integer(), v.minValue(1));
+
+/** A past day, for the archive. */
+export const getDay = query(puzzleNumber, async (number): Promise<GameView> => {
+	try {
+		return await dayView(currentUser(), number);
+	} catch (e) {
+		rethrow(e);
+	}
+});
+
+/** Every past day, with how this player did on each. */
+export const getArchive = query(async () => archiveFor(currentUser()));
+
+/** Point the right cached query at a game's new view: today's page, or the archive's. */
+function publish(view: GameView, archive: boolean) {
+	if (archive) {
+		getDay(view.number).set(view);
+		void getArchive().refresh();
+	} else {
+		getGame().set(view);
+	}
+}
+
 export const makeCall = command(
 	v.object({
-		puzzleNumber: v.pipe(v.number(), v.integer(), v.minValue(1)),
+		puzzleNumber,
 		step: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(10)),
 		direction: v.picklist(['up', 'down']),
-		stakePercent: v.picklist(STAKE_OPTIONS.map((o) => o.percent))
+		stakePercent: v.picklist(STAKE_OPTIONS.map((o) => o.percent)),
+		archive: v.optional(v.boolean())
 	}),
 	async (input): Promise<CallResponse> => {
 		try {
 			const user = await playerForWrite();
 			const res = await placeCall(user, input);
-			getGame().set(res.view);
+			publish(res.view, !!input.archive);
 			return res;
 		} catch (e) {
 			rethrow(e);
@@ -93,52 +124,19 @@ export const makeCall = command(
 /** "Name it": pick one of the four moments (by index), or null to skip. Then the reveal. */
 export const nameIt = command(
 	v.object({
-		puzzleNumber: v.pipe(v.number(), v.integer(), v.minValue(1)),
-		choice: v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(3)))
+		puzzleNumber,
+		choice: v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(3))),
+		archive: v.optional(v.boolean())
 	}),
-	async ({ puzzleNumber, choice }): Promise<GameView> => {
+	async ({ puzzleNumber, choice, archive }): Promise<GameView> => {
 		const user = currentUser();
 		if (!user) error(401, 'Play today first');
 		try {
-			const view = await nameMoment(user, puzzleNumber, choice);
-			getGame().set(view);
+			const view = await nameMoment(user, puzzleNumber, choice, !!archive);
+			publish(view, !!archive);
 			return view;
 		} catch (e) {
 			rethrow(e);
 		}
-	}
-);
-
-const bonusNumber = v.pipe(v.number(), v.integer(), v.minValue(1));
-
-/** The Real-or-Random round for a finished game (answers only for rounds already guessed). */
-export const getBonus = query(bonusNumber, async (puzzleNumber) => {
-	const user = currentUser();
-	if (!user) error(401, 'Play today first');
-	try {
-		return await bonusState(user.id, puzzleNumber);
-	} catch {
-		error(409, 'Finish the game first');
-	}
-});
-
-export const guessBonusRound = command(
-	v.object({
-		puzzleNumber: bonusNumber,
-		index: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(BONUS_ROUNDS - 1)),
-		real: v.boolean()
-	}),
-	async ({ puzzleNumber, index, real }) => {
-		const user = currentUser();
-		if (!user) error(401, 'Play today first');
-		let state;
-		try {
-			state = await guessBonus(user.id, puzzleNumber, index, real);
-		} catch {
-			error(409, 'Finish the game first');
-		}
-		getBonus(puzzleNumber).set(state);
-		if (state.finished) void getGame().refresh();
-		return state;
 	}
 );

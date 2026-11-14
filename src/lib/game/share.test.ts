@@ -16,8 +16,6 @@ const CONTRARIAN_GAME: CallSpec[] = [
 	[25, L, 0.5]
 ];
 
-const BONUS = { label: 'Real or Random', correct: 2, total: 3 };
-
 describe('buildShareText', () => {
 	it('renders the full card', () => {
 		const text = buildShareText({ puzzleNumber: 12, calls: playGame(CONTRARIAN_GAME) });
@@ -64,26 +62,10 @@ describe('buildShareText', () => {
 		expect(buildShareText(input)).toBe(text);
 	});
 
-	it('adds an optional bonus line before the URL', () => {
-		const text = buildShareText({
-			puzzleNumber: 3,
-			calls: playGame(CONTRARIAN_GAME),
-			bonus: BONUS
-		});
-		expect(text.split('\n')).toEqual([
-			'Hindsight #3 · $100 → $146',
-			'🟩⭐⭐🟥🟥',
-			'🙃 The Contrarian',
-			'🎲 Real or Random 2/3',
-			SITE_URL
-		]);
-	});
-
-	it('is at most 5 lines, with or without the bonus', () => {
+	it('is always 4 lines', () => {
 		for (const specs of randomGames(500)) {
 			const calls = playGame(specs);
 			expect(buildShareText({ puzzleNumber: 7, calls }).split('\n')).toHaveLength(4);
-			expect(buildShareText({ puzzleNumber: 7, calls, bonus: BONUS }).split('\n')).toHaveLength(5);
 		}
 	});
 
@@ -163,16 +145,14 @@ describe('spoilers', () => {
 
 	it('the text is identical whichever way the calls went', () => {
 		for (const specs of randomGames(500)) {
-			const asPlayed = buildShareText({ puzzleNumber: 7, calls: playGame(specs), bonus: BONUS });
+			const asPlayed = buildShareText({ puzzleNumber: 7, calls: playGame(specs) });
 			const flipped = buildShareText({
 				puzzleNumber: 7,
-				calls: playGame(flipDirections(specs)),
-				bonus: BONUS
+				calls: playGame(flipDirections(specs))
 			});
 			const allUp = buildShareText({
 				puzzleNumber: 7,
-				calls: playGame(specs.map(([s, c, share]) => [s, c, share, 'up'])),
-				bonus: BONUS
+				calls: playGame(specs.map(([s, c, share]) => [s, c, share, 'up']))
 			});
 			expect(flipped).toBe(asPlayed);
 			expect(allUp).toBe(asPlayed);
@@ -181,7 +161,7 @@ describe('spoilers', () => {
 
 	it('contains no arrows, chart emoji or direction words', () => {
 		for (const specs of randomGames(500)) {
-			const text = buildShareText({ puzzleNumber: 7, calls: playGame(specs), bonus: BONUS });
+			const text = buildShareText({ puzzleNumber: 7, calls: playGame(specs) });
 			expect(text).not.toMatch(directionGlyphs);
 		}
 		for (const a of ARCHETYPES) expect(`${a.emoji} ${a.label}`).not.toMatch(directionGlyphs);

@@ -1,6 +1,10 @@
-/** Where a finish stands among today's players, in a few friendly words. */
+/**
+ * Where a finish stands among the day's players, in a few friendly words. `among` is 'today'
+ * for today's chart, or 'players' for a past day played from the archive.
+ */
 export function standingText(
-	standing: { betterThan: number | null; finished: number } | null
+	standing: { betterThan: number | null; finished: number } | null,
+	among: 'today' | 'players' = 'today'
 ): string | null {
 	if (!standing || standing.betterThan == null || standing.finished < 2) return null;
 	const { betterThan, finished } = standing;
@@ -14,7 +18,7 @@ export function standingText(
 					: place % 10 === 3 && place % 100 !== 13
 						? 'rd'
 						: 'th';
-		return `${place}${suffix} of ${finished} today`;
+		return `${place}${suffix} of ${finished} ${among === 'today' ? 'today' : 'players'}`;
 	}
-	return `Beat ${Math.round(betterThan * 100)}% of players today`;
+	return `Beat ${Math.round(betterThan * 100)}% of players${among === 'today' ? ' today' : ''}`;
 }

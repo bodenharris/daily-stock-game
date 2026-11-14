@@ -1,15 +1,18 @@
-import { and, desc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { dev } from '$app/env';
-import { BETTER_AUTH_SECRET, PLAY_SOURCE, PUZZLE_SECRET } from '$app/env/private';
+import { BETTER_AUTH_SECRET, DEV_DAY_OFFSET, PLAY_SOURCE, PUZZLE_SECRET } from '$app/env/private';
 import { db } from '#lib/server/db/index.ts';
-import { games, guesses } from '#lib/server/db/schema.ts';
-import { LAUNCH_DATE, START_BALANCE_CENTS } from '#lib/game/config.ts';
+import { games, guesses, schedule } from '#lib/server/db/schema.ts';
+import { START_BALANCE_CENTS } from '#lib/game/config.ts';
 import { blendedShare, lockMultiplier, settleCall, stakeOptionFor } from '#lib/game/economy.ts';
 import { classifyGame } from '#lib/game/archetype.ts';
 import { easternDateString, midnightIn, puzzleNumberFor } from '#lib/game/daily.ts';
 import { puzzleForNumber, visibleBars, type PuzzleData } from './puzzle-data.ts';
 import { standingOf, type Standing } from '#lib/server/stats.ts';
 import { optionsFor } from './name-it.ts';
+import { GRACE_MS, countStreak, dateForNumber, playedOnItsDay } from './streak.ts';
+
+export { GRACE_MS, dateForNumber };
 import type { CallResult, Direction, GameView, NameIt } from '#lib/play/types.ts';
 
 /**
@@ -23,9 +26,6 @@ const sourceIn = sql`source in (${sql.join(
 	CROWD_SOURCES.map((s) => sql`${s}`),
 	sql`, `
 )})`;
-
-/** A game started before midnight can still be finished for this long after the rollover. */
-export const GRACE_MS = 3 * 60 * 60 * 1000;
 
 export class PlayError extends Error {
 	readonly status: number;
@@ -55,13 +55,6 @@ export interface Day {
 	puzzle: PuzzleData;
 }
 
-/** Eastern calendar date of daily puzzle `number`. */
-export function dateForNumber(number: number): string {
-	const d = new Date(`${LAUNCH_DATE}T12:00:00Z`);
-	d.setUTCDate(d.getUTCDate() + number - 1);
-	return d.toISOString().slice(0, 10);
-}
-
 export async function loadDay(number: number): Promise<Day> {
 	try {
 		const date = dateForNumber(number);
@@ -80,10 +73,58 @@ export async function loadDay(number: number): Promise<Day> {
 	}
 }
 
+/**
+ * The clock that decides which day it is. In development only, DEV_DAY_OFFSET shifts it by
+ * whole days, so the archive and day rollover can be tried without waiting for midnight.
+ * Timestamps on games and calls always use the real time.
+ */
+function dayClock(now: Date): Date {
+	return dev && DEV_DAY_OFFSET ? new Date(now.getTime() + DEV_DAY_OFFSET * 86_400_000) : now;
+}
+
+/** Today's puzzle number. */
+export function todayNumber(now = new Date()): number {
+	return puzzleNumberFor(dayClock(now));
+}
+
 export async function loadToday(now = new Date()): Promise<Day> {
-	const number = puzzleNumberFor(now);
-	const day = await loadDay(number);
-	return { ...day, date: easternDateString(now) };
+	const shifted = dayClock(now);
+	const day = await loadDay(puzzleNumberFor(shifted));
+	return { ...day, date: easternDateString(shifted) };
+}
+
+/** Whether `number` is a past day that really happened (it has a stored schedule entry). */
+async function isPastDay(number: number, today: number): Promise<boolean> {
+	if (!Number.isInteger(number) || number < 1 || number >= today) return false;
+	const [row] = await db
+		.select({ n: schedule.number })
+		.from(schedule)
+		.where(eq(schedule.number, number));
+	return !!row;
+}
+
+/**
+ * The day a call or guess is for. Today's page may only play today (and, for a few hours after
+ * midnight, finish yesterday's game it had started); the archive may play any past day.
+ */
+async function dayFor(
+	puzzleNumber: number,
+	archive: boolean,
+	now: Date
+): Promise<{ today: number; day: Day; grace: boolean }> {
+	// The archive only needs today's number: it never loads (and so never schedules) today.
+	if (archive) {
+		const today = todayNumber(now);
+		if (!(await isPastDay(puzzleNumber, today))) {
+			throw new PlayError(404, 'That chart is not in the archive.');
+		}
+		return { today, day: await loadDay(puzzleNumber), grace: false };
+	}
+	const today = await loadToday(now);
+	if (puzzleNumber === today.number) return { today: today.number, day: today, grace: false };
+	const grace = puzzleNumber === today.number - 1 && now.getTime() - today.unlockAt < GRACE_MS;
+	if (!grace) throw new PlayError(409, 'A new chart just came out. Here it is.');
+	return { today: today.number, day: await loadDay(puzzleNumber), grace: true };
 }
 
 /** Live crowd counts for every step of a puzzle, from the continuous aggregate. */
@@ -138,22 +179,21 @@ function toStoredCall(g: GuessRow) {
 	};
 }
 
-/** Consecutive daily puzzles finished, ending today or yesterday. */
+/**
+ * Consecutive daily puzzles finished on their own day, ending today or yesterday. Past days
+ * played from the archive don't count: a streak means showing up every day.
+ */
 export async function streakFor(userId: string, todayNumber: number): Promise<number> {
 	const rows = await db
-		.select({ n: games.puzzleNumber })
+		.select({ n: games.puzzleNumber, startedAt: games.startedAt, finishedAt: games.finishedAt })
 		.from(games)
 		.where(and(eq(games.userId, userId), isNotNull(games.finishedAt)))
 		.orderBy(desc(games.puzzleNumber))
 		.limit(1000);
-	let expected = rows[0]?.n === todayNumber ? todayNumber : todayNumber - 1;
-	let streak = 0;
-	for (const { n } of rows) {
-		if (n !== expected) break;
-		streak++;
-		expected--;
-	}
-	return streak;
+	const onTime = rows
+		.filter((r) => playedOnItsDay(r.n, r.startedAt, r.finishedAt!))
+		.map((r) => r.n);
+	return countStreak(onTime, todayNumber);
 }
 
 /** A game's calls. Filters on the hypertable's segment column and time so old chunks are skipped. */
@@ -214,10 +254,6 @@ function assembleView(
 		nextPuzzleAt: day.nextPuzzleAt,
 		signedIn: !!user && !user.isAnonymous,
 		email: user && !user.isAnonymous ? (user.email ?? null) : null,
-		bonus:
-			game?.bonusCorrect != null && game.bonusTotal != null
-				? { correct: game.bonusCorrect, total: game.bonusTotal }
-				: null,
 		streak,
 		standing: finished ? standing : null,
 		nameIt
@@ -307,6 +343,8 @@ export interface PlaceCallInput {
 	direction: Direction;
 	stakePercent: number;
 	puzzleNumber: number;
+	/** Played from the archive (a past day), not today's page. */
+	archive?: boolean;
 }
 
 /**
@@ -318,14 +356,8 @@ export async function placeCall(
 	input: PlaceCallInput,
 	now = new Date()
 ): Promise<{ view: GameView; result: CallResult }> {
-	const today = await loadToday(now);
 	// Yesterday's game may be finished during the grace period, but not started.
-	const grace =
-		input.puzzleNumber === today.number - 1 && now.getTime() - today.unlockAt < GRACE_MS;
-	if (input.puzzleNumber !== today.number && !grace) {
-		throw new PlayError(409, 'A new chart just came out. Here it is.');
-	}
-	const day = grace ? await loadDay(input.puzzleNumber) : today;
+	const { today, day, grace } = await dayFor(input.puzzleNumber, !!input.archive, now);
 	const p = day.puzzle;
 	if (!Number.isInteger(input.step) || input.step < 1 || input.step > p.calls) {
 		throw new PlayError(400, 'Bad step');
@@ -413,7 +445,7 @@ export async function placeCall(
 		return updated;
 	});
 
-	const view = await viewOfGame(day, outcome, user, today.number);
+	const view = await viewOfGame(day, outcome, user, today);
 	const result = view.results.find((r) => r.step === input.step)!;
 	return { view, result };
 }
@@ -426,14 +458,10 @@ export async function nameMoment(
 	user: Player,
 	puzzleNumber: number,
 	choice: number | null,
+	archive = false,
 	now = new Date()
 ): Promise<GameView> {
-	const today = await loadToday(now);
-	const grace = puzzleNumber === today.number - 1 && now.getTime() - today.unlockAt < GRACE_MS;
-	if (puzzleNumber !== today.number && !grace) {
-		throw new PlayError(409, 'A new chart just came out. Here it is.');
-	}
-	const day = grace ? await loadDay(puzzleNumber) : today;
+	const { today, day } = await dayFor(puzzleNumber, archive, now);
 	const options = await optionsFor(day.puzzle);
 	if (choice != null && (!Number.isInteger(choice) || choice < 0 || choice >= options.length)) {
 		throw new PlayError(400, 'Pick one of the options');
@@ -446,5 +474,93 @@ export async function nameMoment(
 		.returning();
 	const game = updated ?? (await db.select().from(games).where(where))[0];
 	if (!game || game.finishedAt == null) throw new PlayError(409, 'Finish the game first');
-	return viewOfGame(day, game, user, today.number);
+	return viewOfGame(day, game, user, today);
+}
+
+/** The view of a past day, for the archive. */
+export async function dayView(
+	user: Player | null,
+	number: number,
+	now = new Date()
+): Promise<GameView> {
+	const today = todayNumber(now);
+	if (!(await isPastDay(number, today))) {
+		throw new PlayError(404, 'That chart is not in the archive.');
+	}
+	const day = await loadDay(number);
+	if (!user) return assembleView(day, null, [], null, new Map(), 0);
+	const [game] = await db
+		.select()
+		.from(games)
+		.where(and(eq(games.userId, user.id), eq(games.puzzleNumber, number)));
+	if (game) return viewOfGame(day, game, user, today);
+	return assembleView(day, null, [], user, new Map(), await streakFor(user.id, today));
+}
+
+export interface ArchiveDay {
+	number: number;
+	/** Eastern date, YYYY-MM-DD. */
+	date: string;
+	/** This player's game, if they played it. */
+	played: { step: number; finished: boolean; balanceCents: number; right: number } | null;
+}
+
+/** Every past day that happened, newest first, with how this player did on each. */
+export async function archiveFor(
+	user: Player | null,
+	now = new Date()
+): Promise<{ today: number; days: ArchiveDay[] }> {
+	const today = todayNumber(now);
+	const days = await db
+		.select({ number: schedule.number })
+		.from(schedule)
+		.where(lt(schedule.number, today))
+		.orderBy(desc(schedule.number))
+		.limit(400);
+	const numbers = days.map((d) => d.number);
+	const mine =
+		user && numbers.length
+			? await db
+					.select()
+					.from(games)
+					.where(and(eq(games.userId, user.id), inArray(games.puzzleNumber, numbers)))
+			: [];
+	const right = new Map<string, number>();
+	if (mine.length) {
+		const rows = await db
+			.select({
+				gameId: guesses.gameId,
+				right: sql<number>`count(*) filter (where ${guesses.correct})::int`
+			})
+			.from(guesses)
+			.where(
+				and(
+					inArray(guesses.puzzleNumber, numbers),
+					inArray(
+						guesses.gameId,
+						mine.map((g) => g.id)
+					)
+				)
+			)
+			.groupBy(guesses.gameId);
+		for (const r of rows) right.set(r.gameId, r.right);
+	}
+	return {
+		today,
+		days: numbers.map((number) => {
+			const g = mine.find((m) => m.puzzleNumber === number);
+			return {
+				number,
+				date: dateForNumber(number),
+				played: g
+					? {
+							step: g.step,
+							finished: g.finishedAt != null,
+							balanceCents: g.balanceCents,
+							right: right.get(g.id) ?? 0
+						}
+					: null
+			};
+		})
+	};
 }

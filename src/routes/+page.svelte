@@ -2,6 +2,7 @@
 	import CircleHelp from '@lucide/svelte/icons/circle-help';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
 	import CircleUser from '@lucide/svelte/icons/circle-user';
+	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import { IconButton } from '#lib/components/ui/icon-button/index.js';
 	import { getGame } from '#lib/remote/game.remote.ts';
 	import Game from '#lib/play/Game.svelte';
@@ -62,6 +63,9 @@
 		<div class="ml-auto flex items-center">
 			<IconButton aria-label="How to play" onclick={openHelp}>
 				<CircleHelp />
+			</IconButton>
+			<IconButton href="/archive" aria-label="Past charts" class="hidden sm:inline-flex">
+				<CalendarDays />
 			</IconButton>
 			<IconButton href="/stats" aria-label="Live stats">
 				<ChartColumn />

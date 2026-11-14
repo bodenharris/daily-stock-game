@@ -1,6 +1,6 @@
 // Tickers whose daily history we download from Tiingo (see scripts/fetch-prices.ts).
 // Order is fetch priority: every puzzle ticker first, then long-history large caps and ETFs
-// used by the "Real or Random?" bonus round and to fill the prices hypertable.
+// used to fill the prices hypertable.
 //
 // `ticker` is the Tiingo symbol (and the key we store prices under). Delisted companies keep
 // their post-delisting Tiingo symbol: BBBYQ is Bed Bath & Beyond, whose history before 2023 is
@@ -44,7 +44,7 @@ export const puzzleTickers: TickerInfo[] = [
 	{ ticker: 'TWTR', name: 'Twitter' }
 ];
 
-export const bonusTickers: TickerInfo[] = [
+export const moreTickers: TickerInfo[] = [
 	// Candidates fetched while curating puzzles (already cached)
 	{ ticker: 'CSCO', name: 'Cisco Systems' },
 	{ ticker: 'KO', name: 'Coca-Cola' },
@@ -144,4 +144,4 @@ export const bonusTickers: TickerInfo[] = [
 	{ ticker: 'HOOD', name: 'Robinhood Markets' }
 ];
 
-export const tickers: TickerInfo[] = [...puzzleTickers, ...bonusTickers];
+export const tickers: TickerInfo[] = [...puzzleTickers, ...moreTickers];

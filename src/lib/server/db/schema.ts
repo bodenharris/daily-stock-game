@@ -102,6 +102,7 @@ export const games = pgTable(
 		step: smallint('step').notNull().default(0),
 		balanceCents: integer('balance_cents').notNull(),
 		archetype: text('archetype'),
+		/** The Real or Random bonus round's columns. The round was removed; kept, unused. */
 		bonusCorrect: smallint('bonus_correct'),
 		/** Real-or-random guesses in order, stored before each answer is revealed. */
 		bonusGuesses: boolean('bonus_guesses').array(),
