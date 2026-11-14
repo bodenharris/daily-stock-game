@@ -64,9 +64,13 @@
 	const finished = $derived(view.finished && !revealing && endingReady);
 
 	// Back to the middle chip after each call, so a big bet is always a choice, never a leftover.
+	// svelte-ignore state_referenced_locally
+	let lastShown = shown;
 	$effect(() => {
-		void shown;
-		stakePercent = '25';
+		if (shown !== lastShown) {
+			lastShown = shown;
+			stakePercent = '25';
+		}
 	});
 	const balanceCents = $derived(latest?.balanceAfterCents ?? START_BALANCE_CENTS);
 	const callsMade = $derived(view.results.length);
@@ -141,10 +145,15 @@
 			setTimeout(() => buzz(res.result.correct ? [8, 60, 16] : 40), DRAW_MS);
 		} catch (e) {
 			const status = (e as { status?: number }).status;
+			const message = (e as { body?: { message?: string } }).body?.message;
 			if (status === 409) {
 				// A new day started, or this call was already made in another tab: catch up.
-				await getGame().refresh();
-				error = (e as { body?: { message?: string } }).body?.message ?? null;
+				error = message ?? null;
+				await getGame()
+					.refresh()
+					.catch(() => (error = 'Refresh the page to continue.'));
+			} else if ((status === 429 || status === 503) && message) {
+				error = message;
 			} else {
 				error = navigator.onLine
 					? 'That call did not go through. Try again.'
@@ -155,7 +164,7 @@
 		}
 	}
 
-	const busy = $derived(!!pending || revealing);
+	const busy = $derived(!!pending || revealing || view.finished);
 	/** The call in flight or being revealed, highlighted until the result lands. */
 	const chosen = $derived<Direction | null>(
 		pending ?? (revealing ? (view.results.at(-1)?.direction ?? null) : null)
@@ -243,7 +252,7 @@
 				{/if}
 			</div>
 
-			{#if !view.finished}
+			{#if !finished}
 				<div class="mt-3">
 					<p class="mb-2 text-center type-label-md text-on-surface-variant">
 						Stake for call {Math.min(results.length + 1, view.calls)} of {view.calls}

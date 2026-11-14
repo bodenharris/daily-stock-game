@@ -67,7 +67,7 @@
 		</div>
 	{/key}
 
-	<div class="min-h-[6.5rem]">
+	<div class="min-h-[6.5rem]" role="status" aria-live="polite">
 		{#if done}
 			<div class="flex flex-col gap-3" in:fly={{ y: 8, duration: 250 }}>
 				<div class="flex items-center gap-3">
@@ -79,7 +79,7 @@
 					>
 						{#if right}<Check class="size-5" />{:else}<X class="size-5" />{/if}
 					</span>
-					<p class="type-body-lg text-on-surface" role="status">
+					<p class="type-body-lg text-on-surface">
 						<span class="sr-only">{right ? 'Right.' : 'Wrong.'}</span>
 						{#if done.answer.real && done.answer.ticker && done.answer.from && done.answer.to}
 							Real: {done.answer.name ?? done.answer.ticker} ({done.answer.ticker}), {fmt(

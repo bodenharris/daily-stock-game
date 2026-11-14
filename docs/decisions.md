@@ -96,3 +96,11 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 - **Results, 30 scenarios × 20,000 games:** thoughtful play beats random and all-in in 30/30 on median, log return, share of games above $100, P10 and day-to-day wins. Random play's median stays below $100 with a negative log return in all 30.
 - **Two goals had to give.** With an even-money floor, a coin-flipper can't lose on average, so random play's mean is $102.45 pooled (at most $107 in any one scenario), and all-in's mean beats thoughtful's in most scenarios. Both are mathematically unavoidable once no win may pay under 1×, and both are things a player can't feel from one game a day; the median, the bust rate (thoughtful 7.5%, all-in 41%) and day-to-day wins all still favour thoughtful play.
 - **The result line shows the bonus in dollars** ("Right. 1 of 4 players called up. Crowd bonus +$6.") instead of a multiplier.
+
+## After the second code review
+
+- **Better Auth's public `/api/auth/sign-in/anonymous` route returns 404.** The game creates anonymous players itself, on a first call, behind the per-IP limit; the open route let a script mint sessions around it.
+- **The per-IP limit fails open when the address is the proxy's own.** Behind Caddy without `ADDRESS_HEADER`/`XFF_DEPTH`, every visitor looks like 127.0.0.1; locking the whole site out after 60 new players is worse than not limiting. The settings are documented in README and `.env.example` (server config is out of scope tonight).
+- **Bonus rounds are seeded with an HMAC of the server secret** (not a constant in the repo), and nothing is generated until a finished game is found; the list of candidate tickers is cached.
+- **New stretches draw in neutral ink and take their right/wrong colour only when the last bar lands.** A long stretch that dips and recovers used to be green from the first frame.
+- **Accepted limitation: the public catalog plus public price data can identify a chart.** The context bars are a fingerprint, so a determined player with the repo open can look up the answer. Hiding the catalog would mean keeping it out of the public repo the judges read; there is no leaderboard to protect, and recognising a famous moment is part of the fun. Revisit if prizes or rankings are added.

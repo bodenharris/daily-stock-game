@@ -295,7 +295,9 @@ export async function placeCall(
 				puzzleNumber: day.number,
 				puzzleSlug: p.slug,
 				balanceCents: START_BALANCE_CENTS,
-				source: SOURCE
+				source: SOURCE,
+				// The app's clock, the same one that stamps guesses, so time filters always agree.
+				startedAt: now
 			})
 			.onConflictDoUpdate({
 				target: [games.userId, games.puzzleNumber],

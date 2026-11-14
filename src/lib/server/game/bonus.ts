@@ -1,4 +1,6 @@
+import { createHmac } from 'node:crypto';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { BETTER_AUTH_SECRET, PUZZLE_SECRET } from '$app/env/private';
 import { client, db } from '#lib/server/db/index.ts';
 import { games } from '#lib/server/db/schema.ts';
 import { dailyVolatility, normalise, rng, syntheticPath } from './bonus-gen.ts';
@@ -36,7 +38,17 @@ const cache = new Map<number, Promise<BonusRound[]>>();
 /** Only windows after US stocks went decimal (2001), so old 1/8-dollar ticks can't give real charts away. */
 const SINCE = '2001-06-01';
 
-async function candidates(): Promise<{ symbol: string; name: string; bars: number }[]> {
+type Candidate = { symbol: string; name: string; bars: number };
+let candidateCache: Promise<Candidate[]> | null = null;
+
+/** Tickers fit for the bonus. The set only changes when prices are reloaded, so cache it. */
+function candidates(): Promise<Candidate[]> {
+	candidateCache ??= loadCandidates();
+	candidateCache.catch(() => (candidateCache = null));
+	return candidateCache;
+}
+
+async function loadCandidates(): Promise<Candidate[]> {
 	const rows = await client<{ symbol: string; name: string; bars: number }[]>`
 		select t.symbol, t.name, count(p.ts)::int as bars
 		from tickers t join prices p on p.ticker = t.symbol and p.ts >= ${SINCE}
@@ -48,7 +60,12 @@ async function candidates(): Promise<{ symbol: string; name: string; bars: numbe
 }
 
 async function build(puzzleNumber: number): Promise<BonusRound[]> {
-	const rand = rng(0x5eed + puzzleNumber * 7919);
+	// Seeded from a server secret: the same charts for everyone, but not computable from the repo.
+	const seed = createHmac('sha256', PUZZLE_SECRET ?? BETTER_AUTH_SECRET)
+		.update(`bonus:${puzzleNumber}`)
+		.digest()
+		.readUInt32BE(0);
+	const rand = rng(seed);
 	const pool = await candidates();
 	if (pool.length === 0) throw new Error('No tickers for the bonus round yet');
 	const rounds: BonusRound[] = [];
@@ -142,8 +159,9 @@ export async function guessBonus(
 	index: number,
 	guess: boolean
 ): Promise<BonusState> {
-	const rounds = await roundsFor(puzzleNumber);
-	if (index < 0 || index >= rounds.length) throw new Error('No such round');
+	// Nothing is built until a finished game is found, so no request can make the server
+	// generate rounds for an arbitrary puzzle number.
+	if (index < 0 || index >= BONUS_ROUNDS) throw new Error('No such round');
 	const [row] = await db
 		.update(games)
 		.set({ bonusGuesses: sql`array_append(coalesce(${games.bonusGuesses}, '{}'), ${guess})` })
@@ -157,7 +175,8 @@ export async function guessBonus(
 		)
 		.returning({ bonusGuesses: games.bonusGuesses });
 	const made = row?.bonusGuesses;
-	if (made && made.length === rounds.length) {
+	if (made && made.length === BONUS_ROUNDS) {
+		const rounds = await roundsFor(puzzleNumber);
 		await db
 			.update(games)
 			.set({ bonusCorrect: scoreOf(rounds, made), bonusTotal: rounds.length })

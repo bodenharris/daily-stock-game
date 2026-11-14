@@ -31,4 +31,6 @@ node scripts/ingest-prices.ts  # loads the cache into the prices hypertable
 node scripts/seed-puzzles.ts   # upserts the puzzle catalog
 ```
 
-Checks: `npm run verify` (type check, lint, tests). Simulator: `node scripts/simulate.ts`.
+Behind a reverse proxy (Caddy), set `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1` so the per-IP limit on new anonymous players sees real client addresses.
+
+Checks: `npm run verify` (type check, lint, tests). Simulator: `node scripts/simulate.ts`. Spoiler smoke test against a running server: `npm run smoke`.

@@ -4,6 +4,11 @@ import { auth } from '#lib/server/auth.ts';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 
 const handleBetterAuth: Handle = async ({ event, resolve }) => {
+	// Anonymous players are only ever created by the game itself (on a first call, rate-limited
+	// per IP). Closing Better Auth's public endpoint stops scripts minting players around that.
+	if (event.url.pathname.startsWith('/api/auth/sign-in/anonymous')) {
+		return new Response('Not found', { status: 404 });
+	}
 	const session = await auth.api.getSession({ headers: event.request.headers });
 
 	if (session) {

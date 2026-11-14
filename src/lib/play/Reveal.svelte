@@ -83,7 +83,14 @@
 
 <section class="flex flex-col gap-4 pt-1 pb-6">
 	<div in:rise={{ delay: d(250) }}>
-		<h2 class="type-headline-sm-emphasized text-balance text-on-surface">
+		<h2
+			class="type-headline-sm-emphasized text-balance text-on-surface outline-none"
+			tabindex="-1"
+			{@attach (node) => {
+				// Bring keyboard and screen-reader users to the unmasking when it lands.
+				if (fresh) node.focus({ preventScroll: true });
+			}}
+		>
 			{reveal.headline}
 		</h2>
 		<p class="mt-0.5 type-label-lg text-chart-reveal">

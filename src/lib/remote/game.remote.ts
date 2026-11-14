@@ -45,7 +45,13 @@ async function playerForWrite() {
 	} catch {
 		// Not available in some environments; fall back to one shared bucket.
 	}
-	if (!allowAnonymous(ip)) error(429, 'Too many new players from here. Try again later.');
+	// Behind a proxy without ADDRESS_HEADER set, every visitor looks like the proxy itself.
+	// Fail open rather than lock the whole site out after 60 players.
+	const loopback =
+		ip === 'unknown' || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+	if (!loopback && !allowAnonymous(ip)) {
+		error(429, 'Too many new players from here. Try again in a few minutes.');
+	}
 	const res = await auth.api.signInAnonymous({ headers: event.request.headers });
 	if (!res?.user) error(500, 'Could not start a game');
 	event.locals.user = { ...res.user, isAnonymous: true } as typeof event.locals.user;

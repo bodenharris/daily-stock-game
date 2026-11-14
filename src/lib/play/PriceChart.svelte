@@ -47,7 +47,7 @@
 
 	// Prices are drawn on a log scale: equal % moves look equal, so one spike can't flatten
 	// everything before it.
-	const logs = $derived(values.map((v) => Math.log(v)));
+	const logs = $derived(values.map((v) => Math.log(Math.max(v, 1e-6))));
 	const lastIndex = $derived(values.length - 1);
 
 	// The line draws itself forward when a stretch is revealed.
@@ -163,7 +163,7 @@
 	const summary = $derived.by(() => {
 		const ctx = values[contextEnd] / values[0] - 1;
 		const parts = [`Price chart. Before the first call it moved ${fmtMove(ctx)}.`];
-		for (const s of segments) {
+		for (const s of segments.filter((x) => x.drawn)) {
 			parts.push(
 				`Call ${s.step}: ${fmtMove(s.move)}, ${s.right ? 'you were right' : 'you missed'}.`
 			);
@@ -221,7 +221,13 @@
 			{#each segments as seg (seg.step)}
 				<!-- Where this stretch started: above this line is up, below is down. -->
 				<line class="base" x1={seg.x0} x2={seg.x1} y1={seg.baseY} y2={seg.baseY} />
-				<path class="line seg" class:right={seg.right} class:wrong={!seg.right} d={seg.d} />
+				<!-- Neutral while it draws: the colour (right or wrong) only lands with the last bar. -->
+				<path
+					class="line seg"
+					class:right={seg.drawn && seg.right}
+					class:wrong={seg.drawn && !seg.right}
+					d={seg.d}
+				/>
 			{/each}
 
 			<g class="head" transform="translate({head.x} {head.y})">
@@ -276,7 +282,9 @@
 		stroke: var(--chart-ink);
 	}
 	.seg {
+		stroke: var(--chart-ink);
 		stroke-width: 3;
+		transition: stroke 250ms ease;
 	}
 	.seg.right {
 		stroke: var(--chart-up);
