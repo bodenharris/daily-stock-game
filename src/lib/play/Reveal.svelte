@@ -10,7 +10,9 @@
 	import { toRecords } from './records.ts';
 	import { standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
+	import FinishCurve from '#lib/stats/FinishCurve.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
+	import ChartColumn from '@lucide/svelte/icons/chart-column';
 	import type { GameView } from './types.ts';
 
 	let {
@@ -171,6 +173,39 @@
 			{/if}
 		</p>
 	</div>
+
+	{#if view.finishes}
+		{@const finished = view.finishes.finished}
+		<!-- Where the day's players finished. Nobody is named: just how many landed where. -->
+		<section
+			aria-labelledby="finishes-title"
+			class="flex flex-col gap-3 pt-2"
+			in:rise={{ delay: d(850) }}
+		>
+			<div class="flex items-baseline justify-between gap-3 px-1">
+				<h3 id="finishes-title" class="type-title-md text-on-surface">Where everyone finished</h3>
+				<p class="type-label-md text-on-surface-variant type-numeric">
+					{finished}
+					{finished === 1 ? 'player' : 'players'}
+				</p>
+			</div>
+			<FinishCurve finishes={view.finishes.buckets} you={view.balanceCents} />
+			{#if finished === 1}
+				<p class="px-1 type-body-sm text-on-surface-variant">
+					{archive ? 'Nobody else has played this one yet.' : "You're the first to finish today."}
+				</p>
+			{/if}
+		</section>
+	{/if}
+
+	<!-- The stats page is today's only, so past days played from the archive don't link to it. -->
+	{#if !archive}
+		<div class="flex justify-center" in:rise={{ delay: d(view.finishes ? 950 : 850) }}>
+			<Button variant="text" size="md" href="/stats">
+				<ChartColumn /> How everyone called it
+			</Button>
+		</div>
+	{/if}
 </section>
 
 <style>

@@ -3,7 +3,7 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { games, guesses } from '#lib/server/db/schema.ts';
 import { loadToday } from '#lib/server/game/play.ts';
-import { betterThan, statsFor, type Stats } from '#lib/server/stats.ts';
+import { exactStandingOf, statsFor, type Stats } from '#lib/server/stats.ts';
 import type { Direction } from '#lib/play/types.ts';
 
 const TICK_MS = 4000;
@@ -25,8 +25,11 @@ export type LiveStats = Omit<Stats, 'steps'> & {
 	 * today's game, so nobody can look up the split and pick the minority side.
 	 */
 	calls: CallSplit[] | null;
-	/** The viewer's own finish today, or null if they haven't finished. */
-	you: { balanceCents: number; betterThan: number | null } | null;
+	/**
+	 * The viewer's own finish today, or null if they haven't finished. `finished` is the exact
+	 * count of finished games behind `betterThan`, the same one the game's end screen uses.
+	 */
+	you: { balanceCents: number; betterThan: number | null; finished: number } | null;
 };
 
 /** The viewer's finished game for a puzzle: one lookup on the (user, puzzle) unique index. */
@@ -67,7 +70,7 @@ export const liveStats = query.live(async function* (): AsyncGenerator<LiveStats
 		if (mine?.puzzle !== today.number) mine = await finishedGame(userId, today.number);
 		const [{ steps, ...stats }, rank] = await Promise.all([
 			statsFor(today.number),
-			mine ? betterThan(today.number, mine.balanceCents) : null
+			mine ? exactStandingOf(today.number, mine.balanceCents) : null
 		]);
 		yield {
 			...stats,
@@ -83,7 +86,7 @@ export const liveStats = query.live(async function* (): AsyncGenerator<LiveStats
 						};
 					})
 				: null,
-			you: mine ? { balanceCents: mine.balanceCents, betterThan: rank } : null
+			you: mine && rank ? { balanceCents: mine.balanceCents, ...rank } : null
 		};
 		await sleep(TICK_MS);
 	}
