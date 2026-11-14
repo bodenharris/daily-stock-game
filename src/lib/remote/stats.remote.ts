@@ -3,19 +3,35 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { games } from '#lib/server/db/schema.ts';
 import { loadToday } from '#lib/server/game/play.ts';
-import { statsFor, type Stats } from '#lib/server/stats.ts';
+import { betterThan, statsFor, type Stats } from '#lib/server/stats.ts';
+import type { Direction } from '#lib/play/types.ts';
 
+const TICK_MS = 4000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export type LiveStats = Stats & {
-	/** Today's per-call crowd split is hidden until the viewer has finished, so it can't be gamed. */
-	viewerFinished: boolean;
+export interface CallSplit {
+	step: number;
+	calls: number;
+	ups: number;
+	/** Which way the chart actually went. */
+	answer: Direction;
+}
+
+export type LiveStats = Omit<Stats, 'steps'> & {
+	/**
+	 * Today's per-call crowd split and the right answer. Null until the viewer has finished
+	 * today's game, so nobody can look up the split and pick the minority side.
+	 */
+	calls: CallSplit[] | null;
+	/** The viewer's own finish today, or null if they haven't finished. */
+	you: { balanceCents: number; betterThan: number | null } | null;
 };
 
-async function viewerFinished(userId: string | undefined, puzzleNumber: number) {
-	if (!userId) return false;
+/** The viewer's finished game for a puzzle: one lookup on the (user, puzzle) unique index. */
+async function finishedGame(userId: string | undefined, puzzleNumber: number) {
+	if (!userId) return null;
 	const [row] = await db
-		.select({ id: games.id })
+		.select({ balanceCents: games.balanceCents })
 		.from(games)
 		.where(
 			and(
@@ -24,18 +40,37 @@ async function viewerFinished(userId: string | undefined, puzzleNumber: number) 
 				isNotNull(games.finishedAt)
 			)
 		);
-	return !!row;
+	return row ? { puzzle: puzzleNumber, balanceCents: row.balanceCents } : null;
 }
 
-/** Live stats for today's puzzle, pushed every few seconds while the page is open. */
+/**
+ * Live stats for today's puzzle, pushed every few seconds while the page is open. The heavy
+ * numbers come from a shared tick (one query for every open page); each connection only checks
+ * whether its own viewer has finished today's game.
+ */
 export const liveStats = query.live(async function* (): AsyncGenerator<LiveStats> {
 	const userId = getRequestEvent().locals.user?.id;
-	let finished = false;
+	// Which puzzle the viewer's finish belongs to, so a page left open past midnight
+	// stops showing tomorrow's answers until they finish that one too.
+	let mine: { puzzle: number; balanceCents: number } | null = null;
 	while (true) {
 		const today = await loadToday();
-		if (!finished) finished = await viewerFinished(userId, today.number);
-		const stats = await statsFor(today.number);
-		yield { ...stats, steps: finished ? stats.steps : [], viewerFinished: finished };
-		await sleep(4000);
+		// A finish never un-happens, so once found it is not looked up again until the day rolls.
+		if (mine?.puzzle !== today.number) mine = await finishedGame(userId, today.number);
+		const [{ steps, ...stats }, rank] = await Promise.all([
+			statsFor(today.number),
+			mine ? betterThan(today.number, mine.balanceCents) : null
+		]);
+		yield {
+			...stats,
+			calls: mine
+				? today.puzzle.outcomes.map((answer, i) => {
+						const s = steps.find((x) => x.step === i + 1);
+						return { step: i + 1, calls: s?.calls ?? 0, ups: s?.ups ?? 0, answer };
+					})
+				: null,
+			you: mine ? { balanceCents: mine.balanceCents, betterThan: rank } : null
+		};
+		await sleep(TICK_MS);
 	}
 });

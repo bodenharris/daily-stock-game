@@ -3,22 +3,40 @@
 	import { liveStats } from '#lib/remote/stats.remote.ts';
 	import { GAME_NAME } from '#lib/game/config.ts';
 	import { dollars } from '#lib/play/money.ts';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import CrowdCalls from '#lib/stats/CrowdCalls.svelte';
+	import HourlyCalls from '#lib/stats/HourlyCalls.svelte';
+	import HowItWorks from '#lib/stats/HowItWorks.svelte';
 
 	const live = liveStats();
 	const s = $derived(await live);
 
-	const maxHourly = $derived(Math.max(1, ...s.hourly.map((h) => h.calls)));
 	const fmt = (n: number) => n.toLocaleString('en-US');
-	const compact = (n: number) =>
-		n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 	const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
+
+	// Built as strings so template whitespace can't eat the space before a separator.
+	const playersLine = $derived(
+		(s.players === 1 ? 'player today' : 'players today') +
+			(s.finished > 0 ? ` · ${pct(s.inProfit, s.finished)}% finished up` : '')
+	);
+	const last24h = $derived(s.hourly.reduce((n, h) => n + h.calls, 0));
+
+	const standing = $derived.by(() => {
+		const you = s.you;
+		if (!you) return null;
+		if (s.finished > 1 && s.bestCents != null && you.balanceCents >= s.bestCents) {
+			return 'The best finish today';
+		}
+		if (you.betterThan == null) return s.finished <= 1 ? 'The first to finish today' : null;
+		return `Better than ${Math.round(you.betterThan * 100)}% of players today`;
+	});
 </script>
 
 <svelte:head>
 	<title>Live · {GAME_NAME}</title>
 </svelte:head>
 
-<main class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-10">
+<main class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-6">
 	<header class="flex h-14 items-center gap-2">
 		<a
 			href="/"
@@ -32,29 +50,38 @@
 			class="ml-auto flex items-center gap-1.5 type-label-md text-on-surface-variant"
 			title={live.connected ? 'Updating live' : 'Reconnecting'}
 		>
-			<span class="dot" class:off={!live.connected}></span>
+			<span class={['dot', !live.connected && 'off']}></span>
 			#{s.number}
 		</span>
 	</header>
 
-	<section class="pt-4">
+	<section class="pt-2">
 		<p class="type-display-md-emphasized text-on-surface type-numeric">{fmt(s.players)}</p>
-		<p class="type-body-lg text-on-surface-variant">
-			{s.players === 1 ? 'player' : 'players'} today{#if s.finished > 0}
-				· {pct(s.inProfit, s.finished)}% finished up{/if}
-		</p>
+		<p class="type-body-lg text-on-surface-variant">{playersLine}</p>
 	</section>
 
+	{#if s.you}
+		<section class="mt-6 rounded-m3-xl bg-primary-container p-5 text-on-primary-container">
+			<h2 class="type-label-lg">You finished with</h2>
+			<p class="type-display-sm-emphasized type-numeric">
+				{dollars(s.you.balanceCents, { cents: false })}
+			</p>
+			{#if standing}
+				<p class="mt-1 type-body-lg">{standing}</p>
+			{/if}
+		</section>
+	{/if}
+
 	{#if s.finished > 0}
-		<section class="mt-6 grid grid-cols-2 gap-3">
+		<section class="mt-3 grid grid-cols-2 gap-3">
 			<div class="rounded-m3-xl bg-surface-container p-4">
-				<p class="type-label-md text-on-surface-variant">Median finish</p>
+				<h2 class="type-label-md text-on-surface-variant">Median finish</h2>
 				<p class="type-headline-sm-emphasized text-on-surface type-numeric">
 					{s.medianCents == null ? '–' : dollars(s.medianCents, { cents: false })}
 				</p>
 			</div>
 			<div class="rounded-m3-xl bg-surface-container p-4">
-				<p class="type-label-md text-on-surface-variant">Best finish</p>
+				<h2 class="type-label-md text-on-surface-variant">Best finish</h2>
 				<p class="type-headline-sm-emphasized text-on-surface type-numeric">
 					{s.bestCents == null ? '–' : dollars(s.bestCents, { cents: false })}
 				</p>
@@ -64,61 +91,36 @@
 
 	<section class="mt-8">
 		<h2 class="type-title-md text-on-surface">How the crowd called it</h2>
-		{#if !s.viewerFinished}
-			<p class="mt-2 type-body-md text-on-surface-variant">
-				Finish today's game to see how everyone else called each move.
-			</p>
-		{:else if s.steps.length === 0}
-			<p class="mt-2 type-body-md text-on-surface-variant">No calls yet.</p>
+		{#if s.calls}
+			<div class="mt-3">
+				<CrowdCalls calls={s.calls} />
+			</div>
 		{:else}
-			<ol class="mt-3 flex flex-col gap-3">
-				{#each s.steps as step (step.step)}
-					{@const up = pct(step.ups, step.calls)}
-					<li>
-						<div class="flex justify-between type-label-md text-on-surface-variant">
-							<span>Call {step.step}</span>
-							<span class="type-numeric">{pct(step.correct, step.calls)}% got it right</span>
-						</div>
-						<div class="mt-1 flex h-3 gap-0.5 overflow-hidden rounded-full">
-							<div class="bar bg-up" style:width="{up}%"></div>
-							<div class="bar flex-1 bg-down"></div>
-						</div>
-						<div class="mt-1 flex justify-between type-label-sm type-numeric">
-							<span class="text-up">{up}% up</span>
-							<span class="text-down">{100 - up}% down</span>
-						</div>
-					</li>
-				{/each}
-			</ol>
+			<p class="mt-1 type-body-md text-on-surface-variant">
+				Finish today's chart to see how everyone called each move.
+			</p>
+			<Button href="/" variant="tonal" size="sm" class="mt-3">Play today's chart</Button>
 		{/if}
 	</section>
 
 	<section class="mt-8">
-		<h2 class="type-title-md text-on-surface">Calls in the last 24 hours</h2>
-		<div class="mt-3 flex h-20 items-end gap-0.5" aria-hidden="true">
-			{#each s.hourly as h (h.at)}
-				<div
-					class="bar flex-1 rounded-t-sm {h.calls > 0
-						? 'bg-m3-primary'
-						: 'bg-surface-container-high'}"
-					style:height="{Math.max(4, (h.calls / maxHourly) * 100)}%"
-				></div>
-			{/each}
+		<div class="flex items-baseline justify-between gap-2">
+			<h2 class="type-title-md text-on-surface">Last 24 hours</h2>
+			<p class="type-label-lg text-on-surface-variant type-numeric">
+				{last24h === 0 ? 'No calls yet' : `${fmt(last24h)} ${last24h === 1 ? 'call' : 'calls'}`}
+			</p>
 		</div>
-		<p class="mt-2 type-body-sm text-on-surface-variant">
-			{fmt(s.allTime.calls)} calls since launch.
+		<div class="mt-3">
+			<HourlyCalls hourly={s.hourly} />
+		</div>
+		<p class="mt-3 type-body-sm text-on-surface-variant type-numeric">
+			{fmt(s.allTime.calls)}
+			{s.allTime.calls === 1 ? 'call' : 'calls'} since launch
 		</p>
 	</section>
 
-	<footer class="mt-auto pt-10 type-body-sm text-on-surface-variant">
-		<p>
-			Every call lands in a TimescaleDB hypertable on Tiger Data; this page reads continuous
-			aggregates of it, refreshed live.
-		</p>
-		<p class="mt-2 type-numeric">
-			{compact(s.data.priceRows)} daily prices · {s.data.tickers} tickers{#if s.data.compressionRatio}
-				· {s.data.compressionRatio.toFixed(1)}× compressed{/if} · queried in {s.queryMs} ms
-		</p>
+	<footer class="mt-auto pt-10">
+		<HowItWorks data={s.data} queryMs={s.queryMs} />
 	</footer>
 </main>
 
@@ -142,11 +144,6 @@
 		100% {
 			box-shadow: 0 0 0 0 transparent;
 		}
-	}
-	.bar {
-		transition:
-			width 600ms var(--md-sys-motion-spring-default-spatial-easing, ease),
-			height 600ms var(--md-sys-motion-spring-default-spatial-easing, ease);
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.dot {

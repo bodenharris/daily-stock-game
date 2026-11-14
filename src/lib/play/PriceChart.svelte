@@ -40,7 +40,7 @@
 		height,
 		padLeft: 4,
 		padRight: 4,
-		padTop: 14,
+		padTop: labels ? 26 : 14,
 		padBottom: labels ? 30 : 16,
 		contextShare: 0.5
 	});
