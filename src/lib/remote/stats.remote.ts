@@ -27,7 +27,7 @@ export type LiveStats = Omit<Stats, 'steps'> & {
 	calls: CallSplit[] | null;
 	/**
 	 * The viewer's own finish today, or null if they haven't finished. `finished` is the exact
-	 * count of finished games behind `betterThan`, the same one the game's leaderboard shows.
+	 * count of finished games behind `betterThan`, the same one the game's end screen uses.
 	 */
 	you: { balanceCents: number; betterThan: number | null; finished: number } | null;
 };

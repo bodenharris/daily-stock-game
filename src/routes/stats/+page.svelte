@@ -31,7 +31,7 @@
 		}
 		if (you.betterThan == null) return you.finished <= 1 ? 'The first to finish today' : null;
 		// Small crowds read better as a place than a percentile ("3rd of 4", not "better than 0%").
-		// The place and count are exact, the same ones the game's leaderboard shows.
+		// The place and count are exact, the same ones the game's end screen uses.
 		if (you.finished <= 20) {
 			const place = Math.max(1, you.finished - Math.round(you.betterThan * (you.finished - 1)));
 			const suffix =

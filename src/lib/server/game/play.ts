@@ -14,7 +14,8 @@ import { GRACE_MS, countStreak, dateForNumber, playedOnItsDay } from './streak.t
 
 export { GRACE_MS, dateForNumber };
 import { exactStanding } from '#lib/play/standing.ts';
-import type { CallResult, Direction, GameView, Leaderboard, NameIt } from '#lib/play/types.ts';
+import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS } from '#lib/stats/finishes.ts';
+import type { CallResult, Direction, Finishes, GameView, NameIt } from '#lib/play/types.ts';
 
 /**
  * Plays from a dev server are tagged 'dev' so testing never moves the real crowd. In development
@@ -220,7 +221,7 @@ function assembleView(
 	streak: number,
 	standing: Standing | null = null,
 	nameIt: NameIt | null = null,
-	leaderboard: Leaderboard | null = null
+	finishes: Finishes | null = null
 ): GameView {
 	const p = day.puzzle;
 	const callsMade = game?.step ?? 0;
@@ -228,11 +229,10 @@ function assembleView(
 	// After the last call the player names the moment first; nothing identifying is sent until
 	// that guess is stored. (If the options can't be built, the reveal goes out anyway.)
 	const revealed = finished && (!nameIt || nameIt.answered);
-	// The standing line sits above the board, so it comes from the board's exact place and count
+	// The standing line sits above the histogram, so it comes from the same exact place and count
 	// whenever there is one. The percentile sketch (an estimate, cached for a few seconds) is the
-	// fallback if the board couldn't be read.
-	const you = leaderboard?.rows.find((r) => r.you);
-	const shownStanding = you ? exactStanding(you.place, leaderboard!.finished) : standing;
+	// fallback if the finishes couldn't be read.
+	const shownStanding = finishes ? exactStanding(finishes.place, finishes.finished) : standing;
 	return {
 		number: day.number,
 		date: day.date,
@@ -264,7 +264,7 @@ function assembleView(
 		streak,
 		standing: finished ? shownStanding : null,
 		nameIt,
-		leaderboard: revealed ? leaderboard : null
+		finishes: revealed ? finishes : null
 	};
 }
 
@@ -297,15 +297,15 @@ async function viewOfGame(
 	user: Player,
 	todayNumber: number
 ): Promise<GameView> {
-	const [all, crowd, streak, standing, nameIt, leaderboard] = await Promise.all([
+	const [all, crowd, streak, standing, nameIt, finishes] = await Promise.all([
 		guessesOf(game),
 		crowdFor(day.number),
 		streakFor(user.id, todayNumber),
 		standingFor(day, game),
 		nameItFor(day, game),
-		leaderboardFor(day, game)
+		finishesFor(day, game)
 	]);
-	return assembleView(day, game, all, user, crowd, streak, standing, nameIt, leaderboard);
+	return assembleView(day, game, all, user, crowd, streak, standing, nameIt, finishes);
 }
 
 /** Standing for a finished game; never lets a stats hiccup break the game view. */
@@ -314,55 +314,33 @@ function standingFor(day: Day, game: GameRow | null): Promise<Standing | null> {
 	return standingOf(day.number, game.balanceCents).catch(() => null);
 }
 
-/** How many finishes the leaderboard lists before the viewer's own row. */
-const LEADERBOARD_SIZE = 10;
-
 /**
- * The day's best finishes, plus the viewer's own place, in one statement. Places come from
- * rank(), so tied balances share a place; the cut at LEADERBOARD_SIZE uses row_number(), so a
- * big tie can't make the list long. Ties are listed by who finished first. Players are never
- * named: rows carry the stored archetype, and only a flag for the viewer's own game. Only for
- * a finished game, and never lets a failure here break the game view.
+ * Where everyone finished that day, for the end screen's histogram, plus the viewer's exact
+ * place, in one statement over the day's finished games (the `(puzzle_number, finished_at)`
+ * index narrows it to one day). Balances come in $10 buckets, the same ones the stats page
+ * gets. The place counts strictly better balances, so ties share the better place. Nobody is
+ * named. Only for a finished game, and never lets a failure here break the game view.
  */
-async function leaderboardFor(day: Day, game: GameRow | null): Promise<Leaderboard | null> {
+async function finishesFor(day: Day, game: GameRow | null): Promise<Finishes | null> {
 	if (!game || game.finishedAt == null) return null;
 	try {
-		const rows = await db.execute<{
-			you: boolean;
-			pos: number;
-			place: number;
-			tied: boolean;
-			balance_cents: number;
-			archetype: string | null;
-			finished: number;
-		}>(sql`
-			with board as (
-				select id, balance_cents, archetype,
-					rank() over (order by balance_cents desc)::int as place,
-					row_number() over (order by balance_cents desc, finished_at, id)::int as pos,
-					count(*) over (partition by balance_cents) > 1 as tied
-				from games
-				where puzzle_number = ${day.number} and finished_at is not null and ${sourceIn}
-			)
-			select id = ${game.id} as you, pos, place, tied, balance_cents, archetype,
-				(select count(*)::int from board) as finished
-			from board
-			where pos <= ${LEADERBOARD_SIZE} or id = ${game.id}
-			order by pos`);
+		const rows = await db.execute<{ cents: number; count: number; above: number }>(sql`
+			select least(balance_cents / ${FINISH_BUCKET_CENTS} * ${FINISH_BUCKET_CENTS},
+					${FINISH_CAP_CENTS})::int as cents,
+				count(*)::int as count,
+				count(*) filter (where balance_cents > ${game.balanceCents})::int as above
+			from games
+			where puzzle_number = ${day.number} and finished_at is not null and ${sourceIn}
+			group by 1
+			order by 1`);
 		if (rows.length === 0) return null;
 		return {
-			rows: rows.map((r) => ({
-				pos: r.pos,
-				place: r.place,
-				tied: r.tied,
-				balanceCents: r.balance_cents,
-				archetype: r.archetype,
-				you: r.you
-			})),
-			finished: rows[0].finished
+			buckets: rows.map((r) => ({ cents: r.cents, count: r.count })),
+			place: rows.reduce((n, r) => n + r.above, 0) + 1,
+			finished: rows.reduce((n, r) => n + r.count, 0)
 		};
 	} catch (e) {
-		console.error('leaderboard failed', e);
+		console.error('finishes failed', e);
 		return null;
 	}
 }
@@ -391,14 +369,14 @@ export async function viewFor(user: Player | null, now = new Date()): Promise<Ga
 
 	const day = unfinishedYesterday ? await loadDay(today.number - 1) : today;
 	const game = unfinishedYesterday ? yesterdays! : todays;
-	const [gameGuesses, crowd, standing, nameIt, leaderboard] = await Promise.all([
+	const [gameGuesses, crowd, standing, nameIt, finishes] = await Promise.all([
 		game ? guessesOf(game) : Promise.resolve([]),
 		crowdFor(day.number),
 		standingFor(day, game),
 		nameItFor(day, game),
-		leaderboardFor(day, game)
+		finishesFor(day, game)
 	]);
-	return assembleView(day, game, gameGuesses, user, crowd, streak, standing, nameIt, leaderboard);
+	return assembleView(day, game, gameGuesses, user, crowd, streak, standing, nameIt, finishes);
 }
 
 export interface PlaceCallInput {

@@ -171,11 +171,6 @@ const RULES: readonly Rule[] = [
 /** Every archetype, in priority order. */
 export const ARCHETYPES: readonly Archetype[] = RULES.map((r) => r.archetype);
 
-/** The archetype stored on a game, by key; null for a missing or retired key. */
-export function archetypeByKey(key: string | null | undefined): Archetype | null {
-	return ARCHETYPES.find((a) => a.key === key) ?? null;
-}
-
 export interface ClassifyOptions {
 	startBalanceCents?: number;
 	rules?: PayoutRules;

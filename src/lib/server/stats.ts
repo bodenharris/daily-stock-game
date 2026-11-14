@@ -2,7 +2,7 @@ import { dev } from '$app/env';
 import { PLAY_SOURCE } from '$app/env/private';
 import { client } from '#lib/server/db/index.ts';
 import { exactStanding } from '#lib/play/standing.ts';
-import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS } from '#lib/stats/finishes.ts';
+import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS, type FinishBucket } from '#lib/stats/finishes.ts';
 
 /** Same rule as the game: real players only, plus dev/sim plays on a dev server. */
 const SOURCES =
@@ -26,7 +26,7 @@ export interface Stats {
 	 * the last bucket (FINISH_CAP_CENTS) holds everything above it. Only non-empty buckets,
 	 * lowest first. The page groups them into wider bars to fit the day's range.
 	 */
-	finishes: { cents: number; count: number }[];
+	finishes: FinishBucket[];
 	/** Today's crowd split per call. Only ever sent to viewers who finished today's game. */
 	steps: StepStat[];
 	/** Calls per hour for the last 24 hours, oldest first, gaps filled with 0. */
@@ -98,7 +98,7 @@ interface LiveRow {
 	in_profit: number;
 	median: number | null;
 	best: number | null;
-	finishes: { cents: number; count: number }[];
+	finishes: FinishBucket[];
 	steps: StepStat[];
 	hourly: { at: number; calls: number }[];
 	all_calls: number;
@@ -219,7 +219,7 @@ const sharedRank = shared(10_000, async (key: string): Promise<Standing> => {
 /**
  * Where a final balance stands among the day's finishers, estimated from the Toolkit percentile
  * sketch in `finals_hourly` (shared per balance for 10 seconds). The game screen's fallback when
- * its leaderboard can't be read.
+ * its finishes can't be read.
  */
 export function standingOf(puzzleNumber: number, balanceCents: number): Promise<Standing> {
 	return sharedRank(`${puzzleNumber}:${balanceCents}`);
@@ -238,7 +238,7 @@ const sharedExact = shared(3_000, async (key: string): Promise<Standing> => {
 
 /**
  * Exact place of a final balance among the day's finishers, by the same rule as the game's
- * leaderboard (ties share the better place), so the stats page and the game never disagree.
+ * end screen (ties share the better place), so the stats page and the game never disagree.
  * One count over the day's finished games; shared per balance for the length of a stats tick.
  */
 export function exactStandingOf(puzzleNumber: number, balanceCents: number): Promise<Standing> {
