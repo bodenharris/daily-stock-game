@@ -78,7 +78,7 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 
 - **Show the crowd as people, not percentages,** while it is small: "3 of 4 players called down." Over 20 players it switches to a percentage. "You're one of the first" now only appears when you really are first.
 - **Prices at the reveal are as quoted on the day.** Prices stay stored split-adjusted (product.md), but a small `splits` table lets the reveal undo later splits, so GameStop peaks at $348 like everyone remembers, not $87.
-- **"In hindsight": where the stock was a year later**, read with TimescaleDB's `last()` over the prices hypertable. It gives the name its payoff and costs 0.13 ms.
+- **"In hindsight": where the stock was a year later**, read with TimescaleDB's `last()` over the prices hypertable. It shows how the story played out and costs 0.13 ms.
 - **The fifth call gets its own beat** (1.8 s) before the ending takes over; the playtester missed their biggest bet's result.
 - **Each settled stretch keeps a faint dashed line at its starting level,** so a V-shaped stretch that ends lower reads as down at a glance.
 - **The prompt names the stretch length** ("Up or down over the next 2 trading days?"), so +353% in one call makes sense.

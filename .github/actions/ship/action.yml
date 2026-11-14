@@ -27,7 +27,7 @@ runs:
       run: |
         set -euo pipefail
         release="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
-        dir="/srv/hindsight/$SLOT/releases/$release"
+        dir="/srv/thewolf/$SLOT/releases/$release"
         # The build is self-contained (every dependency is bundled), so a release is just
         # build/, package.json (for "type": "module") and the switch script.
         tar czf release.tgz build package.json deploy/release.sh

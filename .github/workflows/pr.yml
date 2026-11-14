@@ -166,7 +166,7 @@ jobs:
         env:
           FRESH: ${{ inputs.fresh_database }}
         run: |
-          old="$(ssh deploy-host 'cat /srv/hindsight/preview/shared/service-id 2>/dev/null || true')"
+          old="$(ssh deploy-host 'cat /srv/thewolf/preview/shared/service-id 2>/dev/null || true')"
           echo "old_service_id=$old" >> "$GITHUB_OUTPUT"
           base="$(git merge-base HEAD origin/main)"
           if [ -z "$old" ]; then
@@ -215,7 +215,7 @@ jobs:
         if: steps.plan.outputs.fork == 'true'
         run: npm run db:migrate
 
-      # The preview's own settings live in /etc/hindsight/preview.env; only the database
+      # The preview's own settings live in /etc/thewolf/preview.env; only the database
       # changes per fork, so it goes in a file the deploy user owns.
       - name: Give the preview its new database
         if: steps.plan.outputs.fork == 'true'
@@ -224,14 +224,14 @@ jobs:
           NEW_ID: ${{ steps.fork.outputs.service_id }}
         run: |
           printf 'DATABASE_URL=%s\n' "$DATABASE_URL" | ssh deploy-host \
-            'set -e; mkdir -p /srv/hindsight/preview/shared; cd /srv/hindsight/preview/shared;
+            'set -e; mkdir -p /srv/thewolf/preview/shared; cd /srv/thewolf/preview/shared;
              umask 077; cat > runtime.env.next; mv runtime.env.next runtime.env'
-          printf '%s\n' "$NEW_ID" | ssh deploy-host 'cat > /srv/hindsight/preview/shared/service-id'
+          printf '%s\n' "$NEW_ID" | ssh deploy-host 'cat > /srv/thewolf/preview/shared/service-id'
 
       - name: Use the preview's current database for the smoke test
         if: steps.plan.outputs.fork != 'true'
         run: |
-          url="$(ssh deploy-host "sed -n 's/^DATABASE_URL=//p' /srv/hindsight/preview/shared/runtime.env")"
+          url="$(ssh deploy-host "sed -n 's/^DATABASE_URL=//p' /srv/thewolf/preview/shared/runtime.env")"
           echo "::add-mask::$url"
           echo "DATABASE_URL=$url" >> "$GITHUB_ENV"
 

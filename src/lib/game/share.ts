@@ -1,10 +1,10 @@
 /**
  * The share text. Wordle is the benchmark: one row a stranger reads at a glance.
  *
- *   Hindsight #12 · $100 → $146
+ *   The Wolf #12 · $100 → $146
  *   🟩⭐⭐🟥🟥
  *   🙃 The Contrarian
- *   https://hindsight.example
+ *   https://thewolf.example
  *
  * One square per call: 🟩 right, 🟥 wrong, ⭐ right while most players called it the other way.
  * Green and red need no legend, and a star reads as "a standout right call" without one (unlike

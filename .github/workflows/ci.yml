@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Placeholders so the build can run in CI. The build checks these exist but never bakes them
-# in; the server reads the real values from /etc/hindsight/<slot>.env when the app starts.
+# in; the server reads the real values from /etc/thewolf/<slot>.env when the app starts.
 env:
   DATABASE_URL: postgres://ci:ci@localhost:5432/ci
   BETTER_AUTH_SECRET: ci-placeholder-not-a-secret-0123456789abcdef

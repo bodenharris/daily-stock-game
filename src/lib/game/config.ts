@@ -6,10 +6,10 @@
  */
 
 /** Working name. Change it here and everywhere follows. */
-export const GAME_NAME = 'Hindsight';
+export const GAME_NAME = 'The Wolf';
 
 /** Placeholder until the domain is decided. Used by the share text. */
-export const SITE_URL = 'https://hindsight.example';
+export const SITE_URL = 'https://thewolf.example';
 
 /** Every game starts with $100. */
 export const START_BALANCE_CENTS = 10_000;
