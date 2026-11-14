@@ -113,4 +113,4 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 - **The vertical range only grows during a game.** Each reveal can add room but never re-zooms the history the player already studied.
 - **After the fifth call, the controls give way to "Unmasking the chart…"** instead of a greyed-out stake row that looked frozen.
 - **Kept on purpose:** the stake resets to 25% after each call (the second playtester bet half by accident with a leftover selection; the third found re-picking mildly annoying; accidental big bets are worse).
-- **Not done tonight:** stake size and rank in the share text. The one-row grid tested better than the three-row version, and rank needs a stats query at share time; both are in "what I'd improve next".
+- **Rank went into the share text, stake size did not.** Your place today ("3rd of 6 today", or "Beat 64% of players today" for big crowds) rides on the archetype line, read from the percentile sketch when the game finishes. Stake size stays out: the one-row grid tested better than the three-row version that encoded it.
