@@ -260,6 +260,7 @@
 				labels={showReveal && view.reveal
 					? { dates: view.reveal.dates, closes: view.reveal.closes }
 					: null}
+				ticker={showReveal ? (view.reveal?.ticker ?? null) : null}
 			/>
 		</div>
 	</div>

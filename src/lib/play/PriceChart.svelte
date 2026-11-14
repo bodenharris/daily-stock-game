@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { area, curveLinear, line } from 'd3-shape';
 	import { Spring, Tween, prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
@@ -17,6 +18,8 @@
 		pending?: Direction | null;
 		/** Show dates and prices (after the unmasking). */
 		labels?: { dates: string[]; closes: number[] } | null;
+		/** The real ticker, once unmasked. Until then the tape shows "???". */
+		ticker?: string | null;
 		class?: string;
 	}
 
@@ -27,6 +30,7 @@
 		results,
 		pending = null,
 		labels = null,
+		ticker = null,
 		class: className = ''
 	}: Props = $props();
 
@@ -35,12 +39,15 @@
 	let height = $state(0);
 	const finished = $derived(callsMade >= shape.calls);
 
+	/** Height of the ticker tape across the top of the chart. */
+	const TAPE_H = 26;
+
 	const frame: Frame = $derived({
 		width,
 		height,
 		padLeft: 4,
 		padRight: 4,
-		padTop: labels ? 26 : 14,
+		padTop: TAPE_H + (labels ? 26 : 14),
 		padBottom: labels ? 30 : 14,
 		contextShare: 0.5
 	});
@@ -62,6 +69,15 @@
 	// never re-zooms what the player has already studied.
 	// svelte-ignore state_referenced_locally
 	let range = { first: values[0], length: values.length, lo: lo.target, hi: hi.target };
+	/**
+	 * Stretches already settled when this game was loaded. Their flash, burst and floating
+	 * move are skipped, so a reload doesn't replay every call at once.
+	 */
+	const firstValue = $derived(values[0]);
+	const settledOnLoad = $derived.by(() => {
+		void firstValue; // a different game: recount from what it arrived with
+		return untrack(() => callsMade);
+	});
 	$effect(() => {
 		const instant = prefersReducedMotion.current;
 		const [fa, fb] = domainFor(logs, 0.1);
@@ -114,9 +130,11 @@
 				d: drawEnd.current > from ? (pathOf(pointsFor(logs, from, to, drawEnd.current)) ?? '') : '',
 				drawn: drawEnd.current >= to - 0.01,
 				move: values[to] / values[from] - 1,
+				fresh: r.step > settledOnLoad,
 				x0,
 				x1,
-				baseY: y(logs[from])
+				baseY: y(logs[from]),
+				endY: y(logs[to])
 			};
 		})
 	);
@@ -125,7 +143,50 @@
 		const end = Math.min(drawEnd.current, lastIndex);
 		const pts = pointsFor(logs, Math.floor(end), Math.ceil(end), end);
 		const p = pts[pts.length - 1] ?? [lastIndex, logs[lastIndex]];
-		return { x: x(p[0]), y: y(p[1]) };
+		return { x: x(p[0]), y: y(p[1]), log: p[1], end };
+	});
+
+	/** True while a stretch is drawing itself in. */
+	const drawing = $derived(drawEnd.current < lastIndex - 0.01);
+
+	/**
+	 * The last-price tag on the right edge, like a trading terminal. It shows the move of the
+	 * stretch the line is in, ticking as the line draws (or the real price once unmasked).
+	 */
+	const tag = $derived.by(() => {
+		const k =
+			head.end <= contextEnd + 0.001
+				? 0
+				: Math.min(shape.calls, Math.ceil((head.end - contextEnd) / shape.stepBars - 0.001));
+		const base = k === 0 ? 0 : contextEnd + (k - 1) * shape.stepBars;
+		const move = Math.exp(head.log - logs[base]) - 1;
+		const text = labels
+			? fmtPrice(labels.closes[Math.round(head.end)])
+			: `${move >= 0 ? '▲' : '▼'} ${fmtMove(move)}`;
+		const w = text.length * 7 + 14;
+		const top = frame.padTop - 4;
+		const bottom = height - frame.padBottom - 4;
+		return {
+			up: move >= 0,
+			text,
+			w,
+			y: Math.min(Math.max(head.y, top + 10), bottom - 10)
+		};
+	});
+
+	/** The ticker tape: the setup, every settled call, and the calls still to come. */
+	const tape = $derived.by(() => {
+		const items: { key: string; label: string; move: number | null; fresh: boolean }[] = [
+			{ key: 'setup', label: 'SETUP', move: values[contextEnd] / values[0] - 1, fresh: false }
+		];
+		const drawn = segments.filter((s) => s.drawn);
+		for (const s of drawn) {
+			items.push({ key: `c${s.step}`, label: `CALL ${s.step}`, move: s.move, fresh: s.fresh });
+		}
+		for (let k = drawn.length + 1; k <= shape.calls; k++) {
+			items.push({ key: `c${k}`, label: `CALL ${k}`, move: null, fresh: false });
+		}
+		return items;
 	});
 
 	const slots = $derived(
@@ -210,18 +271,78 @@
 	role="img"
 	aria-label={summary}
 >
+	<!-- Ticker tape: the story so far, scrolling like the board on a trading floor. -->
+	<div
+		class="tape"
+		style:height="{TAPE_H}px"
+		style:--tape-s="{tape.length * 3.5}s"
+		aria-hidden="true"
+	>
+		<span class="tape-symbol">
+			<span class={['live', finished && 'closed']}></span>
+			{ticker ?? '???'}
+			<span class="tape-state">{finished ? 'CLOSED' : 'LIVE'}</span>
+		</span>
+		<div class="tape-window">
+			<div class="tape-track">
+				{#each [0, 1] as copy (copy)}
+					<div class="tape-copy">
+						{#each tape as item (item.key)}
+							<span
+								class={[
+									'tape-item',
+									item.move == null ? 'tbd' : item.move >= 0 ? 'up' : 'down',
+									item.fresh && 'fresh'
+								]}
+							>
+								<span class="tape-label">{item.label}</span>
+								{#if item.move == null}
+									···
+								{:else}
+									{item.move >= 0 ? '▲' : '▼'} {fmtMove(item.move)}
+								{/if}
+							</span>
+						{/each}
+					</div>
+				{/each}
+			</div>
+		</div>
+	</div>
+
 	{#if width > 0 && height > 0}
 		<svg {width} {height} viewBox="0 0 {width} {height}" aria-hidden="true">
 			<defs>
 				<!-- Lines never spill into the header while the range eases out to fit a spike. -->
 				<clipPath id="{uid}-plot">
-					<rect x="-4" y="0" width={width + 8} {height} />
+					<rect x="-4" y={TAPE_H} width={width + 8} height={Math.max(0, height - TAPE_H)} />
 				</clipPath>
 				<linearGradient id="{uid}-fill" x1="0" x2="0" y1="0" y2="1">
-					<stop offset="0" stop-color="var(--chart-ink)" stop-opacity="0.09" />
-					<stop offset="1" stop-color="var(--chart-ink)" stop-opacity="0" />
+					<stop offset="0" stop-color="var(--md-sys-color-primary)" stop-opacity="0.16" />
+					<stop offset="1" stop-color="var(--md-sys-color-primary)" stop-opacity="0" />
+				</linearGradient>
+				<!-- Terminal graph paper. -->
+				<pattern id="{uid}-paper" width="24" height="24" patternUnits="userSpaceOnUse">
+					<path class="paper" d="M24 0 L0 0 L0 24" />
+				</pattern>
+				<linearGradient id="{uid}-scan" x1="0" x2="0" y1="0" y2="1">
+					<stop offset="0" stop-color="var(--md-sys-color-primary)" stop-opacity="0" />
+					<stop offset="0.5" stop-color="var(--md-sys-color-primary)" stop-opacity="0.55" />
+					<stop offset="1" stop-color="var(--md-sys-color-primary)" stop-opacity="0" />
 				</linearGradient>
 			</defs>
+
+			<rect
+				x={frame.padLeft}
+				y={frame.padTop - 4}
+				width={Math.max(0, width - frame.padLeft - frame.padRight)}
+				height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
+				fill="url(#{uid}-paper)"
+			/>
+			{#if !labels}
+				<text class="watermark" x={width - frame.padRight - 4} y={height - frame.padBottom - 2}
+					>WOLF EXCHANGE</text
+				>
+			{/if}
 
 			{#each grid as g (g.text)}
 				<line class="grid" x1={frame.padLeft} x2={width - frame.padRight} y1={g.y} y2={g.y} />
@@ -276,19 +397,63 @@
 				{/each}
 			</g>
 
+			<!-- The scanner sweeps along with the line while a stretch draws in. -->
+			{#if drawing}
+				<rect
+					class="scan"
+					x={head.x - 1}
+					y={frame.padTop - 4}
+					width="2"
+					height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
+					fill="url(#{uid}-scan)"
+				/>
+			{/if}
+
+			<!-- The last price, ruled across to its tag on the right edge. -->
+			<line class="last" x1={head.x} x2={width - frame.padRight} y1={head.y} y2={head.y} />
+			<g
+				class={['tag', tag.up ? 'up' : 'down']}
+				transform="translate({width - frame.padRight} {tag.y})"
+			>
+				<rect x={-tag.w} y="-10" width={tag.w} height="20" rx="4" />
+				<text x="-7" y="4" text-anchor="end">{tag.text}</text>
+			</g>
+
 			<!-- Right or wrong marks the end of each stretch, once it has fully drawn. -->
 			{#each segments.filter((x) => x.drawn) as seg (seg.step)}
+				{#if seg.fresh}
+					<!-- The stretch's slot flashes the colour of its move, then a burst and the move
+					     itself float off the end of the line. -->
+					<rect
+						class={['flash', seg.move >= 0 ? 'up' : 'down']}
+						x={seg.x0}
+						y={frame.padTop - 4}
+						width={Math.max(0, seg.x1 - seg.x0)}
+						height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
+					/>
+					<g transform="translate({seg.x1} {seg.endY})">
+						<circle class={['burst', seg.right ? 'right' : 'wrong']} r="6" />
+						<g class={['float', seg.move >= 0 ? 'up' : 'down']}>
+							<text y={seg.move >= 0 ? -14 : 24} text-anchor="middle"
+								>{seg.move >= 0 ? '▲' : '▼'} {fmtMove(seg.move)}</text
+							>
+						</g>
+					</g>
+				{/if}
 				<circle
 					class="mark"
 					class:right={seg.right}
 					class:wrong={!seg.right}
 					cx={seg.x1}
-					cy={y(logs[contextEnd + seg.step * shape.stepBars])}
+					cy={seg.endY}
 					r="4"
 				/>
 			{/each}
 
 			<g class="head" transform="translate({head.x} {head.y})">
+				{#if !finished}
+					<circle class="ping" r="8" />
+				{/if}
 				<circle class="halo" r="8" />
 				<circle class="dot" r="3.5" />
 			</g>
@@ -428,11 +593,264 @@
 	.price {
 		font-weight: 600;
 	}
+	/* ── Trading-floor dressing ─────────────────────────────────────────────── */
+	.chart {
+		--mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+	}
+	.seg {
+		filter: drop-shadow(0 0 5px color-mix(in srgb, var(--md-sys-color-primary) 70%, transparent));
+	}
+	.paper {
+		fill: none;
+		stroke: var(--chart-grid);
+		stroke-width: 1;
+		opacity: 0.28;
+	}
+	.watermark {
+		font: 700 10px/1 var(--mono);
+		letter-spacing: 0.3em;
+		text-anchor: end;
+		fill: var(--chart-axis);
+		opacity: 0.35;
+	}
+	.last {
+		stroke: var(--chart-ink);
+		stroke-width: 1;
+		stroke-dasharray: 1 3;
+		opacity: 0.5;
+	}
+	.tag rect {
+		transition: fill 250ms ease;
+	}
+	.tag.up rect {
+		fill: var(--chart-up);
+	}
+	.tag.down rect {
+		fill: var(--chart-down);
+	}
+	.tag text {
+		font: 700 11px/1 var(--mono);
+		font-variant-numeric: tabular-nums;
+		fill: var(--md-sys-color-surface);
+	}
+	.scan {
+		pointer-events: none;
+	}
+	.ping {
+		fill: none;
+		stroke: var(--md-sys-color-primary);
+		stroke-width: 2;
+		transform-box: fill-box;
+		transform-origin: center;
+		animation: ping 1.6s ease-out infinite;
+	}
+	@keyframes ping {
+		from {
+			transform: scale(0.6);
+			opacity: 0.8;
+		}
+		to {
+			transform: scale(2.4);
+			opacity: 0;
+		}
+	}
+	.flash {
+		opacity: 0;
+		animation: flash 900ms ease-out;
+	}
+	.flash.up {
+		fill: var(--chart-up);
+	}
+	.flash.down {
+		fill: var(--chart-down);
+	}
+	@keyframes flash {
+		from {
+			opacity: 0.32;
+		}
+		to {
+			opacity: 0;
+		}
+	}
+	.burst {
+		fill: none;
+		stroke-width: 2.5;
+		opacity: 0;
+		transform-box: fill-box;
+		transform-origin: center;
+		animation: burst 700ms ease-out;
+	}
+	.burst.right {
+		stroke: var(--chart-up);
+	}
+	.burst.wrong {
+		stroke: var(--chart-down);
+	}
+	@keyframes burst {
+		from {
+			transform: scale(0.5);
+			opacity: 1;
+		}
+		to {
+			transform: scale(3.2);
+			opacity: 0;
+		}
+	}
+	.float {
+		opacity: 0;
+		animation: float 1.8s ease-out;
+	}
+	.float text {
+		font: 800 13px/1 var(--mono);
+		font-variant-numeric: tabular-nums;
+	}
+	.float.up text {
+		fill: var(--chart-up);
+	}
+	.float.down text {
+		fill: var(--chart-down);
+	}
+	@keyframes float {
+		0% {
+			opacity: 0;
+			transform: translateY(6px) scale(0.8);
+		}
+		15% {
+			opacity: 1;
+			transform: translateY(0) scale(1.1);
+		}
+		70% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: translateY(-18px) scale(1);
+		}
+	}
+
+	/* The tape. */
+	.tape {
+		position: absolute;
+		inset: 0 0 auto;
+		z-index: 1;
+		display: flex;
+		align-items: stretch;
+		overflow: hidden;
+		border-radius: 6px;
+		background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
+		font: 600 11px/1 var(--mono);
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0.04em;
+		white-space: nowrap;
+	}
+	.tape-symbol {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0 0.6rem;
+		background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+		color: var(--md-sys-color-on-surface);
+		font-weight: 800;
+	}
+	.tape-state {
+		font-size: 9px;
+		opacity: 0.7;
+	}
+	.live {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--chart-up);
+		animation: blink 1.2s steps(2, jump-none) infinite;
+	}
+	.live.closed {
+		background: var(--chart-axis);
+		animation: none;
+	}
+	@keyframes blink {
+		50% {
+			opacity: 0.2;
+		}
+	}
+	.tape-window {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		mask-image: linear-gradient(
+			90deg,
+			transparent,
+			#000 1.5rem,
+			#000 calc(100% - 1.5rem),
+			transparent
+		);
+	}
+	.tape-track {
+		display: flex;
+		width: max-content;
+		height: 100%;
+		animation: tape var(--tape-s, 20s) linear infinite;
+	}
+	.tape-copy {
+		display: flex;
+		align-items: center;
+		flex: none;
+		min-width: 100%;
+	}
+	@keyframes tape {
+		to {
+			transform: translateX(-50%);
+		}
+	}
+	.tape-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0 0.9rem;
+		color: var(--chart-axis);
+	}
+	.tape-item + .tape-item {
+		border-left: 1px solid color-mix(in srgb, var(--chart-axis) 25%, transparent);
+	}
+	.tape-label {
+		color: var(--md-sys-color-on-surface);
+		opacity: 0.75;
+	}
+	.tape-item.up {
+		color: var(--chart-up);
+	}
+	.tape-item.down {
+		color: var(--chart-down);
+	}
+	.tape-item.fresh {
+		animation: tape-in 1.2s ease-out;
+	}
+	@keyframes tape-in {
+		0%,
+		40% {
+			background: color-mix(in srgb, currentColor 30%, transparent);
+		}
+		100% {
+			background: transparent;
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		svg,
 		.move,
-		.ghost {
+		.ghost,
+		.ping,
+		.live,
+		.tape-item.fresh,
+		.tape-track {
 			animation: none;
+		}
+		.ping,
+		.flash,
+		.burst,
+		.float,
+		.scan {
+			display: none;
 		}
 	}
 </style>
