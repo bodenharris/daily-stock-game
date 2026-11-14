@@ -42,10 +42,10 @@ Checks: `npm run verify` (type check, lint, tests). Simulator: `node scripts/sim
 
 One Vultr Ubuntu server runs two copies of the app behind Caddy: **prod** (the live game, port 3000) and **preview** (one PR at a time, port 3001). GitHub Actions does the rest:
 
-| Workflow | When                              | What                                                                                                                                                                                                                                                      |
-| -------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml` | Every PR and push to `main`       | Type check, lint, tests and build. On `main`, deploys to prod when `DEPLOY_ENABLED` is `true`.                                                                                                                                                            |
-| `pr.yml` | Every push to a PR from this repo | Forks the prod database, runs the PR's migrations on the fork, then either deploys the PR to the preview (when `PREVIEW_ENABLED` is `true`) or smoke-tests it in CI. The fork is deleted afterwards (for the preview: when the next preview replaces it). |
+| Workflow | When                              | What                                                                                                                                                                                                                                                                                                                     |
+| -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ci.yml` | Every PR and push to `main`       | Type check, lint, tests and build. On `main`, deploys to prod when `DEPLOY_ENABLED` is `true`.                                                                                                                                                                                                                           |
+| `pr.yml` | Every push to a PR from this repo | Deploys the PR to the preview (when `PREVIEW_ENABLED` is `true`), or else smoke-tests it in CI. Either way, when the PR changes migrations or the schema, it first forks the prod database and runs the PR's migrations on the fork. The preview keeps its fork between deploys; CI forks are deleted when the run ends. |
 
 A deploy builds in CI, migrates the prod database (migrations only add, so the running version keeps working), copies `build/` to `/srv/hindsight/<slot>/releases/<id>`, switches the `current` symlink, restarts `hindsight@<slot>`, and rolls back if it doesn't answer within 30 seconds. The build bundles every dependency, so the server needs Node and nothing else.
 
@@ -57,7 +57,7 @@ A deploy builds in CI, migrates the prod database (migrations only add, so the r
 | dev      | everyone's local `.env`            | `tiger service fork <prod-id> --name hindsight-dev` once, then refork whenever you want fresh data |
 | PR forks | `pr.yml`                           | the `timescale/fork-service` action, deleted automatically                                         |
 
-Forks are copies: nothing done on dev or a PR fork reaches prod. On Tiger's free tier a fork takes 30–90 seconds; on standard services 5–20+ minutes, in which case leave `PREVIEW_ENABLED` off and refork on demand. Seeding the private catalog stays a deliberate manual step: `DATABASE_URL=<prod> node scripts/seed-puzzles.ts`.
+Forks are copies: nothing done on dev or a PR fork reaches prod. Our Tiger account runs on the MLH hackathon offer ($1,000 of credits for 30 days), so the services are standard ones: a fork is a backup restore that takes several minutes and bills against the credits. That's why forks only happen when a PR changes the database, and why the preview keeps its fork until it needs a new one (or you run the PR workflow by hand with "Fresh database"). The credits run out 30 days after sign-up; a standard service can't be forked into a free one, so moving to the free tier afterwards means a dump and restore. Seeding the private catalog stays a deliberate manual step: `DATABASE_URL=<prod> node scripts/seed-puzzles.ts`.
 
 ### One-time setup
 
@@ -73,15 +73,16 @@ On the server (Ubuntu, as root):
 
 In GitHub (Settings → Secrets and variables → Actions; environments `production` and `preview`):
 
-| Name                                   | Kind                | Value                                                  |
-| -------------------------------------- | ------------------- | ------------------------------------------------------ |
-| `DEPLOY_SSH_KEY`                       | secret              | the CI private key                                     |
-| `DEPLOY_KNOWN_HOSTS`                   | secret              | output of `ssh-keyscan <server>`, checked by hand once |
-| `PROD_DATABASE_URL`                    | secret (production) | the prod connection string                             |
-| `TIGERDATA_API_KEY`                    | secret              | Tiger client credentials as `publicKey:secretKey`      |
-| `DEPLOY_HOST`, `DEPLOY_USER`           | variables           | server address, `deploy`                               |
-| `TIGER_PROJECT_ID`, `TIGER_SERVICE_ID` | variables           | the prod service to fork                               |
-| `PROD_URL`, `PREVIEW_URL`              | variables           | `https://…` for each                                   |
-| `DEPLOY_ENABLED`, `PREVIEW_ENABLED`    | variables           | `true` to switch each on                               |
+| Name                                             | Kind                 | Value                                                                             |
+| ------------------------------------------------ | -------------------- | --------------------------------------------------------------------------------- |
+| `DEPLOY_SSH_KEY`                                 | secret               | the CI private key                                                                |
+| `DEPLOY_KNOWN_HOSTS`                             | secret               | output of `ssh-keyscan <server>`, checked by hand once                            |
+| `PROD_DATABASE_URL`                              | secret (production)  | the prod connection string                                                        |
+| `TIGERDATA_API_KEY`                              | secret               | Tiger client credentials as `publicKey:secretKey`                                 |
+| `DEPLOY_HOST`, `DEPLOY_USER`                     | variables            | server address, `deploy`                                                          |
+| `TIGER_PROJECT_ID`, `TIGER_SERVICE_ID`           | variables            | the prod service to fork                                                          |
+| `PROD_URL`, `PREVIEW_URL`                        | variables            | `https://…` for each                                                              |
+| `DEPLOY_ENABLED`, `PREVIEW_ENABLED`              | variables            | `true` to switch each on                                                          |
+| `TIGER_FORK_CPU_MILLIS`, `TIGER_FORK_MEMORY_GBS` | variables (optional) | size of PR and preview forks; blank means the same as prod, smaller saves credits |
 
 Until those are set, the workflows only run the checks. Roll back by hand: `ln -sfn /srv/hindsight/prod/releases/<older> /srv/hindsight/prod/current && sudo systemctl restart hindsight@prod`.
