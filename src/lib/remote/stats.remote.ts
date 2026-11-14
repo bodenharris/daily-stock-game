@@ -2,9 +2,9 @@ import { getRequestEvent, query } from '$app/server';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { games, guesses } from '#lib/server/db/schema.ts';
-import { loadToday } from '#lib/server/game/play.ts';
+import { leaderboardFor, loadToday } from '#lib/server/game/play.ts';
 import { exactStandingOf, statsFor, type Stats } from '#lib/server/stats.ts';
-import type { Direction } from '#lib/play/types.ts';
+import type { Direction, Leaderboard } from '#lib/play/types.ts';
 
 const TICK_MS = 4000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -90,4 +90,25 @@ export const liveStats = query.live(async function* (): AsyncGenerator<LiveStats
 		};
 		await sleep(TICK_MS);
 	}
+});
+
+/**
+ * Today's leaderboard, the same board the game shows at the end. Only for a viewer who has
+ * finished today's game (null otherwise), and fetched when they open it, not on every tick.
+ */
+export const todaysLeaderboard = query(async (): Promise<Leaderboard | null> => {
+	const userId = getRequestEvent().locals.user?.id;
+	if (!userId) return null;
+	const today = await loadToday();
+	const [game] = await db
+		.select({ id: games.id, finishedAt: games.finishedAt })
+		.from(games)
+		.where(
+			and(
+				eq(games.userId, userId),
+				eq(games.puzzleNumber, today.number),
+				isNotNull(games.finishedAt)
+			)
+		);
+	return leaderboardFor(today.number, game ?? null);
 });
