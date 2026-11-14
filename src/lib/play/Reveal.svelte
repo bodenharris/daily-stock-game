@@ -1,0 +1,122 @@
+<script lang="ts">
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import { MediaQuery } from 'svelte/reactivity';
+	import { page } from '$app/state';
+	import Share2 from '@lucide/svelte/icons/share-2';
+	import Check from '@lucide/svelte/icons/check';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { classifyArchetype } from '#lib/game/archetype.ts';
+	import { buildShareText } from '#lib/game/share.ts';
+	import { dollars } from './money.ts';
+	import { toRecords } from './records.ts';
+	import Countdown from './Countdown.svelte';
+	import BonusRound from './BonusRound.svelte';
+	import Dices from '@lucide/svelte/icons/dices';
+	import type { GameView } from './types.ts';
+
+	let { view, fresh = false }: { view: GameView; fresh?: boolean } = $props();
+	const reveal = $derived(view.reveal!);
+	const records = $derived(toRecords(view.results));
+	const archetype = $derived(classifyArchetype(records));
+	const light = new MediaQuery('(prefers-color-scheme: light)');
+
+	const range = $derived.by(() => {
+		const fmt = (iso: string, withYear: boolean) =>
+			new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', {
+				month: 'short',
+				day: 'numeric',
+				...(withYear ? { year: 'numeric' } : {}),
+				timeZone: 'UTC'
+			});
+		const first = reveal.dates[view.contextBars - 1];
+		const last = reveal.dates.at(-1)!;
+		const sameYear = first.slice(0, 4) === last.slice(0, 4);
+		return `${fmt(first, !sameYear)} – ${fmt(last, true)}`;
+	});
+
+	const shareText = $derived(
+		buildShareText({
+			puzzleNumber: view.number,
+			calls: records,
+			archetype,
+			theme: light.current ? 'light' : 'dark',
+			bonus: view.bonus ? { label: 'Real or Random', ...view.bonus } : undefined,
+			url: page.url.origin
+		})
+	);
+
+	let copied = $state(false);
+	let playingBonus = $state(false);
+
+	async function share() {
+		const text = shareText;
+		try {
+			if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+				await navigator.share({ text });
+				return;
+			}
+		} catch (e) {
+			if ((e as DOMException)?.name === 'AbortError') return;
+		}
+		try {
+			await navigator.clipboard.writeText(text);
+			copied = true;
+			setTimeout(() => (copied = false), 2000);
+		} catch {
+			window.prompt('Copy your result', text);
+		}
+	}
+
+	const d = (ms: number) => (fresh ? ms : 0);
+</script>
+
+{#if playingBonus}
+	<BonusRound onDone={() => (playingBonus = false)} />
+{:else}
+	<section class="flex flex-col gap-4 pt-1 pb-6">
+		<div in:fly={{ y: 16, duration: d(500), delay: d(250), easing: cubicOut }}>
+			<p class="type-label-lg text-chart-reveal">
+				<span class="type-numeric">{reveal.ticker}</span> · {range}
+			</p>
+			<h2 class="type-headline-md-emphasized text-on-surface">{reveal.headline}</h2>
+			<p class="mt-1 type-body-md text-on-surface-variant">{reveal.story}</p>
+		</div>
+
+		<div
+			class="flex items-center gap-4 rounded-m3-xl bg-surface-container p-4"
+			in:fly={{ y: 16, duration: d(500), delay: d(450), easing: cubicOut }}
+		>
+			<span class="text-4xl leading-none" aria-hidden="true">{archetype.emoji}</span>
+			<div class="min-w-0">
+				<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
+				<p class="type-body-md text-on-surface-variant">{archetype.line}</p>
+			</div>
+		</div>
+
+		<div
+			in:fly={{ y: 16, duration: d(500), delay: d(650), easing: cubicOut }}
+			class="flex flex-col gap-3"
+		>
+			<Button variant="filled" size="md" onclick={share} aria-live="polite">
+				{#if copied}
+					<Check /> Copied
+				{:else}
+					<Share2 /> Share {dollars(view.balanceCents, { cents: false })}
+				{/if}
+			</Button>
+			{#if view.bonus}
+				<p class="text-center type-body-md text-on-surface-variant">
+					Real or random: {view.bonus.correct} of {view.bonus.total}
+				</p>
+			{:else}
+				<Button variant="tonal" size="md" onclick={() => (playingBonus = true)}>
+					<Dices /> Bonus: real or random?
+				</Button>
+			{/if}
+			<p class="text-center type-body-sm text-on-surface-variant">
+				Next chart in <Countdown to={view.nextPuzzleAt} />
+			</p>
+		</div>
+	</section>
+{/if}
