@@ -229,7 +229,7 @@ function assembleView(
 	// After the last call the player names the moment first; nothing identifying is sent until
 	// that guess is stored. (If the options can't be built, the reveal goes out anyway.)
 	const revealed = finished && (!nameIt || nameIt.answered);
-	// The standing line sits above the histogram, so it comes from the same exact place and count
+	// The standing line sits above the finishes curve, so it comes from the same exact place and count
 	// whenever there is one. The percentile sketch (an estimate, cached for a few seconds) is the
 	// fallback if the finishes couldn't be read.
 	const shownStanding = finishes ? exactStanding(finishes.place, finishes.finished) : standing;
@@ -315,7 +315,7 @@ function standingFor(day: Day, game: GameRow | null): Promise<Standing | null> {
 }
 
 /**
- * Where everyone finished that day, for the end screen's histogram, plus the viewer's exact
+ * Where everyone finished that day, for the end screen's curve, plus the viewer's exact
  * place, in one statement over the day's finished games (the `(puzzle_number, finished_at)`
  * index narrows it to one day). Balances come in $10 buckets, the same ones the stats page
  * gets. The place counts strictly better balances, so ties share the better place. Nobody is

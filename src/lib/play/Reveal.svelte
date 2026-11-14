@@ -10,7 +10,7 @@
 	import { toRecords } from './records.ts';
 	import { standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
-	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
+	import FinishCurve from '#lib/stats/FinishCurve.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
 	import type { GameView } from './types.ts';
@@ -189,7 +189,7 @@
 					{finished === 1 ? 'player' : 'players'}
 				</p>
 			</div>
-			<FinishHistogram finishes={view.finishes.buckets} you={view.balanceCents} />
+			<FinishCurve finishes={view.finishes.buckets} you={view.balanceCents} />
 			{#if finished === 1}
 				<p class="px-1 type-body-sm text-on-surface-variant">
 					{archive ? 'Nobody else has played this one yet.' : "You're the first to finish today."}

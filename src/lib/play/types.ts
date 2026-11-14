@@ -82,7 +82,7 @@ export interface GameView {
 	finishes: Finishes | null;
 }
 
-/** The day's final balances, for the end screen's histogram. Nobody is named. */
+/** The day's final balances, for the end screen's curve. Nobody is named. */
 export interface Finishes {
 	/** Finished games per $10 bucket, lowest first; only non-empty buckets. */
 	buckets: FinishBucket[];

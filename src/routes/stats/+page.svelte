@@ -7,7 +7,7 @@
 	import CrowdCalls from '#lib/stats/CrowdCalls.svelte';
 	import HourlyCalls from '#lib/stats/HourlyCalls.svelte';
 	import HowItWorks from '#lib/stats/HowItWorks.svelte';
-	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
+	import FinishCurve from '#lib/stats/FinishCurve.svelte';
 
 	const live = liveStats();
 	const s = $derived(await live);
@@ -123,7 +123,7 @@
 				<section class="mt-8">
 					<h2 class="type-title-md text-on-surface">Where everyone finished</h2>
 					<div class="mt-3">
-						<FinishHistogram finishes={s.finishes} you={s.you?.balanceCents} />
+						<FinishCurve finishes={s.finishes} you={s.you?.balanceCents} />
 					</div>
 				</section>
 			{/if}
