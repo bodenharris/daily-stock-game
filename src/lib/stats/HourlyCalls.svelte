@@ -7,7 +7,7 @@
 <!-- Relative labels, not clock times: the server's hours would not match the viewer's zone. -->
 <figure>
 	<div
-		class="flex h-16 items-end gap-px border-b border-outline-variant"
+		class="flex h-16 items-end gap-px border-b border-outline-variant lg:h-28 lg:gap-0.5"
 		role="img"
 		aria-label="Calls per hour over the last 24 hours"
 	>

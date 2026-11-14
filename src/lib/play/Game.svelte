@@ -11,6 +11,7 @@
 	import PriceChart from './PriceChart.svelte';
 	import StakePicker from './StakePicker.svelte';
 	import CallPips from './CallPips.svelte';
+	import CallLog from './CallLog.svelte';
 	import Reveal from './Reveal.svelte';
 	import { dollars, percent } from './money.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
@@ -126,7 +127,9 @@
 	);
 
 	function buzz(pattern: number | number[]) {
-		if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(pattern);
+		// Phones only: desktops have no motor, and keyboard play has no tap to unlock it.
+		if (!matchMedia('(pointer: coarse)').matches || !('vibrate' in navigator)) return;
+		navigator.vibrate(pattern);
 	}
 
 	async function call(direction: Direction) {
@@ -165,6 +168,20 @@
 	}
 
 	const busy = $derived(!!pending || revealing || view.finished);
+
+	/** Keyboard play: ↑ / ↓ make the call, 1 / 2 / 3 pick the bet. Never while typing or in a sheet. */
+	function onKey(e: KeyboardEvent) {
+		if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || busy) return;
+		const t = e.target as HTMLElement | null;
+		if (t?.closest('input, textarea, select, [contenteditable], [role="dialog"]')) return;
+		if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+			e.preventDefault();
+			void call(e.key === 'ArrowUp' ? 'up' : 'down');
+			return;
+		}
+		const stake = STAKE_OPTIONS[Number(e.key) - 1];
+		if (stake) stakePercent = String(stake.percent);
+	}
 	/** The call in flight or being revealed, highlighted until the result lands. */
 	const chosen = $derived<Direction | null>(
 		pending ?? (revealing ? (view.results.at(-1)?.direction ?? null) : null)
@@ -176,9 +193,11 @@
 	{#if latest}{resultLine} Balance {dollars(balanceCents, { cents: false })}.{/if}
 </p>
 
-<div class="flex min-h-0 flex-1 flex-col">
+<svelte:window onkeydown={onKey} />
+
+<div class="game min-h-0 flex-1">
 	<!-- Balance: the one number that matters. -->
-	<div class="flex items-end justify-between gap-3 pt-1">
+	<div class="balance-row flex items-end justify-between gap-3 pt-1">
 		<div>
 			<p class="type-label-md text-on-surface-variant">
 				{finished ? 'Final balance' : 'Balance'}
@@ -211,91 +230,173 @@
 		{/if}
 	</div>
 
-	<!-- The chart is the hero. -->
-	<div class="chart-area relative mt-2 flex-1">
-		<PriceChart
-			class="absolute inset-0"
-			values={view.bars}
-			shape={{ contextBars: view.contextBars, stepBars: view.stepBars, calls: view.calls }}
-			{callsMade}
-			results={view.results}
-			{pending}
-			labels={finished && view.reveal
-				? { dates: view.reveal.dates, closes: view.reveal.closes }
-				: null}
-		/>
+	<!-- The chart is the hero. On wide screens it gets the stage and a card of its own. -->
+	<div class="chart-area mt-2 flex flex-col">
+		<div class="relative min-h-0 flex-1">
+			<PriceChart
+				class="absolute inset-0"
+				values={view.bars}
+				shape={{ contextBars: view.contextBars, stepBars: view.stepBars, calls: view.calls }}
+				{callsMade}
+				results={view.results}
+				{pending}
+				labels={finished && view.reveal
+					? { dates: view.reveal.dates, closes: view.reveal.closes }
+					: null}
+			/>
+		</div>
 	</div>
 
-	<CallPips {results} calls={view.calls} />
+	<div class="panel flex min-w-0 flex-col">
+		<div class={[!finished && 'hide-wide']}>
+			<CallPips {results} calls={view.calls} />
+		</div>
+		{#if !finished}
+			<div class="log">
+				<CallLog {results} calls={view.calls} />
+			</div>
+		{/if}
 
-	{#if finished && view.reveal}
-		<Reveal {view} {fresh} />
-	{:else}
-		<div class="controls flex flex-col pb-4">
-			<div class="flex min-h-10 items-center justify-center px-2 text-center">
-				{#if latest}
-					{#key latest.step}
-						<p
-							class="type-body-md text-balance text-on-surface-variant"
-							in:fly={{ y: 6, duration: fresh ? 250 : 0 }}
-						>
-							{resultLine}
-						</p>
-					{/key}
-				{:else}
-					<div>
-						<p class="type-title-md text-balance text-on-surface">Up or down over {stretch}?</p>
+		{#if finished && view.reveal}
+			<Reveal {view} {fresh} />
+		{:else}
+			<div class="controls flex flex-col pb-4">
+				<div class="flex min-h-10 items-center justify-center px-2 text-center">
+					{#if latest}
+						{#key latest.step}
+							<p
+								class="type-body-md text-balance text-on-surface-variant"
+								in:fly={{ y: 6, duration: fresh ? 250 : 0 }}
+							>
+								{resultLine}
+							</p>
+						{/key}
+					{:else}
+						<div>
+							<p class="type-title-md text-balance text-on-surface">Up or down over {stretch}?</p>
+						</div>
+					{/if}
+				</div>
+
+				{#if !view.finished}
+					<div class="mt-3">
+						<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
 					</div>
+
+					<div class="calls mt-3 grid grid-cols-2 gap-3">
+						{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
+							<Button
+								variant="tonal"
+								size="hero"
+								class="call {chosen === b.dir ? 'chosen' : ''} {chosen && chosen !== b.dir
+									? 'other'
+									: ''}"
+								disabled={busy && chosen !== b.dir}
+								aria-label="Call {b.label.toLowerCase()}"
+								onclick={() => call(b.dir)}
+							>
+								{#if b.dir === 'up'}<ArrowUp strokeWidth={2.5} />{:else}<ArrowDown
+										strokeWidth={2.5}
+									/>{/if}
+								{b.label}
+								<kbd class="key" aria-hidden="true">{b.dir === 'up' ? '↑' : '↓'}</kbd>
+							</Button>
+						{/each}
+					</div>
+				{:else}
+					<p
+						class="unmasking mt-6 text-center type-title-md text-on-surface-variant"
+						tabindex="-1"
+						{@attach (node) => {
+							// The Up/Down buttons just went away; keep keyboard focus on the game.
+							if (document.activeElement === document.body) node.focus({ preventScroll: true });
+						}}
+					>
+						Unmasking the chart…
+					</p>
+				{/if}
+
+				{#if error}
+					<p class="mt-2 text-center type-body-sm text-error" role="alert">{error}</p>
 				{/if}
 			</div>
-
-			{#if !view.finished}
-				<div class="mt-3">
-					<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
-				</div>
-
-				<div class="calls mt-3 grid grid-cols-2 gap-3">
-					{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
-						<Button
-							variant="tonal"
-							size="hero"
-							class="call {chosen === b.dir ? 'chosen' : ''} {chosen && chosen !== b.dir
-								? 'other'
-								: ''}"
-							disabled={busy && chosen !== b.dir}
-							aria-label="Call {b.label.toLowerCase()}"
-							onclick={() => call(b.dir)}
-						>
-							{#if b.dir === 'up'}<ArrowUp strokeWidth={2.5} />{:else}<ArrowDown
-									strokeWidth={2.5}
-								/>{/if}
-							{b.label}
-						</Button>
-					{/each}
-				</div>
-			{:else}
-				<p
-					class="unmasking mt-6 text-center type-title-md text-on-surface-variant"
-					tabindex="-1"
-					{@attach (node) => {
-						// The Up/Down buttons just went away; keep keyboard focus on the game.
-						if (document.activeElement === document.body) node.focus({ preventScroll: true });
-					}}
-				>
-					Unmasking the chart…
-				</p>
-			{/if}
-
-			{#if error}
-				<p class="mt-2 text-center type-body-sm text-error" role="alert">{error}</p>
-			{/if}
-		</div>
-	{/if}
+		{/if}
+	</div>
 </div>
 
 <style>
+	.game {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto 1fr auto;
+		grid-template-areas: 'balance' 'chart' 'panel';
+	}
+	.balance-row {
+		grid-area: balance;
+	}
 	.chart-area {
+		grid-area: chart;
 		min-height: 200px;
+	}
+	.panel {
+		grid-area: panel;
+	}
+	.key,
+	.log {
+		display: none;
+	}
+
+	/* Wide screens: the chart takes the stage on the left, the game sits in a rail on the right,
+	   with the call buttons level with the bottom of the chart. */
+	@media (min-width: 1024px) {
+		.game {
+			flex: none;
+			min-height: clamp(480px, calc(100dvh - 7rem), 700px);
+			margin-top: 0.5rem;
+			margin-bottom: 2rem;
+			grid-template-columns: minmax(0, 1fr) 22.5rem;
+			grid-template-rows: auto 1fr;
+			grid-template-areas: 'chart balance' 'chart panel';
+			column-gap: 2.5rem;
+		}
+		.chart-area {
+			margin-top: 0;
+			padding: 1.5rem 1.25rem 1rem;
+			border-radius: var(--md-sys-shape-corner-extra-large, 28px);
+			background: var(--md-sys-color-surface-container-low);
+		}
+		.balance-row {
+			padding-top: 0.5rem;
+		}
+		.panel {
+			padding-top: 0.75rem;
+		}
+		.hide-wide {
+			display: none;
+		}
+		.log {
+			display: block;
+			margin-top: 1.25rem;
+		}
+		.controls {
+			margin-top: auto;
+			padding-top: 1.5rem;
+			padding-bottom: 0;
+		}
+	}
+	@media (min-width: 1024px) and (pointer: fine) {
+		.key {
+			display: inline-grid;
+			place-items: center;
+			min-width: 1.5rem;
+			height: 1.5rem;
+			margin-left: 0.25rem;
+			border-radius: 6px;
+			background: color-mix(in srgb, currentColor 12%, transparent);
+			font: inherit;
+			font-size: 0.875rem;
+			line-height: 1;
+		}
 	}
 	/* The tapped call lights up at once; the other steps back while the stretch is revealed. */
 	/* Up and Down wear the brand: primary container, the tapped one fills to primary. */

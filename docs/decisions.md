@@ -128,3 +128,11 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 - **Less text on the play screen:** the hint line, "Stake for call N of 5" and the timeframe caption are gone (the pips, the prompt and the first-visit help cover them). At most one gridline each way.
 - **The ending card takes the result's colour** (primary container for a profit, a quiet surface for a loss), pops in on a spring, and Share goes full width once the bonus is done. On very short screens the hindsight line is hidden so the card and Share stay above the fold.
 - **Scrims at 50%** (32% barely separated a sheet from the page in dark mode).
+
+## Desktop layout
+- **Wide screens get their own layout, not a stretched phone.** From 1024px the chart takes the stage on the left in a card of its own, and the game sits in a 360px rail on the right with Up and Down level with the bottom of the chart. The page widens to 1280px, and the chart's height is capped at 700px so it stays landscape on tall monitors. Tablets (768–1023px) keep one column at up to 672px; phones are unchanged.
+- **A call log fills the rail on desktop.** Each call shows its direction, bet, how far the price moved and what it paid, instead of the five dots. Phones keep the dots, because they have no room to spare. After the game, the rail shows the dots again so the reveal fits.
+- **Keyboard play:** ↑ and ↓ make the call, and 1, 2 and 3 pick the bet. These keys are ignored while typing, inside a sheet or with a radio focused, and the help sheet mentions them on keyboard-and-mouse screens. The buttons show small ↑/↓ key hints on desktop only.
+- **Sheets become dialogs from 768px** (M3: bottom sheets for compact windows, dialogs for medium and up). One `Sheet` wrapper keeps the help and account content identical in both.
+- **Vibration only on touch screens:** keyboard play on desktop has no tap to unlock it, and it only logged errors.
+- **Stats page in two columns on desktop:** today's numbers on the left, the crowd's calls and the 24-hour chart on the right.

@@ -49,7 +49,7 @@
 </svelte:head>
 
 <main
-	class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+	class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:max-w-2xl md:px-6 lg:max-w-7xl lg:px-8"
 >
 	<header class="-mx-2 flex h-14 items-center gap-1">
 		<h1 class="px-2 type-title-lg-emphasized text-on-surface">{GAME_NAME}</h1>
