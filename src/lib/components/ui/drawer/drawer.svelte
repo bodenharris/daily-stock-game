@@ -1,0 +1,54 @@
+<script lang="ts">
+	import { Drawer as DrawerPrimitive } from 'vaul-svelte';
+	import { setDrawerContext } from './context.js';
+
+	/**
+	 * M3 bottom sheet root (navigation-containment.md §8), built on vaul-svelte. This is shadcn's
+	 * `Drawer`, restyled: same API (`Drawer.Root`, `.Trigger`, `.Content`, `.Header`, `.Title`, …).
+	 *   modal (default)  scrim 32%, focus is trapped, drag down / tap the scrim to dismiss.
+	 *   standard         `modal={false}`: no scrim, the page stays interactive. Usually combined with
+	 *                    `snapPoints` (e.g. `["56px", 0.5, 1]`, the first being the 56dp peek height)
+	 *                    and `dismissible={false}` so it can only be collapsed to its peek height.
+	 * `container` renders the sheet inside an element (e.g. a phone frame) instead of the viewport.
+	 * With `snapPoints` the sheet is as tall as its container and the snap points set how much of it
+	 * is visible; keep the largest one below `1` to leave the 72dp top margin.
+	 */
+	let {
+		open = $bindable(false),
+		activeSnapPoint = $bindable(null),
+		modal = true,
+		container = null,
+		shouldScaleBackground = false,
+		...restProps
+	}: DrawerPrimitive.RootProps = $props();
+
+	setDrawerContext({
+		get modal() {
+			return modal;
+		},
+		get container() {
+			return container;
+		},
+		get hasSnapPoints() {
+			// vaul's props are a union on `snapPoints`, so it stays inside restProps
+			return !!restProps.snapPoints?.length;
+		}
+	});
+
+	// vaul defaults `fadeFromIndex` to the last snap point, which hides the modal scrim until then;
+	// §8 adds the 32% scrim to every modal detent. An explicit caller value still wins.
+	const rootProps = $derived(
+		modal && restProps.snapPoints?.length && restProps.fadeFromIndex === undefined
+			? ({ ...restProps, fadeFromIndex: 0 } as DrawerPrimitive.RootProps)
+			: restProps
+	);
+</script>
+
+<DrawerPrimitive.Root
+	{...rootProps}
+	bind:open
+	bind:activeSnapPoint
+	{modal}
+	{container}
+	{shouldScaleBackground}
+/>
