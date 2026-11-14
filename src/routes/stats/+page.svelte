@@ -29,7 +29,23 @@
 			return 'The best finish today';
 		}
 		if (you.betterThan == null) return s.finished <= 1 ? 'The first to finish today' : null;
-		return `Better than ${Math.round(you.betterThan * 100)}% of players today`;
+		// Small crowds read better as a place than a percentile ("3rd of 4", not "better than 0%").
+		if (s.finished <= 20) {
+			const place = Math.max(1, s.finished - Math.round(you.betterThan * (s.finished - 1)));
+			const suffix =
+				place % 10 === 1 && place % 100 !== 11
+					? 'st'
+					: place % 10 === 2 && place % 100 !== 12
+						? 'nd'
+						: place % 10 === 3 && place % 100 !== 13
+							? 'rd'
+							: 'th';
+			return `${place}${suffix} of ${s.finished} players today`;
+		}
+		const pct = Math.round(you.betterThan * 100);
+		return pct >= 50
+			? `Better than ${pct}% of players today`
+			: 'In the bottom half today. Tomorrow is another chart.';
 	});
 </script>
 
