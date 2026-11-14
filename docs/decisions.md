@@ -22,3 +22,38 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 - **Each call gets an equal slot of chart width.** The context takes half the width and the five calls share the other half equally, whatever their length in trading days, so a 1-day call and a 1-month call both read as one clear chunk of future.
 - **A dashed level line marks "now".** Up means the line ends above it, down means below. This is the whole tutorial.
 - **Players are created lazily.** Opening the page creates nothing. The first call creates an anonymous Better Auth user; signing up later moves their games to the account (the account's game wins if both played the same day).
+- **Dev plays never touch the real crowd.** Games and guesses from a dev server are tagged `source = 'dev'`; the public crowd split and stats count only `real`. In development the crowd also includes `dev` and `sim` rows so the payout can be exercised.
+
+## Money (from the simulator, `node scripts/simulate.ts`)
+
+- **"Clearly beats" means what a player feels:** in every one of 30 scenarios (5 chart models × 6 crowd models, 20,000 games each), thoughtful play beats random play on mean, median, log return, share of games above $100 and P10, and beats all-in on all of those except the mean, and finishes higher on more than half of days. The mean is driven by rare huge days, which is not what one daily result feels like.
+- **The 50% chip pays 0.8 of the crowd multiplier.** With every chip paying the full multiplier, all-in tied thoughtful play on turning-point charts and had the higher mean in 19 of 30 scenarios. Trimming the biggest chip is the smallest one-sentence rule that breaks "always go max" (thoughtful now wins 30/30, and wins the mean in 24/30) while still paying well when you beat a lopsided crowd (1.6 × 0.8 = 1.28×).
+- **Crowd multiplier = 2 × share of other players who called the other way, kept in 0.50×–2.00×.** A 50/50 crowd pays even money, which is the easiest thing to explain. (The original 2.5× cap could never be reached, so it is 2.00×.)
+- **A 10-player 50/50 prior** keeps the first players of the day from swinging the multiplier. The multiplier is locked when you call, from the players before you; the split is shown only after your call.
+- **Integer cents everywhere**, every division rounds down, so every device computes the same result.
+
+## Puzzles
+
+- **30 puzzles from 1987 to 2025, validated against the real data** (`node scripts/check-puzzles.ts`): no flat stretch (< 0.3%), 79 up / 71 down calls overall, no puzzle with all five calls the same, and the last call is not usually "down". "Always call down" wins 47%.
+- **Stretch length is per puzzle** (1 day for crashes, up to 21 for bubbles), so the moment plays out across the five calls.
+- **#1 is the GameStop squeeze**, the moment most people half-remember.
+- **Rejected:** Lehman, Enron, Bear Stearns (not on Tiingo), SVB (trading halted, flat bars; KRE used instead), Archegos/ViacomCBS (bad ticker data), and several all-down or all-up stories.
+- **Delisted tickers show their familiar symbol** at the reveal (BBBYQ → BBBY).
+
+## Look
+
+- **Seed `#2E6B3A`, TonalSpot, 2021 spec.** The 2025 spec output of material-color-utilities 0.4 gave a near-black inverse surface and a non-white on-primary in light mode.
+- **Down is a harmonised coral, not red,** at lower chroma than the green so Down never shouts louder than Up. Every up/down pair passes AA.
+- **Dark mode follows the system.** No toggle, no flash on load.
+- **Lucide icons, not Material Symbols:** the icon font is several MB.
+- **Self-hosted fonts** (~250 KB): Google Sans Flex for display and numbers, Roboto Flex for body.
+
+## Bonus round
+
+- **Real or Random: three charts a day, the same for everyone,** seeded by the puzzle number. Real charts are random 90-day windows from large-cap tickers (never puzzle tickers or meme stocks). Random charts are GARCH(1,1) walks with fat tails that borrow the volatility of a real window, because a plain random walk is too smooth to fool anyone. Each day has one or two real charts, so "all real" or "all random" never wins outright.
+- **The answers stay on the server**; only the first submitted score is stored.
+
+## Stats page
+
+- **Today's per-call crowd split is hidden until you have finished today's game.** Otherwise anyone could look up the split and always take the minority side for the bigger multiplier.
+- **Served by a live remote query** (`query.live`) that pushes fresh numbers every 4 seconds, read from the continuous aggregates, with the query time shown on the page.
