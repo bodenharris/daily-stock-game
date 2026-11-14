@@ -70,7 +70,18 @@
 </script>
 
 {#if playingBonus}
-	<BonusRound number={view.number} onDone={() => (playingBonus = false)} />
+	<svelte:boundary>
+		<BonusRound number={view.number} onDone={() => (playingBonus = false)} />
+		{#snippet failed(_error, reset)}
+			<div class="flex flex-col items-start gap-2 py-6">
+				<p class="type-body-lg text-on-surface">The bonus round didn't load.</p>
+				<div class="flex gap-2">
+					<Button variant="tonal" size="sm" onclick={reset}>Try again</Button>
+					<Button variant="text" size="sm" onclick={() => (playingBonus = false)}>Back</Button>
+				</div>
+			</div>
+		{/snippet}
+	</svelte:boundary>
 {:else}
 	<section class="flex flex-col gap-4 pt-1 pb-6">
 		<div in:rise={{ delay: d(250) }}>
