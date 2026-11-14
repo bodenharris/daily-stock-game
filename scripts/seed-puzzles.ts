@@ -1,34 +1,21 @@
 /**
- * Upsert the puzzle catalog (src/lib/server/puzzles/catalog.ts) into the `puzzles` table.
- * Puzzles removed from the catalog are kept (games reference them) but parked at a negative
- * position so they are never scheduled again.
+ * Upsert the private puzzle catalog (private/catalog.json, see scripts/catalog.ts) into the
+ * `puzzles` table, in catalog order. Puzzles missing from the catalog are kept (games reference
+ * them) but parked at a negative position so they are never scheduled again; that only happens
+ * with --retire, so a stale or partial catalog can't quietly pull puzzles out of play.
  *
- * Usage: node scripts/seed-puzzles.ts
+ * Usage: node scripts/seed-puzzles.ts [--retire]
  */
 import { existsSync } from 'node:fs';
 import postgres from 'postgres';
+import { loadCatalog } from './catalog.ts';
 
 if (!process.env.DATABASE_URL && existsSync('.env')) process.loadEnvFile('.env');
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set');
 
-type CatalogPuzzle = {
-	slug: string;
-	ticker: string;
-	company: string;
-	headline: string;
-	story: string;
-	lastContextDate: string;
-	contextBars: number;
-	stepBars: number;
-	calls: number;
-};
-
-const mod = (await import('../src/lib/server/puzzles/catalog.ts')) as Record<string, unknown>;
-const catalog = Object.values(mod).find(
-	(v) => Array.isArray(v) && v.length > 0 && typeof v[0] === 'object' && 'slug' in v[0]
-) as CatalogPuzzle[] | undefined;
-if (!catalog) throw new Error('No puzzle array exported from catalog.ts');
+const { puzzles: catalog } = loadCatalog();
+if (catalog.length === 0) throw new Error('The catalog is empty');
 
 const sql = postgres(url, { max: 1, onnotice: () => {} });
 await sql.begin(async (tx) => {
@@ -38,6 +25,15 @@ await sql.begin(async (tx) => {
 	if (missing.length) {
 		throw new Error(
 			`Load prices first, missing tickers: ${missing.map((m) => m.symbol).join(', ')}`
+		);
+	}
+	const inCatalog = catalog.map((p) => p.slug);
+	const dropped = await tx<{ slug: string }[]>`
+		select slug from puzzles where position >= 0 and slug <> all(${inCatalog}::text[])`;
+	if (dropped.length && !process.argv.includes('--retire')) {
+		throw new Error(
+			`The catalog is missing ${dropped.length} puzzle(s) that are in play: ` +
+				`${dropped.map((d) => d.slug).join(', ')}. Export first, or pass --retire.`
 		);
 	}
 	// Free every position so the new order can be written without unique clashes.

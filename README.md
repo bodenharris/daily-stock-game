@@ -28,8 +28,10 @@ Price data and puzzles (one-off, already done for the shared database):
 ```sh
 node scripts/fetch-prices.ts   # downloads to .cache/tiingo (slow: free-plan rate limit)
 node scripts/ingest-prices.ts  # loads the cache into the prices hypertable
-node scripts/seed-puzzles.ts   # upserts the puzzle catalog
+node scripts/seed-puzzles.ts   # upserts private/catalog.json into the puzzles table
 ```
+
+The puzzle catalog holds every answer, so it isn't in this public repo. It lives in the shared database and in a git-ignored `private/catalog.json`: run `node scripts/export-catalog.ts` to pull it, edit it, check it with `node scripts/check-puzzles.ts`, then seed it back. `scripts/catalog.example.json` shows the format.
 
 Behind a reverse proxy (Caddy), set `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1` so the per-IP limit on new anonymous players sees real client addresses.
 

@@ -5,9 +5,7 @@ import {
 	easternDateString,
 	midnightIn,
 	msUntilNextPuzzle,
-	puzzleIndexFor,
-	puzzleNumberFor,
-	todayPuzzle
+	puzzleNumberFor
 } from './daily.ts';
 
 const at = (iso: string) => new Date(iso);
@@ -85,22 +83,6 @@ describe('puzzleNumberFor', () => {
 	});
 });
 
-describe('puzzleIndexFor', () => {
-	it('plays the catalog in order and cycles', () => {
-		expect(puzzleIndexFor(1, 30)).toBe(0);
-		expect(puzzleIndexFor(30, 30)).toBe(29);
-		expect(puzzleIndexFor(31, 30)).toBe(0);
-		expect(puzzleIndexFor(65, 30)).toBe(4);
-		expect(puzzleIndexFor(7, 1)).toBe(0);
-	});
-
-	it('rejects impossible input', () => {
-		expect(() => puzzleIndexFor(0, 30)).toThrow(RangeError);
-		expect(() => puzzleIndexFor(1.5, 30)).toThrow(RangeError);
-		expect(() => puzzleIndexFor(1, 0)).toThrow(RangeError);
-	});
-});
-
 describe('midnightIn and msUntilNextPuzzle', () => {
 	it('finds Eastern midnight in both offsets', () => {
 		expect(midnightIn('2026-11-14').toISOString()).toBe('2026-11-14T05:00:00.000Z');
@@ -126,27 +108,5 @@ describe('midnightIn and msUntilNextPuzzle', () => {
 			expect(puzzleNumberFor(next)).toBe(puzzleNumberFor(now) + 1);
 			expect(puzzleNumberFor(new Date(next.getTime() - 1))).toBe(puzzleNumberFor(now));
 		}
-	});
-});
-
-describe('todayPuzzle', () => {
-	it('bundles number, Eastern date, catalog position and next unlock', () => {
-		expect(todayPuzzle(at('2026-11-15T04:30:00Z'), 30)).toEqual({
-			number: 1,
-			date: '2026-11-14',
-			position: 0,
-			nextPuzzleAt: Date.parse('2026-11-15T05:00:00Z')
-		});
-		const later = todayPuzzle(at('2026-12-15T15:00:00Z'), 30);
-		expect(later).toMatchObject({ number: 32, date: '2026-12-15', position: 1 });
-		expect(later.nextPuzzleAt).toBe(Date.parse('2026-12-16T05:00:00Z'));
-	});
-
-	it('before launch serves #1 on the real Eastern date', () => {
-		expect(todayPuzzle(at('2026-11-13T12:00:00Z'), 30)).toMatchObject({
-			number: 1,
-			date: '2026-11-13',
-			position: 0
-		});
 	});
 });

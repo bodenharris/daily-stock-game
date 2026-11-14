@@ -1,7 +1,7 @@
-import { asc, eq, gte } from 'drizzle-orm';
+import { asc, eq, gte, lt } from 'drizzle-orm';
 import { client, db } from '#lib/server/db/index.ts';
 import { puzzles, schedule } from '#lib/server/db/schema.ts';
-import { slugForNumber } from './schedule-order.ts';
+import { nextSlug } from './schedule-order.ts';
 import type { Direction } from '#lib/play/types.ts';
 
 export interface PuzzleData {
@@ -155,9 +155,17 @@ export function puzzleForNumber(number: number, secret: string): Promise<PuzzleD
 			.where(gte(puzzles.position, 0))
 			.orderBy(asc(puzzles.position));
 		if (active.length === 0) throw new Error('No puzzles loaded yet');
-		const slug = slugForNumber(
+		// Everything scheduled before this number, oldest first, so the pick never repeats a puzzle
+		// inside a pass however the catalog has grown.
+		const earlier = await db
+			.select({ slug: schedule.slug })
+			.from(schedule)
+			.where(lt(schedule.number, number))
+			.orderBy(asc(schedule.number));
+		const slug = nextSlug(
 			number,
 			active.map((a) => a.slug),
+			earlier.map((e) => e.slug),
 			secret
 		);
 		await db.insert(schedule).values({ number, slug }).onConflictDoNothing();

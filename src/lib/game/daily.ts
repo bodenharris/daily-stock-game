@@ -83,17 +83,6 @@ export function puzzleNumberFor(date: Date, launchDate: string = LAUNCH_DATE): n
 	return Math.max(1, daysSinceLaunch(date, launchDate) + 1);
 }
 
-/** Catalog index (0-based) for a puzzle number. Puzzles play in order and cycle when exhausted. */
-export function puzzleIndexFor(puzzleNumber: number, catalogLength: number): number {
-	if (!Number.isSafeInteger(puzzleNumber) || puzzleNumber < 1) {
-		throw new RangeError(`puzzle number must be a positive integer, got ${puzzleNumber}`);
-	}
-	if (!Number.isSafeInteger(catalogLength) || catalogLength < 1) {
-		throw new RangeError(`catalog must have at least one puzzle, got ${catalogLength}`);
-	}
-	return (puzzleNumber - 1) % catalogLength;
-}
-
 /** The UTC instant of midnight starting `isoDate` in `timeZone`. */
 export function midnightIn(isoDate: string, timeZone: string = PUZZLE_TIME_ZONE): Date {
 	const target = dayNumber(isoDate) * DAY_MS;
@@ -119,26 +108,4 @@ export function msUntilNextPuzzle(date: Date, timeZone: string = PUZZLE_TIME_ZON
 	const today = dayNumber(easternDateString(date, timeZone));
 	const tomorrow = new Date((today + 1) * DAY_MS).toISOString().slice(0, 10);
 	return midnightIn(tomorrow, timeZone).getTime() - date.getTime();
-}
-
-export interface TodayPuzzle {
-	/** 1-based puzzle number. */
-	number: number;
-	/** Eastern calendar date, YYYY-MM-DD. */
-	date: string;
-	/** 0-based catalog position. */
-	position: number;
-	/** Epoch ms when the next puzzle unlocks. */
-	nextPuzzleAt: number;
-}
-
-/** Everything the server needs about today's puzzle, for a catalog of `catalogLength` puzzles. */
-export function todayPuzzle(now: Date, catalogLength: number): TodayPuzzle {
-	const number = puzzleNumberFor(now);
-	return {
-		number,
-		date: easternDateString(now),
-		position: puzzleIndexFor(number, catalogLength),
-		nextPuzzleAt: now.getTime() + msUntilNextPuzzle(now)
-	};
 }

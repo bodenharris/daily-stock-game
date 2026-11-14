@@ -24,3 +24,6 @@ vite.config.ts.timestamp-*
 
 # Local caches (price downloads etc.)
 /.cache
+
+# The real puzzle catalog (answers): kept out of the public repo
+/private

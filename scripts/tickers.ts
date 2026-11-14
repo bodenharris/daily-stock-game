@@ -13,7 +13,7 @@ export type TickerInfo = {
 	name: string;
 };
 
-// Every ticker used by src/lib/server/puzzles/catalog.ts, in the order the puzzles are played.
+// Tickers fetched first. (The catalog itself is private: see scripts/catalog.ts.)
 export const puzzleTickers: TickerInfo[] = [
 	{ ticker: 'GME', name: 'GameStop' },
 	{ ticker: 'SPY', name: 'SPDR S&P 500 ETF' },
@@ -123,7 +123,25 @@ export const bonusTickers: TickerInfo[] = [
 	{ ticker: 'DUK', name: 'Duke Energy' },
 	{ ticker: 'SO', name: 'Southern Company' },
 	{ ticker: 'SONY', name: 'Sony Group' },
-	{ ticker: 'TM', name: 'Toyota Motor' }
+	{ ticker: 'TM', name: 'Toyota Motor' },
+	// Newer companies with well-known moments
+	{ ticker: 'BYND', name: 'Beyond Meat' },
+	{ ticker: 'PTON', name: 'Peloton Interactive' },
+	{ ticker: 'CHGG', name: 'Chegg' },
+	{ ticker: 'NKLA', name: 'Nikola' },
+	{ ticker: 'TLRY', name: 'Tilray' },
+	{ ticker: 'GBTC', name: 'Grayscale Bitcoin Trust' },
+	{ ticker: 'MSTR', name: 'MicroStrategy (Strategy)' },
+	{ ticker: 'PLTR', name: 'Palantir Technologies' },
+	{ ticker: 'CVNA', name: 'Carvana' },
+	{ ticker: 'DJT', name: 'Trump Media & Technology Group' },
+	{ ticker: 'BABA', name: 'Alibaba Group' },
+	{ ticker: 'PYPL', name: 'PayPal' },
+	{ ticker: 'LUV', name: 'Southwest Airlines' },
+	{ ticker: 'COIN', name: 'Coinbase' },
+	{ ticker: 'BB', name: 'BlackBerry' },
+	{ ticker: 'SPCE', name: 'Virgin Galactic' },
+	{ ticker: 'HOOD', name: 'Robinhood Markets' }
 ];
 
 export const tickers: TickerInfo[] = [...puzzleTickers, ...bonusTickers];

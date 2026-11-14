@@ -1,0 +1,35 @@
+[
+	{
+		"slug": "gamestop-short-squeeze-2021",
+		"ticker": "GME",
+		"company": "GameStop",
+		"headline": "The GameStop short squeeze",
+		"story": "Reddit traders drove GameStop up eightfold in four days to sink the funds betting against it. A week later it was nearly all gone.",
+		"lastContextDate": "2021-01-21",
+		"contextBars": 60,
+		"stepBars": 2,
+		"calls": 5
+	},
+	{
+		"slug": "covid-crash-2020",
+		"ticker": "SPY",
+		"company": "S&P 500 (SPDR S&P 500 ETF)",
+		"headline": "The COVID crash",
+		"story": "As COVID-19 spread, the S&P 500 lost a third of its value in a month, its fastest fall on record. Then emergency aid set off a rebound.",
+		"lastContextDate": "2020-02-20",
+		"contextBars": 60,
+		"stepBars": 5,
+		"calls": 5
+	},
+	{
+		"slug": "iphone-unveiled-2007",
+		"ticker": "AAPL",
+		"company": "Apple",
+		"headline": "Steve Jobs unveils the iPhone",
+		"story": "Steve Jobs unveiled the iPhone on January 9, 2007, and Apple stock jumped 8% that day. In hindsight, that was underreacting.",
+		"lastContextDate": "2007-01-08",
+		"contextBars": 60,
+		"stepBars": 1,
+		"calls": 5
+	}
+]

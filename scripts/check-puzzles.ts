@@ -1,4 +1,4 @@
-// Validates every puzzle in src/lib/server/puzzles/catalog.ts against the cached Tiingo data
+// Validates every puzzle in the private catalog (scripts/catalog.ts) against the cached Tiingo data
 // (.cache/tiingo, filled by scripts/fetch-prices.ts) and prints the outcome of each call.
 //
 // Usage: node scripts/check-puzzles.ts [--verbose]
@@ -9,8 +9,14 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { puzzles } from '../src/lib/server/puzzles/catalog.ts';
-import type { Puzzle } from '../src/lib/server/puzzles/catalog.ts';
+import { loadCatalog, type Puzzle } from './catalog.ts';
+
+if (existsSync('.env')) process.loadEnvFile('.env');
+const catalog = loadCatalog({ example: true });
+const puzzles = catalog.puzzles;
+if (catalog.isExample)
+	console.log(`No private catalog: checking ${catalog.file}
+`);
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CACHE_DIR = path.join(ROOT, '.cache', 'tiingo');
