@@ -163,7 +163,7 @@
 		const text = labels
 			? fmtPrice(labels.closes[Math.round(head.end)])
 			: `${move >= 0 ? '▲' : '▼'} ${fmtMove(move)}`;
-		const w = text.length * 7 + 14;
+		const w = text.length * 9 + 14;
 		const top = frame.padTop - 4;
 		const bottom = height - frame.padBottom - 4;
 		return {
@@ -363,7 +363,8 @@
 				/>
 			{/each}
 
-			{#if nextStep && !pending}
+			<!-- Not while a stretch draws: the level would show where the line lands before it does. -->
+			{#if nextStep && !pending && !drawing}
 				{@const [sx0, sx1] = slotBounds(nextStep, shape, frame)}
 				<line class="level" x1={head.x} x2={sx1 - 4} y1={levelY} y2={levelY} />
 				{@const cx = (sx0 + sx1) / 2}
@@ -415,7 +416,7 @@
 				class={['tag', tag.up ? 'up' : 'down']}
 				transform="translate({width - frame.padRight} {tag.y})"
 			>
-				<rect x={-tag.w} y="-10" width={tag.w} height="20" rx="4" />
+				<rect x={-tag.w} y="-10" width={tag.w} height="20" rx="0" />
 				<text x="-7" y="4" text-anchor="end">{tag.text}</text>
 			</g>
 
@@ -595,10 +596,7 @@
 	}
 	/* ── Trading-floor dressing ─────────────────────────────────────────────── */
 	.chart {
-		--mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
-	}
-	.seg {
-		filter: drop-shadow(0 0 5px color-mix(in srgb, var(--md-sys-color-primary) 70%, transparent));
+		--mono: var(--md-ref-typeface-pixel, ui-monospace, monospace);
 	}
 	.paper {
 		fill: none;
@@ -607,7 +605,7 @@
 		opacity: 0.28;
 	}
 	.watermark {
-		font: 700 10px/1 var(--mono);
+		font: 400 7px/1 var(--mono);
 		letter-spacing: 0.3em;
 		text-anchor: end;
 		fill: var(--chart-axis);
@@ -629,9 +627,9 @@
 		fill: var(--chart-down);
 	}
 	.tag text {
-		font: 700 11px/1 var(--mono);
+		font: 400 9px/1 var(--mono);
 		font-variant-numeric: tabular-nums;
-		fill: var(--md-sys-color-surface);
+		fill: var(--pixel-ink, var(--md-sys-color-surface));
 	}
 	.scan {
 		pointer-events: none;
@@ -701,7 +699,7 @@
 		animation: float 1.8s ease-out;
 	}
 	.float text {
-		font: 800 13px/1 var(--mono);
+		font: 400 10px/1 var(--mono);
 		font-variant-numeric: tabular-nums;
 	}
 	.float.up text {
@@ -736,9 +734,9 @@
 		display: flex;
 		align-items: stretch;
 		overflow: hidden;
-		border-radius: 6px;
+		border-radius: 0;
 		background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
-		font: 600 11px/1 var(--mono);
+		font: 400 9px/1 var(--mono);
 		font-variant-numeric: tabular-nums;
 		letter-spacing: 0.04em;
 		white-space: nowrap;
@@ -754,7 +752,7 @@
 		font-weight: 800;
 	}
 	.tape-state {
-		font-size: 9px;
+		font-size: 7px;
 		opacity: 0.7;
 	}
 	.live {
@@ -814,7 +812,6 @@
 	}
 	.tape-label {
 		color: var(--md-sys-color-on-surface);
-		opacity: 0.75;
 	}
 	.tape-item.up {
 		color: var(--chart-up);
