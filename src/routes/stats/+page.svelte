@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import Trophy from '@lucide/svelte/icons/trophy';
 	import { liveStats } from '#lib/remote/stats.remote.ts';
 	import { GAME_NAME } from '#lib/game/config.ts';
 	import { dollars } from '#lib/play/money.ts';
@@ -8,12 +7,9 @@
 	import CrowdCalls from '#lib/stats/CrowdCalls.svelte';
 	import HourlyCalls from '#lib/stats/HourlyCalls.svelte';
 	import HowItWorks from '#lib/stats/HowItWorks.svelte';
-	import TodaysLeaderboard from '#lib/stats/TodaysLeaderboard.svelte';
-	import Sheet from '#lib/play/Sheet.svelte';
-	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
+	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
 
 	const live = liveStats();
-	let boardOpen = $state(false);
 	const s = $derived(await live);
 
 	const fmt = (n: number) => n.toLocaleString('en-US');
@@ -109,38 +105,7 @@
 					{#if standing}
 						<p class="type-body-lg">{standing}</p>
 					{/if}
-					<Button variant="filled" size="sm" class="mt-3" onclick={() => (boardOpen = true)}>
-						<Trophy />
-						Leaderboard
-					</Button>
 				</section>
-
-				<Sheet
-					bind:open={boardOpen}
-					title="Today's leaderboard"
-					description={`${fmt(s.you.finished)} ${s.you.finished === 1 ? 'player' : 'players'} finished`}
-				>
-					<svelte:boundary>
-						<TodaysLeaderboard />
-
-						{#snippet pending()}
-							<div class="flex flex-col gap-0.5" aria-busy="true">
-								{#each { length: 5 }, i (i)}
-									<Skeleton class="h-10 rounded-m3-xs" />
-								{/each}
-							</div>
-						{/snippet}
-						<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-						{#snippet failed(_error, reset)}
-							<p class="type-body-md text-on-surface-variant">
-								The leaderboard couldn't be loaded.
-								<button class="type-label-lg text-m3-primary underline" onclick={reset}>
-									Try again
-								</button>
-							</p>
-						{/snippet}
-					</svelte:boundary>
-				</Sheet>
 			{/if}
 
 			{#if s.finished > 0 && s.medianCents != null && s.bestCents != null}
@@ -151,6 +116,16 @@
 					<span class="text-on-surface type-numeric">{dollars(s.bestCents, { cents: false })}</span
 					>.
 				</p>
+			{/if}
+
+			<!-- Read straight from today's games, so it can be a tick ahead of the counts above. -->
+			{#if s.finishes.length > 0}
+				<section class="mt-8">
+					<h2 class="type-title-md text-on-surface">Where everyone finished</h2>
+					<div class="mt-3">
+						<FinishHistogram finishes={s.finishes} you={s.you?.balanceCents} />
+					</div>
+				</section>
 			{/if}
 		</div>
 		<div>

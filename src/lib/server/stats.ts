@@ -2,6 +2,7 @@ import { dev } from '$app/env';
 import { PLAY_SOURCE } from '$app/env/private';
 import { client } from '#lib/server/db/index.ts';
 import { exactStanding } from '#lib/play/standing.ts';
+import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS } from '#lib/stats/finishes.ts';
 
 /** Same rule as the game: real players only, plus dev/sim plays on a dev server. */
 const SOURCES =
@@ -20,6 +21,12 @@ export interface Stats {
 	inProfit: number;
 	medianCents: number | null;
 	bestCents: number | null;
+	/**
+	 * Today's finishes by final balance, in $10 buckets: `cents` is the bucket's lower edge, and
+	 * the last bucket (FINISH_CAP_CENTS) holds everything above it. Only non-empty buckets,
+	 * lowest first. The page groups them into wider bars to fit the day's range.
+	 */
+	finishes: { cents: number; count: number }[];
 	/** Today's crowd split per call. Only ever sent to viewers who finished today's game. */
 	steps: StepStat[];
 	/** Calls per hour for the last 24 hours, oldest first, gaps filled with 0. */
@@ -91,6 +98,7 @@ interface LiveRow {
 	in_profit: number;
 	median: number | null;
 	best: number | null;
+	finishes: { cents: number; count: number }[];
 	steps: StepStat[];
 	hourly: { at: number; calls: number }[];
 	all_calls: number;
@@ -101,7 +109,8 @@ interface LiveRow {
 /**
  * Everything live on the page in one statement, so a tick holds one pooled connection (the pool
  * is shared with gameplay) and pays one round trip. All of it reads continuous aggregates except
- * the player count, which is an index lookup on `games`.
+ * the player count and the finish buckets, which read one day of `games` through the
+ * `(puzzle_number, finished_at)` index.
  */
 async function liveStatsFor(puzzleNumber: number): Promise<Stats> {
 	const started = performance.now();
@@ -119,6 +128,14 @@ async function liveStatsFor(puzzleNumber: number): Promise<Stats> {
 					max(best_cents)::int as best
 				from finals_hourly
 				where puzzle_number = ${puzzleNumber} and source = any(${SOURCES})
+			), finishes as (
+				select least(balance_cents / ${FINISH_BUCKET_CENTS} * ${FINISH_BUCKET_CENTS},
+						${FINISH_CAP_CENTS})::int as cents,
+					count(*)::int as count
+				from games
+				where puzzle_number = ${puzzleNumber} and finished_at is not null
+					and source = any(${SOURCES})
+				group by 1
 			), hourly as (
 				select time_bucket_gapfill('1 hour', bucket, now() - interval '23 hours', now()) as at,
 					coalesce(sum(calls), 0)::int as calls
@@ -137,6 +154,7 @@ async function liveStatsFor(puzzleNumber: number): Promise<Stats> {
 				(select count(*)::int from games
 					where puzzle_number = ${puzzleNumber} and source = any(${SOURCES})) as players,
 				f.games, f.in_profit, f.median, f.best,
+				(select coalesce(json_agg(b order by b.cents), '[]') from finishes b) as finishes,
 				(select coalesce(json_agg(s order by s.step), '[]') from steps s) as steps,
 				(select coalesce(json_agg(json_build_object(
 					'at', (extract(epoch from h.at) * 1000)::bigint, 'calls', h.calls) order by h.at), '[]')
@@ -153,6 +171,7 @@ async function liveStatsFor(puzzleNumber: number): Promise<Stats> {
 		inProfit: row?.in_profit ?? 0,
 		medianCents: row?.median == null ? null : Math.round(row.median),
 		bestCents: row?.best ?? null,
+		finishes: row?.finishes ?? [],
 		steps: row?.steps ?? [],
 		hourly: (row?.hourly ?? []).map((h) => ({ at: Number(h.at), calls: h.calls })),
 		allTime: {

@@ -303,7 +303,7 @@ async function viewOfGame(
 		streakFor(user.id, todayNumber),
 		standingFor(day, game),
 		nameItFor(day, game),
-		leaderboardFor(day.number, game)
+		leaderboardFor(day, game)
 	]);
 	return assembleView(day, game, all, user, crowd, streak, standing, nameIt, leaderboard);
 }
@@ -322,13 +322,9 @@ const LEADERBOARD_SIZE = 10;
  * rank(), so tied balances share a place; the cut at LEADERBOARD_SIZE uses row_number(), so a
  * big tie can't make the list long. Ties are listed by who finished first. Players are never
  * named: rows carry the stored archetype, and only a flag for the viewer's own game. Only for
- * a finished game, and never lets a failure here break the game view. The stats page asks
- * for the same board.
+ * a finished game, and never lets a failure here break the game view.
  */
-export async function leaderboardFor(
-	puzzleNumber: number,
-	game: Pick<GameRow, 'id' | 'finishedAt'> | null
-): Promise<Leaderboard | null> {
+async function leaderboardFor(day: Day, game: GameRow | null): Promise<Leaderboard | null> {
 	if (!game || game.finishedAt == null) return null;
 	try {
 		const rows = await db.execute<{
@@ -346,7 +342,7 @@ export async function leaderboardFor(
 					row_number() over (order by balance_cents desc, finished_at, id)::int as pos,
 					count(*) over (partition by balance_cents) > 1 as tied
 				from games
-				where puzzle_number = ${puzzleNumber} and finished_at is not null and ${sourceIn}
+				where puzzle_number = ${day.number} and finished_at is not null and ${sourceIn}
 			)
 			select id = ${game.id} as you, pos, place, tied, balance_cents, archetype,
 				(select count(*)::int from board) as finished
@@ -400,7 +396,7 @@ export async function viewFor(user: Player | null, now = new Date()): Promise<Ga
 		crowdFor(day.number),
 		standingFor(day, game),
 		nameItFor(day, game),
-		leaderboardFor(day.number, game)
+		leaderboardFor(day, game)
 	]);
 	return assembleView(day, game, gameGuesses, user, crowd, streak, standing, nameIt, leaderboard);
 }

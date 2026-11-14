@@ -6,24 +6,18 @@
 	let {
 		board,
 		yours,
-		archive = false,
-		heading = true
+		archive = false
 	}: {
 		board: Leaderboard;
-		/**
-		 * The viewer's archetype as the ending card shows it, so their row always agrees.
-		 * Without it, their row shows the archetype stored on their game.
-		 */
-		yours?: Archetype;
+		/** The viewer's archetype as the ending card shows it, so their row always agrees. */
+		yours: Archetype;
 		archive?: boolean;
-		/** Show the title and player count; off when a sheet around the board already does. */
-		heading?: boolean;
 	} = $props();
 
 	const rows = $derived(
 		board.rows.map((r, i) => ({
 			...r,
-			archetype: (r.you && yours) || archetypeByKey(r.archetype),
+			archetype: r.you ? yours : archetypeByKey(r.archetype),
 			// The viewer's own row, when it didn't make the top, comes after a gap.
 			gapBefore: i > 0 && r.pos > board.rows[i - 1].pos + 1
 		}))
@@ -31,18 +25,16 @@
 </script>
 
 <!-- The day's best finishes. Nobody is named: each row shows how that player played. -->
-<section aria-labelledby={heading ? 'leaderboard-title' : undefined} class="flex flex-col gap-2">
-	{#if heading}
-		<div class="flex items-baseline justify-between gap-3 px-1">
-			<h3 id="leaderboard-title" class="type-title-md text-on-surface">
-				{archive ? 'Leaderboard' : "Today's leaderboard"}
-			</h3>
-			<p class="type-label-md text-on-surface-variant type-numeric">
-				{board.finished}
-				{board.finished === 1 ? 'player' : 'players'}
-			</p>
-		</div>
-	{/if}
+<section aria-labelledby="leaderboard-title" class="flex flex-col gap-2">
+	<div class="flex items-baseline justify-between gap-3 px-1">
+		<h3 id="leaderboard-title" class="type-title-md text-on-surface">
+			{archive ? 'Leaderboard' : "Today's leaderboard"}
+		</h3>
+		<p class="type-label-md text-on-surface-variant type-numeric">
+			{board.finished}
+			{board.finished === 1 ? 'player' : 'players'}
+		</p>
+	</div>
 
 	<ol class="flex flex-col gap-0.5 overflow-hidden rounded-m3-xl bg-surface-container">
 		{#each rows as row (row.pos)}
