@@ -2,7 +2,8 @@ name: PR
 
 # For pull requests from branches in this repo (PRs from forks never get these secrets).
 #
-# Database forks on our Tiger plan are backup restores that take several minutes and bill
+# Database forks on our Tiger plan are copies of prod as it is right now (not the last daily
+# snapshot, which can be a day old or older than the data), take several minutes and bill
 # against the team's credits, so they are only made when they matter:
 #
 # - The database check forks prod and runs the PR's migrations on the fork, but only when the
@@ -86,7 +87,7 @@ jobs:
           project_id: ${{ vars.TIGER_PROJECT_ID }}
           service_id: ${{ vars.TIGER_SERVICE_ID }}
           api_key: ${{ secrets.TIGERDATA_API_KEY }}
-          fork_strategy: last-snapshot
+          fork_strategy: now
           name: ci-pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
           cpu_millis: ${{ vars.TIGER_FORK_CPU_MILLIS }}
           memory_gbs: ${{ vars.TIGER_FORK_MEMORY_GBS }}
@@ -192,7 +193,7 @@ jobs:
           project_id: ${{ vars.TIGER_PROJECT_ID }}
           service_id: ${{ vars.TIGER_SERVICE_ID }}
           api_key: ${{ secrets.TIGERDATA_API_KEY }}
-          fork_strategy: last-snapshot
+          fork_strategy: now
           name: preview-pr-${{ env.PR_NUMBER }}-${{ github.run_id }}
           cpu_millis: ${{ vars.TIGER_FORK_CPU_MILLIS }}
           memory_gbs: ${{ vars.TIGER_FORK_MEMORY_GBS }}
