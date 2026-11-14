@@ -30,7 +30,7 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 - **The 50% chip pays 0.8 of the crowd multiplier.** With every chip paying the full multiplier, all-in tied thoughtful play on turning-point charts and had the higher mean in 19 of 30 scenarios. Trimming the biggest chip is the smallest one-sentence rule that breaks "always go max" (thoughtful now wins 30/30, and wins the mean in 24/30) while still paying well when you beat a lopsided crowd (1.6 × 0.8 = 1.28×).
 - **Crowd multiplier = 2 × share of other players who called the other way, kept in 0.50×–2.00×.** A 50/50 crowd pays even money, which is the easiest thing to explain. (The original 2.5× cap could never be reached, so it is 2.00×.)
 - **A 10-player 50/50 prior** keeps the first players of the day from swinging the multiplier. The multiplier is locked when you call, from the players before you; the split is shown only after your call.
-- **Integer cents everywhere**, every division rounds down, so every device computes the same result.
+- **Integer cents everywhere**, divisions round down (the locked multiplier itself rounds half up), so every device computes the same result.
 
 ## Puzzles
 
@@ -57,3 +57,19 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 
 - **Today's per-call crowd split is hidden until you have finished today's game.** Otherwise anyone could look up the split and always take the minority side for the bigger multiplier.
 - **Served by a live remote query** (`query.live`) that pushes fresh numbers every 4 seconds, read from the continuous aggregates, with the query time shown on the page.
+
+## After the first playtest and code review
+
+- **The reveal is sequenced, not instant.** The server settles a call immediately, but the dots, balance, result line and next stakes update only after the chart has drawn the stretch (900 ms), and the ending appears only after the last stretch lands. A playtester could read the result from the shrinking stake buttons before the line moved.
+- **Green and coral mean one thing: good or bad for you.** Revealed stretches are coloured by whether the call was right, not by direction; the Up and Down buttons are neutral, and the tapped one lights up at once. Before, a winning Down call drew a red line.
+- **Straight lines on a log scale.** Smooth curves on 2-bar stretches looked invented; a log price scale keeps the history readable after a 4× spike instead of squashing it flat on every reveal. The size of each move sits under its score dot (the chart slots are too narrow for labels).
+- **The result line always explains the crowd payout** ("Right, and only 33% saw it coming. Paid 1.34×." / "Right, but 64% saw it too. Paid 0.82×."). The rule was invisible before.
+- **A stored, secret daily schedule.** The first request for a day writes `schedule(number → slug)`; the order is a SHA-256 shuffle keyed by `PUZZLE_SECRET` (falls back to `BETTER_AUTH_SECRET`), reshuffled on every pass through the catalog. Day #1 is pinned to GameStop. The public catalog no longer reveals which day plays which chart, and editing the catalog can never change a day that has started.
+- **Three hours of grace after midnight.** A game started before midnight Eastern can be finished until 3 a.m.; it is shown before today's chart, and the countdown offers the new chart instead of yanking the result away.
+- **Bonus guesses are stored before answers are revealed**, in order, in one atomic update; reloading resumes where you were, and a round can't be replayed. Each chart is real or random on an independent coin flip (earlier answers say nothing about later ones), real windows come only from after US decimalisation (2001), and real and generated charts are rounded identically.
+- **Anonymous players are rate-limited per IP (60 an hour).** Generous, because a hackathon hall shares one IP, but a script can no longer mint thousands of players to swing the crowd.
+- **Accepted, not fixed:** a determined player can still replay a day by clearing cookies, and a perfect anonymous game can be moved onto an account by signing in. There is no leaderboard to protect, so the cost of preventing it (device fingerprinting, email verification) isn't worth it tonight.
+- **`crowd_daily` buckets by UTC day.** Changing it would mean dropping and recreating the aggregate, which the database rules forbid; nothing on screen depends on it yet.
+- **No archetype mentions direction**, and the share text is one Wordle-style row (🟩 right, 🟥 wrong, ⭐ right against the crowd) in whole dollars. The three-row stake grid confused the playtester.
+- **No global keyboard shortcuts.** Arrow keys used to place irreversible bets from anywhere on the page.
+- **Help and account sheets load on first open**, and the stake chips are a native radio group, so the first page doesn't ship the drawer and toggle-group libraries (eager JS on the home page roughly halved).
