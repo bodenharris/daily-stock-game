@@ -74,17 +74,16 @@
 {:else}
 	<section class="flex flex-col gap-4 pt-1 pb-6">
 		<div in:rise={{ delay: d(250) }}>
-			<p class="type-label-lg text-chart-reveal">
-				<span class="type-numeric">{reveal.ticker}</span> · {range}
-			</p>
-			<h2 class="mt-0.5 type-headline-sm-emphasized text-balance text-on-surface">
+			<h2 class="type-headline-sm-emphasized text-balance text-on-surface">
 				{reveal.headline}
 			</h2>
-			<p class="mt-1 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
+			<p class="mt-0.5 type-label-lg text-chart-reveal">
+				<span class="type-numeric">{reveal.ticker}</span> · {range}
+			</p>
+			<p class="mt-2 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
 		</div>
 
 		<div class="rounded-m3-lg bg-surface-container px-4 py-3" in:rise={{ delay: d(450) }}>
-			<p class="type-label-md text-on-surface-variant">You played like</p>
 			<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
 			<p class="type-body-sm text-on-surface-variant">{archetype.line}</p>
 		</div>

@@ -16,8 +16,9 @@
 
 	// Built as strings so template whitespace can't eat the space before a separator.
 	const playersLine = $derived(
-		(s.players === 1 ? 'player today' : 'players today') +
-			(s.finished > 0 ? ` · ${pct(s.inProfit, s.finished)}% finished up` : '')
+		s.finished === 0
+			? 'Nobody has finished yet.'
+			: `${fmt(s.finished)} finished, and ${pct(s.inProfit, s.finished)}% of them made money.`
 	);
 	const last24h = $derived(s.hourly.reduce((n, h) => n + h.calls, 0));
 
@@ -56,37 +57,34 @@
 	</header>
 
 	<section class="pt-2">
-		<p class="type-display-md-emphasized text-on-surface type-numeric">{fmt(s.players)}</p>
-		<p class="type-body-lg text-on-surface-variant">{playersLine}</p>
+		<p class="text-on-surface">
+			<span class="type-display-md-emphasized type-numeric">{fmt(s.players)}</span>
+			<span class="type-title-lg">{s.players === 1 ? 'player' : 'players'} today</span>
+		</p>
+		<p class="mt-1 type-body-lg text-on-surface-variant">{playersLine}</p>
 	</section>
 
 	{#if s.you}
-		<section class="mt-6 rounded-m3-xl bg-primary-container p-5 text-on-primary-container">
-			<h2 class="type-label-lg">You finished with</h2>
-			<p class="type-display-sm-emphasized type-numeric">
-				{dollars(s.you.balanceCents, { cents: false })}
+		<section class="mt-6 rounded-m3-xl bg-primary-container px-5 py-4 text-on-primary-container">
+			<p>
+				<span class="type-display-sm-emphasized type-numeric"
+					>{dollars(s.you.balanceCents, { cents: false })}</span
+				>
+				<span class="type-title-md">your finish</span>
 			</p>
 			{#if standing}
-				<p class="mt-1 type-body-lg">{standing}</p>
+				<p class="type-body-lg">{standing}</p>
 			{/if}
 		</section>
 	{/if}
 
-	{#if s.finished > 0}
-		<section class="mt-3 grid grid-cols-2 gap-3">
-			<div class="rounded-m3-xl bg-surface-container p-4">
-				<h2 class="type-label-md text-on-surface-variant">Median finish</h2>
-				<p class="type-headline-sm-emphasized text-on-surface type-numeric">
-					{s.medianCents == null ? '–' : dollars(s.medianCents, { cents: false })}
-				</p>
-			</div>
-			<div class="rounded-m3-xl bg-surface-container p-4">
-				<h2 class="type-label-md text-on-surface-variant">Best finish</h2>
-				<p class="type-headline-sm-emphasized text-on-surface type-numeric">
-					{s.bestCents == null ? '–' : dollars(s.bestCents, { cents: false })}
-				</p>
-			</div>
-		</section>
+	{#if s.finished > 0 && s.medianCents != null && s.bestCents != null}
+		<p class="mt-3 px-1 type-body-lg text-on-surface-variant">
+			Median finish <span class="text-on-surface type-numeric"
+				>{dollars(s.medianCents, { cents: false })}</span
+			>, best
+			<span class="text-on-surface type-numeric">{dollars(s.bestCents, { cents: false })}</span>.
+		</p>
 	{/if}
 
 	<section class="mt-8">
