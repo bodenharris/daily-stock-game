@@ -29,8 +29,13 @@ export interface Settlement {
 	readonly stakeCents: number;
 	/** The locked crowd multiplier. */
 	readonly multiplierHundredths: number;
-	/** The multiplier actually paid on a right call: crowd multiplier x the chip's payout share. */
+	/**
+	 * What a right call pays per dollar staked, for display (see paidMultiplierFor). Never below
+	 * 100. The exact cents are in deltaCents.
+	 */
 	readonly paidMultiplierHundredths: number;
+	/** The crowd-bonus part of a right call's winnings (0 on a wrong call or at 1.00x). */
+	readonly bonusCents: number;
 	/** Change in balance: -stakeCents on a wrong call, the winnings on a right call. */
 	readonly deltaCents: number;
 	readonly balanceAfterCents: number;
@@ -43,7 +48,7 @@ function assertCount(value: number, name: string): void {
 	}
 }
 
-/** Integer division rounding half up, for non-negative numerator and positive denominator. */
+/** Integer division rounding half up (toward +infinity on ties), for a positive denominator. */
 function divideRoundHalfUp(numerator: number, denominator: number): number {
 	return Math.floor((2 * numerator + denominator) / (2 * denominator));
 }
@@ -66,7 +71,9 @@ export function blendedShare(
 
 /**
  * The crowd multiplier for calling `direction`, given the split of everyone who called before.
- * m = scale x (blended share who called the other way), rounded half up to hundredths, clamped.
+ * m = 1 + slope x (blended share who called the other way - 1/2), rounded half up to hundredths,
+ * then clamped. With the default slope of 2 that is simply 2 x the other side's share, never
+ * below 1.00x: joining the majority pays even money, beating an 80/20 crowd pays 1.60x.
  * Lock this value at the moment of the call; later players do not change it.
  */
 export function lockMultiplier(
@@ -81,11 +88,10 @@ export function lockMultiplier(
 	}
 	const other = direction === 'up' ? counts.down : counts.up;
 	const total = counts.up + counts.down;
-	// scale x (other + prior/2) / (total + prior), kept in integers by doubling both sides.
-	const raw = divideRoundHalfUp(
-		crowd.scaleHundredths * (2 * other + crowd.priorPlayers),
-		2 * (total + crowd.priorPlayers)
-	);
+	// other share - 1/2 = (2 x other - total) / (2 x (total + prior)), kept in integers.
+	const denominator = 2 * (total + crowd.priorPlayers);
+	const numerator = 100 * denominator + crowd.slopeHundredths * (2 * other - total);
+	const raw = divideRoundHalfUp(numerator, denominator);
 	return Math.min(crowd.maxMultiplierHundredths, Math.max(crowd.minMultiplierHundredths, raw));
 }
 
@@ -113,9 +119,23 @@ export function stakeCentsFor(
 }
 
 /**
- * Settle one call. A wrong call loses the stake. A right call wins
- * floor(stake x crowd multiplier x chip payout share). The balance can never go below zero
- * because no chip risks more than the balance.
+ * What a right call pays per dollar staked on this chip, in hundredths, for display:
+ * 1 + (crowd multiplier - 1) x the chip's share of the crowd bonus. Never below 1.00x.
+ */
+export function paidMultiplierFor(
+	multiplierHundredths: number,
+	stakePercent: number,
+	rules: PayoutRules = PAYOUT_RULES
+): number {
+	const option = stakeOptionFor(stakePercent, rules);
+	return 100 + Math.floor(((multiplierHundredths - 100) * option.payoutPercent) / 100);
+}
+
+/**
+ * Settle one call. A wrong call loses the stake. A right call wins the stake back as profit
+ * (even money) plus the crowd bonus: floor(stake x (multiplier - 1) x chip bonus share). So a
+ * right call never pays less than the stake, and the balance can never go below zero because
+ * no chip risks more than the balance.
  */
 export function settleCall(input: SettleInput, rules: PayoutRules = PAYOUT_RULES): Settlement {
 	const { balanceCents, stakePercent, multiplierHundredths, correct } = input;
@@ -130,19 +150,23 @@ export function settleCall(input: SettleInput, rules: PayoutRules = PAYOUT_RULES
 			`multiplier must be an integer in [${crowd.minMultiplierHundredths}, ${crowd.maxMultiplierHundredths}] hundredths, got ${multiplierHundredths}`
 		);
 	}
+	if (crowd.minMultiplierHundredths < 100) {
+		throw new RangeError('a right call must never pay less than the stake: min multiplier < 1');
+	}
 	const option = stakeOptionFor(stakePercent, rules);
 	if (option.percent <= 0 || option.percent > 100) {
 		throw new RangeError('stake percent must be in (0, 100]');
 	}
 	const stakeCents = Math.floor((balanceCents * option.percent) / 100);
-	const paidMultiplierHundredths = Math.floor((multiplierHundredths * option.payoutPercent) / 100);
-	const deltaCents = correct
-		? Math.floor((stakeCents * paidMultiplierHundredths) / 100)
-		: -stakeCents;
+	const bonusCents = Math.floor(
+		(stakeCents * (multiplierHundredths - 100) * option.payoutPercent) / 10_000
+	);
+	const deltaCents = correct ? stakeCents + bonusCents : -stakeCents;
 	return {
 		stakeCents,
 		multiplierHundredths,
-		paidMultiplierHundredths,
+		paidMultiplierHundredths: paidMultiplierFor(multiplierHundredths, stakePercent, rules),
+		bonusCents: correct ? bonusCents : 0,
 		deltaCents,
 		balanceAfterCents: balanceCents + deltaCents,
 		correct

@@ -5,6 +5,7 @@ import {
 	formatCents,
 	formatMultiplier,
 	lockMultiplier,
+	paidMultiplierFor,
 	settleCall,
 	stakeCentsFor,
 	stakeOptionFor
@@ -20,44 +21,49 @@ describe('lockMultiplier', () => {
 		expect(lockMultiplier({ up: 500, down: 500 }, 'up')).toBe(100);
 	});
 
-	it('pays 1.60x for beating a large 80/20 crowd', () => {
+	it('is 1.60x for beating a large 80/20 crowd', () => {
 		expect(lockMultiplier({ up: 8000, down: 2000 }, 'down')).toBe(160);
 	});
 
-	it('floors at 0.50x for joining a lopsided crowd', () => {
-		expect(lockMultiplier({ up: 8000, down: 2000 }, 'up')).toBe(50);
-		expect(lockMultiplier({ up: 10_000, down: 0 }, 'up')).toBe(50);
+	it('never drops below 1.00x, however lopsided the crowd you join', () => {
+		expect(lockMultiplier({ up: 8000, down: 2000 }, 'up')).toBe(100);
+		expect(lockMultiplier({ up: 10_000, down: 0 }, 'up')).toBe(100);
+		for (let up = 0; up <= 60; up++) {
+			for (const direction of ['up', 'down'] as const) {
+				expect(lockMultiplier({ up, down: 60 - up }, direction)).toBeGreaterThanOrEqual(100);
+			}
+		}
 	});
 
 	it('never exceeds the cap, even against a unanimous crowd', () => {
 		expect(lockMultiplier({ up: 1_000_000, down: 0 }, 'down')).toBe(200);
-		const steep: PayoutRules['crowd'] = { ...PAYOUT_RULES.crowd, scaleHundredths: 300 };
-		expect(
-			lockMultiplier({ up: 1000, down: 0 }, 'down', { ...steep, maxMultiplierHundredths: 250 })
-		).toBe(250);
+		const steep: PayoutRules['crowd'] = {
+			...PAYOUT_RULES.crowd,
+			slopeHundredths: 400,
+			maxMultiplierHundredths: 250
+		};
+		expect(lockMultiplier({ up: 1_000_000, down: 0 }, 'down', steep)).toBe(250);
 	});
 
 	it('blends a 50/50 prior worth 10 players so early players barely move it', () => {
 		// One player called up: share up = (1 + 5) / (1 + 10).
 		expect(lockMultiplier({ up: 1, down: 0 }, 'down')).toBe(109);
-		expect(lockMultiplier({ up: 1, down: 0 }, 'up')).toBe(91);
+		expect(lockMultiplier({ up: 1, down: 0 }, 'up')).toBe(100);
 		// Ten players all up: (10 + 5) / 20 = 75% up.
 		expect(lockMultiplier({ up: 10, down: 0 }, 'down')).toBe(150);
-		expect(lockMultiplier({ up: 10, down: 0 }, 'up')).toBe(50);
 	});
 
 	it('the prior fades as the crowd grows', () => {
 		const small = lockMultiplier({ up: 8, down: 2 }, 'down');
 		const large = lockMultiplier({ up: 800, down: 200 }, 'down');
-		expect(small).toBeLessThan(large);
+		expect(small).toBe(130);
 		expect(large).toBe(159);
 	});
 
 	it('rounds half up, deterministically', () => {
-		// 100 x (2 x 100 + 10) / (390 + 10) = 52.5 -> 53
-		expect(lockMultiplier({ up: 290, down: 100 }, 'up')).toBe(53);
-		// 200 x 1/3 = 66.67 -> 67 ; 200 x 2/3 = 133.33 -> 133
-		expect(lockMultiplier({ up: 15, down: 5 }, 'up')).toBe(67);
+		// 1 + 2 x (205/400 - 1/2) = 1.025 -> 1.03
+		expect(lockMultiplier({ up: 190, down: 200 }, 'up')).toBe(103);
+		// 1 + 2 x (20/30 - 1/2) = 1.333 -> 1.33
 		expect(lockMultiplier({ up: 15, down: 5 }, 'down')).toBe(133);
 	});
 
@@ -125,31 +131,77 @@ describe('settleCall', () => {
 		for (const stakePercent of [10, 25, 50]) {
 			const s = settleCall({ ...base, stakePercent, correct: false });
 			expect(s.deltaCents).toBe(-s.stakeCents);
+			expect(s.bonusCents).toBe(0);
 			expect(s.balanceAfterCents).toBe(10_000 - stakePercent * 100);
 		}
 	});
 
-	it('a right call wins stake x multiplier on the 10% and 25% chips', () => {
+	it('a right call wins the stake plus the same crowd bonus in dollars on every chip', () => {
+		// 1.60x -> bonus = 0.60 x 10% of the balance = $6, whichever chip.
 		expect(settleCall({ ...base, stakePercent: 10, correct: true })).toEqual({
 			stakeCents: 1000,
 			multiplierHundredths: 160,
 			paidMultiplierHundredths: 160,
+			bonusCents: 600,
 			deltaCents: 1600,
 			balanceAfterCents: 11_600,
 			correct: true
 		});
-		expect(settleCall({ ...base, stakePercent: 25, correct: true }).deltaCents).toBe(4000);
+		const mid = settleCall({ ...base, stakePercent: 25, correct: true });
+		expect([mid.bonusCents, mid.deltaCents, mid.paidMultiplierHundredths]).toEqual([
+			600, 3100, 124
+		]);
+		const max = settleCall({ ...base, stakePercent: 50, correct: true });
+		expect([max.bonusCents, max.deltaCents, max.paidMultiplierHundredths]).toEqual([
+			600, 5600, 112
+		]);
 	});
 
-	it('the 50% chip earns 80% of the multiplier', () => {
-		const s = settleCall({ ...base, stakePercent: 50, correct: true });
-		expect(s.paidMultiplierHundredths).toBe(128);
-		expect(s.deltaCents).toBe(6400);
-		expect(s.balanceAfterCents).toBe(16_400);
+	it('pays exactly even money with the majority', () => {
+		for (const stakePercent of [10, 25, 50]) {
+			const s = settleCall({
+				balanceCents: 10_000,
+				stakePercent,
+				multiplierHundredths: 100,
+				correct: true
+			});
+			expect(s.deltaCents).toBe(s.stakeCents);
+			expect(s.paidMultiplierHundredths).toBe(100);
+		}
 	});
 
-	it('rounds winnings down to whole cents', () => {
-		// stake 83, x 1.55 = 128.65 -> 128
+	it('a right call never pays less than the stake', () => {
+		for (const stakePercent of [10, 25, 50]) {
+			for (let m = 100; m <= 200; m++) {
+				for (const balanceCents of [1, 7, 333, 10_000, 123_457]) {
+					const s = settleCall({
+						balanceCents,
+						stakePercent,
+						multiplierHundredths: m,
+						correct: true
+					});
+					expect(s.deltaCents).toBeGreaterThanOrEqual(s.stakeCents);
+					expect(paidMultiplierFor(m, stakePercent)).toBeGreaterThanOrEqual(100);
+				}
+			}
+		}
+	});
+
+	it('refuses rules that could pay a right call below 1.00x', () => {
+		const rules: PayoutRules = {
+			...PAYOUT_RULES,
+			crowd: { ...PAYOUT_RULES.crowd, minMultiplierHundredths: 50 }
+		};
+		expect(() =>
+			settleCall(
+				{ balanceCents: 100, stakePercent: 10, multiplierHundredths: 50, correct: true },
+				rules
+			)
+		).toThrow(RangeError);
+	});
+
+	it('rounds the bonus down to whole cents', () => {
+		// stake 83; bonus 83 x 0.55 x 40% = 18.26 -> 18
 		const s = settleCall({
 			balanceCents: 333,
 			stakePercent: 25,
@@ -157,30 +209,32 @@ describe('settleCall', () => {
 			correct: true
 		});
 		expect(s.stakeCents).toBe(83);
-		expect(s.deltaCents).toBe(128);
-		expect(s.balanceAfterCents).toBe(461);
-		// 50% chip: 0.53 x 80% = 0.424 -> 0.42; stake 50 x 0.42 = 21
+		expect(s.bonusCents).toBe(18);
+		expect(s.deltaCents).toBe(101);
+		expect(s.balanceAfterCents).toBe(434);
+		// stake 50; bonus 50 x 0.53 x 20% = 5.3 -> 5
 		const t = settleCall({
 			balanceCents: 101,
 			stakePercent: 50,
-			multiplierHundredths: 53,
+			multiplierHundredths: 153,
 			correct: true
 		});
-		expect(t.paidMultiplierHundredths).toBe(42);
-		expect(t.deltaCents).toBe(21);
+		expect(t.bonusCents).toBe(5);
+		expect(t.deltaCents).toBe(55);
+		expect(t.paidMultiplierHundredths).toBe(110);
 	});
 
 	it('never goes below zero and always stays in whole cents', () => {
 		let seed = 12345;
 		const rand = () => {
-			seed = (seed * 1103515245 + 12345) % 2147483648;
-			return seed / 2147483648;
+			seed = (seed * 16807) % 2147483647;
+			return seed / 2147483647;
 		};
 		for (let game = 0; game < 2000; game++) {
 			let balance = Math.floor(rand() * 20_000);
 			for (let call = 0; call < 20; call++) {
 				const stakePercent = [10, 25, 50][Math.floor(rand() * 3)];
-				const multiplierHundredths = 50 + Math.floor(rand() * 151);
+				const multiplierHundredths = 100 + Math.floor(rand() * 101);
 				const s = settleCall({
 					balanceCents: balance,
 					stakePercent,
@@ -209,7 +263,7 @@ describe('settleCall', () => {
 		const ok = { balanceCents: 100, stakePercent: 10, multiplierHundredths: 100, correct: true };
 		expect(() => settleCall({ ...ok, balanceCents: -1 })).toThrow(RangeError);
 		expect(() => settleCall({ ...ok, balanceCents: 10.5 })).toThrow(RangeError);
-		expect(() => settleCall({ ...ok, multiplierHundredths: 49 })).toThrow(RangeError);
+		expect(() => settleCall({ ...ok, multiplierHundredths: 99 })).toThrow(RangeError);
 		expect(() => settleCall({ ...ok, multiplierHundredths: 201 })).toThrow(RangeError);
 		expect(() => settleCall({ ...ok, multiplierHundredths: 1.5 })).toThrow(RangeError);
 	});
@@ -224,8 +278,8 @@ describe('settleCall', () => {
 				correct: true
 			}).balanceAfterCents;
 		}
-		// x1.8 per call
-		expect(balance).toBe(188_956);
+		// x1.6 per call (stake 50% + bonus 10%)
+		expect(balance).toBe(104_857);
 	});
 });
 
@@ -240,6 +294,6 @@ describe('formatting', () => {
 
 	it('formats multipliers', () => {
 		expect(formatMultiplier(160)).toBe('1.60×');
-		expect(formatMultiplier(50)).toBe('0.50×');
+		expect(formatMultiplier(100)).toBe('1.00×');
 	});
 });

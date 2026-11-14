@@ -22,8 +22,8 @@
 					dashed line?
 				</p>
 				<p>
-					You start with $100 and bet 10%, 25% or 50% of your balance on each call. Right calls pay
-					more when most players called it the other way.
+					You start with $100 and bet 10%, 25% or 50% of your balance on each call. A right call
+					wins your bet, plus a crowd bonus when most players called it the other way.
 				</p>
 				<p class="text-on-surface-variant">
 					Then the chart is unmasked. Finish for a bonus round, and come back tomorrow for the next

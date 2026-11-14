@@ -1,7 +1,7 @@
 /**
  * The share text. Wordle is the benchmark: one row a stranger reads at a glance.
  *
- *   Hindsight #12 · $100 → $153
+ *   Hindsight #12 · $100 → $146
  *   🟩⭐⭐🟥🟥
  *   🙃 The Contrarian
  *   🎲 Real or Random 2/3        (only after the bonus round)
@@ -64,7 +64,7 @@ export function shareRow(calls: readonly CallRecord[]): string {
 }
 
 /**
- * "$1,889": whole dollars, half rounded up, like the in-game balance
+ * "$1,049": whole dollars, half rounded up, like the in-game balance
  * (`dollars(cents, { cents: false })` in src/lib/play/money.ts).
  */
 export function formatWholeDollars(cents: number): string {

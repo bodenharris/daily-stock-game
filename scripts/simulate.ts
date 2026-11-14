@@ -163,6 +163,10 @@ function thoughtfulDecision(ctx: CallContext): Decision {
 	return { direction: flip(ctx.trend), stakePercent: low };
 }
 
+const minChip = (ctx: CallContext): number => chips(ctx.rules)[0];
+const midChip = (ctx: CallContext): number => chips(ctx.rules)[1];
+const maxChip = (ctx: CallContext): number => chips(ctx.rules).at(-1)!;
+
 /** Log-optimal (Kelly) choice under the thoughtful player's beliefs. A reference, not a human. */
 function kellyDecision(ctx: CallContext): Decision {
 	let best: Decision = { direction: flip(ctx.trend), stakePercent: chips(ctx.rules)[0] };
@@ -176,13 +180,13 @@ function kellyDecision(ctx: CallContext): Decision {
 		const ownShare =
 			direction === ctx.trend ? EXPECTED_CROWD_ON_TREND : 1 - EXPECTED_CROWD_ON_TREND;
 		const m = clamp(
-			(ctx.rules.crowd.scaleHundredths * (1 - ownShare)) / 100,
+			1 + (ctx.rules.crowd.slopeHundredths / 100) * (1 - ownShare - 0.5),
 			ctx.rules.crowd.minMultiplierHundredths / 100,
 			ctx.rules.crowd.maxMultiplierHundredths / 100
 		);
 		for (const option of ctx.rules.stakeOptions) {
 			const f = option.percent / 100;
-			const win = f * m * (option.payoutPercent / 100);
+			const win = f * (1 + (m - 1) * (option.payoutPercent / 100));
 			const value = p * Math.log(1 + win) + (1 - p) * Math.log(1 - f);
 			if (value > bestValue) {
 				bestValue = value;
@@ -197,7 +201,7 @@ const PLAYERS: Player[] = [
 	{ name: 'Thoughtful', decide: thoughtfulDecision },
 	{
 		name: 'All-in',
-		decide: (ctx) => ({ direction: thoughtfulDecision(ctx).direction, stakePercent: 50 })
+		decide: (ctx) => ({ direction: thoughtfulDecision(ctx).direction, stakePercent: maxChip(ctx) })
 	},
 	{
 		name: 'Random',
@@ -209,20 +213,23 @@ const PLAYERS: Player[] = [
 			};
 		}
 	},
-	{ name: 'Always up', decide: () => ({ direction: 'up', stakePercent: 25 }) },
-	{ name: 'Always down', decide: () => ({ direction: 'down', stakePercent: 25 }) },
-	{ name: 'Herd', decide: (ctx) => ({ direction: ctx.trend, stakePercent: 25 }) },
-	{ name: 'Contrarian', decide: (ctx) => ({ direction: flip(ctx.trend), stakePercent: 25 }) },
+	{ name: 'Always up', decide: (ctx) => ({ direction: 'up', stakePercent: midChip(ctx) }) },
+	{ name: 'Always down', decide: (ctx) => ({ direction: 'down', stakePercent: midChip(ctx) }) },
+	{ name: 'Herd', decide: (ctx) => ({ direction: ctx.trend, stakePercent: midChip(ctx) }) },
+	{
+		name: 'Contrarian',
+		decide: (ctx) => ({ direction: flip(ctx.trend), stakePercent: midChip(ctx) })
+	},
 	{
 		name: 'Timid',
-		decide: (ctx) => ({ direction: thoughtfulDecision(ctx).direction, stakePercent: 10 })
+		decide: (ctx) => ({ direction: thoughtfulDecision(ctx).direction, stakePercent: minChip(ctx) })
 	},
 	{
 		name: 'Reader (no crowd)',
 		decide: (ctx) =>
 			ctx.confident
-				? { direction: ctx.read, stakePercent: 50 }
-				: { direction: ctx.rng() < 0.5 ? 'up' : 'down', stakePercent: 10 }
+				? { direction: ctx.read, stakePercent: maxChip(ctx) }
+				: { direction: ctx.rng() < 0.5 ? 'up' : 'down', stakePercent: minChip(ctx) }
 	},
 	{ name: 'Kelly (reference)', decide: kellyDecision }
 ];
@@ -494,16 +501,21 @@ function printScenarioGrid(results: ScenarioResult[]): void {
 	}
 }
 
+function describeRules(rules: PayoutRules): string {
+	const c = rules.crowd;
+	const chipsText = rules.stakeOptions
+		.map((o) => `${o.percent}% (bonus x${(o.payoutPercent / 100).toFixed(2)})`)
+		.join(', ');
+	return (
+		`chips: ${chipsText}; m = 1 + ${c.slopeHundredths / 100} x (other share - 1/2), ` +
+		`clamp [${c.minMultiplierHundredths / 100}, ${c.maxMultiplierHundredths / 100}], prior ${c.priorPlayers}`
+	);
+}
+
 function report(label: string, rules: PayoutRules, games: number, seed: number): void {
 	const results = runAll(rules, games, seed);
-	const describe = rules.stakeOptions
-		.map((o) => `${o.percent}%${o.payoutPercent === 100 ? '' : ` pays ${o.payoutPercent}%`}`)
-		.join(', ');
-	const c = rules.crowd;
 	console.log(`\n=== ${label} ===`);
-	console.log(
-		`chips: ${describe}; m = ${c.scaleHundredths / 100} x other share, clamp [${c.minMultiplierHundredths / 100}, ${c.maxMultiplierHundredths / 100}], prior ${c.priorPlayers}`
-	);
+	console.log(describeRules(rules));
 	console.log(
 		`${results.length} scenarios x ${games.toLocaleString('en-US')} games = ${(results.length * games).toLocaleString('en-US')} games per player`
 	);
@@ -514,57 +526,101 @@ function report(label: string, rules: PayoutRules, games: number, seed: number):
 	printTable('Headline scenario: mixed catalog / trend chasers', headline[0].stats);
 	printScenarioGrid(results);
 	const v = verdict(results);
+	const r = PLAYERS.findIndex((p) => p.name === 'Random');
+	const randomLoses = results.filter(
+		(res) => res.stats[r].median < 100 && res.stats[r].logReturn < 0
+	).length;
+	const worstRandomMean = Math.max(...results.map((res) => res.stats[r].mean));
 	console.log(`\nThoughtful clearly beats All-in and Random in ${v.clean}/${v.total} scenarios`);
 	console.log(`Thoughtful also has the higher mean than All-in in ${v.meanVsAllIn}/${v.total}`);
+	console.log(
+		`Random play has median < $100 and negative log return in ${randomLoses}/${v.total}; ` +
+			`highest Random mean in any scenario ${money(worstRandomMean)}`
+	);
 	for (const f of v.failures) console.log(`  lost: ${f}`);
 }
 
+/** Bonus share per chip so that every chip earns the same crowd bonus in dollars. */
+function sameDollars(percents: number[]): number[] {
+	return percents.map((p) => Math.round((100 * percents[0]) / p));
+}
+
 function sweep(games: number, seed: number): void {
-	console.log('\n=== Sweep: crowd scale and payout share of the 50% chip ===');
+	console.log('\n=== Sweep: chips, crowd-bonus share per chip, slope and cap (1.00x floor) ===');
 	console.log(
-		'clean = scenarios where Thoughtful clearly beats All-in and Random; ' +
-			'mean = scenarios where it also beats All-in on the mean; T = Thoughtful, R = Random'
+		'clean = scenarios where Thoughtful clearly beats All-in and Random; mean = also beats ' +
+			'All-in on the mean; R loses = Random median < $100 and log < 0; R max = highest ' +
+			'Random mean in any scenario'
 	);
 	console.log(
-		pad('scale / 50% chip pays', 24) +
+		pad('chips | bonus share | slope / cap', 44) +
 			lpad('clean', 7) +
-			lpad('mean', 7) +
+			lpad('mean', 6) +
 			lpad('T mean', 10) +
 			lpad('T median', 10) +
 			lpad('T >$100', 9) +
 			lpad('T P99', 9) +
-			lpad('R median', 10) +
-			lpad('R <$40', 8) +
+			lpad('R mean', 9) +
+			lpad('R max', 9) +
+			lpad('R loses', 9) +
 			lpad('A mean', 10)
 	);
 	const t = PLAYERS.findIndex((p) => p.name === 'Thoughtful');
 	const a = PLAYERS.findIndex((p) => p.name === 'All-in');
 	const r = PLAYERS.findIndex((p) => p.name === 'Random');
-	for (const scale of [200, 220, 240]) {
-		for (const high of [100, 90, 80, 70]) {
-			const rules: PayoutRules = {
-				crowd: { ...PAYOUT_RULES.crowd, scaleHundredths: scale, maxMultiplierHundredths: 250 },
-				stakeOptions: [
-					{ percent: 10, payoutPercent: 100 },
-					{ percent: 25, payoutPercent: 100 },
-					{ percent: 50, payoutPercent: high }
-				]
-			};
-			const results = runAll(rules, games, seed);
-			const v = verdict(results);
-			const pooled = pool(results);
-			console.log(
-				pad(`${(scale / 100).toFixed(1)}x / ${high}%`, 24) +
-					lpad(`${v.clean}/${v.total}`, 7) +
-					lpad(`${v.meanVsAllIn}`, 7) +
-					lpad(money(pooled[t].mean), 10) +
-					lpad(money(pooled[t].median), 10) +
-					lpad(pct(pooled[t].above), 9) +
-					lpad(money(pooled[t].p99), 9) +
-					lpad(money(pooled[r].median), 10) +
-					lpad(pct(pooled[r].broke), 8) +
-					lpad(money(pooled[a].mean), 10)
-			);
+	const chipSets = [
+		[10, 25, 50],
+		[10, 20, 40]
+	];
+	const curves = [
+		[100, 200],
+		[150, 200],
+		[200, 200],
+		[300, 200],
+		[300, 250]
+	];
+	for (const percents of chipSets) {
+		const profiles: [string, number[]][] = [
+			['same %', percents.map(() => 100)],
+			['halfway', percents.map((_, i) => [100, 70, 50][i])],
+			['same $', sameDollars(percents)],
+			['same $ x1.5', sameDollars(percents).map((s) => s * 1.5)],
+			['same $ x2', sameDollars(percents).map((s) => s * 2)]
+		];
+		for (const [profileName, shares] of profiles) {
+			for (const [slope, cap] of curves) {
+				const rules: PayoutRules = {
+					crowd: {
+						...PAYOUT_RULES.crowd,
+						slopeHundredths: slope,
+						maxMultiplierHundredths: cap
+					},
+					stakeOptions: percents.map((percent, i) => ({ percent, payoutPercent: shares[i] }))
+				};
+				const results = runAll(rules, games, seed);
+				const v = verdict(results);
+				const pooled = pool(results);
+				const loses = results.filter(
+					(res) => res.stats[r].median < 100 && res.stats[r].logReturn < 0
+				).length;
+				const rMax = Math.max(...results.map((res) => res.stats[r].mean));
+				console.log(
+					pad(
+						`${percents.join('/')} | ${profileName} ${shares.join('/')} | ${slope / 100} / ${cap / 100}`,
+						44
+					) +
+						lpad(`${v.clean}/${v.total}`, 7) +
+						lpad(`${v.meanVsAllIn}`, 6) +
+						lpad(money(pooled[t].mean), 10) +
+						lpad(money(pooled[t].median), 10) +
+						lpad(pct(pooled[t].above), 9) +
+						lpad(money(pooled[t].p99), 9) +
+						lpad(money(pooled[r].mean), 9) +
+						lpad(money(rMax), 9) +
+						lpad(`${loses}`, 9) +
+						lpad(money(pooled[a].mean), 10)
+				);
+			}
 		}
 	}
 }
@@ -589,16 +645,17 @@ console.log(
 	`Thoughtful read: ${pct(READ.confidentShare)} of calls feel confident, right ${pct(READ.low)}-${pct(READ.high)} of those; coin flip otherwise`
 );
 
-const STARTING_PROPOSAL: PayoutRules = {
+/** The obvious fix for the playtest: old formula, floor raised to 1.00x, no chip differences. */
+const FLOOR_ONLY: PayoutRules = {
 	stakeOptions: [
 		{ percent: 10, payoutPercent: 100 },
 		{ percent: 25, payoutPercent: 100 },
 		{ percent: 50, payoutPercent: 100 }
 	],
 	crowd: {
-		scaleHundredths: 200,
-		minMultiplierHundredths: 50,
-		maxMultiplierHundredths: 250,
+		slopeHundredths: 200,
+		minMultiplierHundredths: 100,
+		maxMultiplierHundredths: 200,
 		priorPlayers: 10
 	}
 };
@@ -606,6 +663,6 @@ const STARTING_PROPOSAL: PayoutRules = {
 if (args.includes('--sweep')) {
 	sweep(Math.min(games, 10000), seed);
 } else {
-	report('Starting proposal', STARTING_PROPOSAL, games, seed);
+	report('Floor only (every chip earns the full multiplier)', FLOOR_ONLY, games, seed);
 	report('Final rules (src/lib/game/config.ts)', PAYOUT_RULES, games, seed);
 }

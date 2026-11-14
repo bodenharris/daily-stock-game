@@ -12,7 +12,7 @@
 	import StakePicker from './StakePicker.svelte';
 	import CallPips from './CallPips.svelte';
 	import Reveal from './Reveal.svelte';
-	import { dollars, multiplier, percent } from './money.ts';
+	import { dollars, percent } from './money.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
 	let { view }: { view: GameView } = $props();
@@ -78,16 +78,10 @@
 		shownBalance.set(target, { duration: prefersReducedMotion.current ? 0 : 700 });
 	});
 
-	function paidHundredths(r: CallResult) {
-		const chip = STAKE_OPTIONS.find((o) => o.percent === r.stakePercent);
-		return Math.floor((r.multiplierHundredths * (chip?.payoutPercent ?? 100)) / 100);
-	}
-
 	const resultLine = $derived.by(() => {
 		if (!latest) return '';
 		const total = latest.crowd.up + latest.crowd.down;
 		const same = latest.direction === 'up' ? latest.crowd.up : latest.crowd.down;
-		const paid = paidHundredths(latest);
 		const crowd =
 			total <= 1
 				? `You're the first to call this one.`
@@ -95,13 +89,15 @@
 					? `${same} of ${total} players called ${latest.direction}.`
 					: `${percent(same / total)} of players called ${latest.direction}.`;
 		if (!latest.correct) return `Missed. ${crowd}`;
+		// A right call returns the stake, plus a crowd bonus when most players called it wrong.
+		const bonus = latest.deltaCents - latest.stakeCents;
 		const payout =
-			paid > 100
-				? `Crowd bonus: paid ${multiplier(paid)}.`
-				: paid === 100
-					? 'Paid even money.'
-					: `Most saw it coming, so it paid ${multiplier(paid)}.`;
-		return `Right. ${crowd} ${payout}`;
+			bonus > 0
+				? `Crowd bonus ${dollars(bonus, { sign: true })}.`
+				: total > 1
+					? 'Most saw it too, so no crowd bonus.'
+					: '';
+		return `Right. ${crowd} ${payout}`.trim();
 	});
 
 	/** How long each call covers, in plain words. */

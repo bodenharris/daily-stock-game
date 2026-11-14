@@ -23,7 +23,7 @@ describe('buildShareText', () => {
 		const text = buildShareText({ puzzleNumber: 12, calls: playGame(CONTRARIAN_GAME) });
 		expect(text).toBe(
 			[
-				'Hindsight #12 · $100 → $153',
+				'Hindsight #12 · $100 → $146',
 				'🟩⭐⭐🟥🟥',
 				'🙃 The Contrarian',
 				'https://hindsight.example'
@@ -33,7 +33,7 @@ describe('buildShareText', () => {
 
 	it('puts the result on the first line, for lock-screen previews', () => {
 		const text = buildShareText({ puzzleNumber: 12, calls: playGame(CONTRARIAN_GAME) });
-		expect(text.split('\n')[0]).toMatch(/^Hindsight #12 · \$100 → \$153$/);
+		expect(text.split('\n')[0]).toMatch(/^Hindsight #12 · \$100 → \$146$/);
 	});
 
 	it('uses the configured name and URL by default', () => {
@@ -71,7 +71,7 @@ describe('buildShareText', () => {
 			bonus: BONUS
 		});
 		expect(text.split('\n')).toEqual([
-			'Hindsight #3 · $100 → $153',
+			'Hindsight #3 · $100 → $146',
 			'🟩⭐⭐🟥🟥',
 			'🙃 The Contrarian',
 			'🎲 Real or Random 2/3',
@@ -89,13 +89,13 @@ describe('buildShareText', () => {
 
 	it('shows big balances in whole dollars with thousands separators', () => {
 		const text = buildShareText({ puzzleNumber: 1, calls: playGame(Array(5).fill([50, W, 0])) });
-		// $1,889.56 on the books, $1,890 on screen.
-		expect(text.split('\n')[0]).toBe('Hindsight #1 · $100 → $1,890');
+		// $1,048.57 on the books, $1,049 on screen.
+		expect(text.split('\n')[0]).toBe('Hindsight #1 · $100 → $1,049');
 	});
 
 	it('handles an unfinished game', () => {
 		const text = buildShareText({ puzzleNumber: 2, calls: playGame(CONTRARIAN_GAME.slice(0, 2)) });
-		expect(text.split('\n').slice(0, 2)).toEqual(['Hindsight #2 · $100 → $146', '🟩⭐']);
+		expect(text.split('\n').slice(0, 2)).toEqual(['Hindsight #2 · $100 → $141', '🟩⭐']);
 	});
 
 	it('rejects games it cannot describe', () => {

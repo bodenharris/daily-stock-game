@@ -21,26 +21,32 @@ export interface StakeOption {
 	/** Share of the current balance put at risk, in percent. */
 	readonly percent: number;
 	/**
-	 * Share of the crowd multiplier this chip earns on a right call, in percent.
-	 * 100 = the full multiplier. Below 100 makes bigger bets pay slightly less per dollar,
-	 * which is what keeps "always bet the max" from being the best strategy on average.
+	 * Share of the crowd bonus (multiplier - 1) this chip earns on a right call, in percent.
+	 * A right call always wins the stake as profit; on top it wins
+	 * stake x (multiplier - 1) x payoutPercent / 100. So a right call never pays below 1.00x.
 	 */
 	readonly payoutPercent: number;
 }
 
 /**
- * The three stake chips. A wrong call loses the stake. A right call wins
- * stake x crowd multiplier x payoutPercent / 100.
+ * The three stake chips. Bonus shares 100/40/20 make the crowd bonus the same number of dollars
+ * on every chip: (multiplier - 1) x 10% of the balance, so at most +10% of the balance. Bigger
+ * stakes raise what you risk and win at even money, not the bonus; that is what stops
+ * "always stake 50%" from beating careful sizing (see scripts/simulate.ts --sweep).
  */
 export const STAKE_OPTIONS: readonly StakeOption[] = [
 	{ percent: 10, payoutPercent: 100 },
-	{ percent: 25, payoutPercent: 100 },
-	{ percent: 50, payoutPercent: 80 }
+	{ percent: 25, payoutPercent: 40 },
+	{ percent: 50, payoutPercent: 20 }
 ];
 
 export interface CrowdRules {
-	/** Multiplier for a call that 100% of the crowd called the other way, in hundredths. */
-	readonly scaleHundredths: number;
+	/**
+	 * multiplier = 1 + slope x (share of players who called the other way - 1/2), in hundredths.
+	 * 200 makes it 2 x the other side's share: 50/50 -> 1.00x, beating 80/20 -> 1.60x.
+	 */
+	readonly slopeHundredths: number;
+	/** Must be at least 100: a right call never pays less than the stake. */
 	readonly minMultiplierHundredths: number;
 	readonly maxMultiplierHundredths: number;
 	/**
@@ -50,13 +56,10 @@ export interface CrowdRules {
 	readonly priorPlayers: number;
 }
 
-/**
- * multiplier = 2 x (share of other players who called the other way), clamped.
- * 50/50 crowd -> 1.00x; beating an 80/20 crowd -> 1.60x; joining it -> 0.50x (floor).
- */
+/** Joining the majority pays even money (the floor); beating it pays a bonus. */
 export const CROWD_RULES: CrowdRules = {
-	scaleHundredths: 200,
-	minMultiplierHundredths: 50,
+	slopeHundredths: 200,
+	minMultiplierHundredths: 100,
 	maxMultiplierHundredths: 200,
 	priorPlayers: 10
 };

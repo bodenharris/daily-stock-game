@@ -85,3 +85,14 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 - **Stake chips show their percentage and reset to 25% after every call.** A leftover 50% selection made it easy to bet half the balance by accident.
 - **Share never fails silently.** When the clipboard is blocked (some in-app browsers), the text appears ready to select.
 - **Small crowds get a place, not a percentile** on the stats page ("3rd of 4 players today"), and the bottom half is told "Tomorrow is another chart."
+
+## Payout, revised after the second playtest
+
+The non-investor playtester read a right call paying less than the stake ("+$21 on $25, paid 0.83×") as the game cheating, and players can't see the odds before calling. The rules were re-tuned under a new constraint: **a right call never pays less than the stake.**
+
+- **A wrong call loses the stake; a right call wins the stake, plus a crowd bonus.** The bonus is (2 × share of other players who called the other way − 1) × 10% of your balance, and zero when you're with the majority. Beating an 80/20 crowd adds 6% of your balance; a 50/50 crowd adds nothing.
+- **The bonus is the same dollars whichever chip you used.** It replaces the hidden "50% chip pays 0.8×" trim with one visible sentence, and it is what keeps always-max-stake from beating careful sizing.
+- **Chips stay 10/25/50%.** 10/20/40 made all-in stronger in the sweep.
+- **Results, 30 scenarios × 20,000 games:** thoughtful play beats random and all-in in 30/30 on median, log return, share of games above $100, P10 and day-to-day wins. Random play's median stays below $100 with a negative log return in all 30.
+- **Two goals had to give.** With an even-money floor, a coin-flipper can't lose on average, so random play's mean is $102.45 pooled (at most $107 in any one scenario), and all-in's mean beats thoughtful's in most scenarios. Both are mathematically unavoidable once no win may pay under 1×, and both are things a player can't feel from one game a day; the median, the bust rate (thoughtful 7.5%, all-in 41%) and day-to-day wins all still favour thoughtful play.
+- **The result line shows the bonus in dollars** ("Right. 1 of 4 players called up. Crowd bonus +$6.") instead of a multiplier.
