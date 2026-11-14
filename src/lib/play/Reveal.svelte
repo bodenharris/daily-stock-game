@@ -12,6 +12,7 @@
 	import Countdown from './Countdown.svelte';
 	import Leaderboard from './Leaderboard.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
+	import ChartColumn from '@lucide/svelte/icons/chart-column';
 	import type { GameView } from './types.ts';
 
 	let {
@@ -176,6 +177,15 @@
 	{#if view.leaderboard}
 		<div class="pt-2" in:rise={{ delay: d(850) }}>
 			<Leaderboard board={view.leaderboard} yours={archetype} {archive} />
+		</div>
+	{/if}
+
+	<!-- The stats page is today's only, so past days played from the archive don't link to it. -->
+	{#if !archive}
+		<div class="flex justify-center" in:rise={{ delay: d(view.leaderboard ? 950 : 850) }}>
+			<Button variant="text" size="md" href="/stats">
+				<ChartColumn /> How everyone called it
+			</Button>
 		</div>
 	{/if}
 </section>
