@@ -212,3 +212,15 @@ describe('share standing', () => {
 		expect(withIt).toContain(' · 2nd of 5 today');
 	});
 });
+
+describe('share named', () => {
+	it('adds a target after the row when the moment was named, and nothing otherwise', () => {
+		const calls = playGame(CONTRARIAN_GAME);
+		const named = buildShareText({ puzzleNumber: 4, calls, named: true }).split(/\n/);
+		const plain = buildShareText({ puzzleNumber: 4, calls, named: false }).split(/\n/);
+		expect(named[1]).toBe('🟩⭐⭐🟥🟥 🎯');
+		expect(plain[1]).toBe('🟩⭐⭐🟥🟥');
+		expect(named).toHaveLength(plain.length);
+		expect(buildShareText({ puzzleNumber: 4, calls }).split(/\n/)).toEqual(plain);
+	});
+});

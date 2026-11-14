@@ -106,6 +106,11 @@ export const games = pgTable(
 		/** Real-or-random guesses in order, stored before each answer is revealed. */
 		bonusGuesses: boolean('bonus_guesses').array(),
 		bonusTotal: smallint('bonus_total'),
+		/**
+		 * "Name it" guess, stored before the reveal is sent: the slug picked, '' when skipped,
+		 * null until answered. The reveal is withheld while it is null.
+		 */
+		nameGuess: text('name_guess'),
 		source: text('source').notNull().default('real'),
 		startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
 		finishedAt: timestamp('finished_at', { withTimezone: true })

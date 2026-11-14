@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
 import { command, getRequestEvent, query } from '$app/server';
 import { auth } from '#lib/server/auth.ts';
-import { PlayError, placeCall, viewFor } from '#lib/server/game/play.ts';
+import { PlayError, nameMoment, placeCall, viewFor } from '#lib/server/game/play.ts';
 import { BONUS_ROUNDS, bonusState, guessBonus } from '#lib/server/game/bonus.ts';
 import { STAKE_OPTIONS } from '#lib/game/config.ts';
 import type { CallResponse, GameView } from '#lib/play/types.ts';
@@ -84,6 +84,25 @@ export const makeCall = command(
 			const res = await placeCall(user, input);
 			getGame().set(res.view);
 			return res;
+		} catch (e) {
+			rethrow(e);
+		}
+	}
+);
+
+/** "Name it": pick one of the four moments (by index), or null to skip. Then the reveal. */
+export const nameIt = command(
+	v.object({
+		puzzleNumber: v.pipe(v.number(), v.integer(), v.minValue(1)),
+		choice: v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(3)))
+	}),
+	async ({ puzzleNumber, choice }): Promise<GameView> => {
+		const user = currentUser();
+		if (!user) error(401, 'Play today first');
+		try {
+			const view = await nameMoment(user, puzzleNumber, choice);
+			getGame().set(view);
+			return view;
 		} catch (e) {
 			rethrow(e);
 		}

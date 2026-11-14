@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { dev } from '$app/env';
 import { BETTER_AUTH_SECRET, PLAY_SOURCE, PUZZLE_SECRET } from '$app/env/private';
 import { db } from '#lib/server/db/index.ts';
@@ -9,7 +9,8 @@ import { classifyGame } from '#lib/game/archetype.ts';
 import { easternDateString, midnightIn, puzzleNumberFor } from '#lib/game/daily.ts';
 import { puzzleForNumber, visibleBars, type PuzzleData } from './puzzle-data.ts';
 import { standingOf, type Standing } from '#lib/server/stats.ts';
-import type { CallResult, Direction, GameView } from '#lib/play/types.ts';
+import { optionsFor } from './name-it.ts';
+import type { CallResult, Direction, GameView, NameIt } from '#lib/play/types.ts';
 
 /**
  * Plays from a dev server are tagged 'dev' so testing never moves the real crowd. In development
@@ -176,11 +177,15 @@ function assembleView(
 	user: Player | null,
 	crowd: Crowd,
 	streak: number,
-	standing: Standing | null = null
+	standing: Standing | null = null,
+	nameIt: NameIt | null = null
 ): GameView {
 	const p = day.puzzle;
 	const callsMade = game?.step ?? 0;
 	const finished = callsMade >= p.calls;
+	// After the last call the player names the moment first; nothing identifying is sent until
+	// that guess is stored. (If the options can't be built, the reveal goes out anyway.)
+	const revealed = finished && (!nameIt || nameIt.answered);
 	return {
 		number: day.number,
 		date: day.date,
@@ -194,7 +199,7 @@ function assembleView(
 			.sort((a, b) => a.step - b.step)
 			.map((g) => toResult(g, crowd.get(g.step), p.moves[g.step - 1])),
 		finished,
-		reveal: finished
+		reveal: revealed
 			? {
 					ticker: p.ticker,
 					company: p.company,
@@ -214,8 +219,48 @@ function assembleView(
 				? { correct: game.bonusCorrect, total: game.bonusTotal }
 				: null,
 		streak,
-		standing: finished ? standing : null
+		standing: finished ? standing : null,
+		nameIt
 	};
+}
+
+/** "Name it" for a finished game. Never lets a failure here hold back the reveal. */
+async function nameItFor(day: Day, game: GameRow | null): Promise<NameIt | null> {
+	if (!game || game.finishedAt == null) return null;
+	try {
+		const options = await optionsFor(day.puzzle);
+		const answered = game.nameGuess != null;
+		const index = (slug: string) => {
+			const i = options.findIndex((o) => o.slug === slug);
+			return i < 0 ? null : i;
+		};
+		return {
+			options: options.map((o) => o.headline),
+			answered,
+			guess: answered && game.nameGuess ? index(game.nameGuess) : null,
+			answer: answered ? index(day.puzzle.slug) : null
+		};
+	} catch (e) {
+		console.error('name it options failed', e);
+		return null;
+	}
+}
+
+/** The full view of one game: shared by viewFor and the commands that change a game. */
+async function viewOfGame(
+	day: Day,
+	game: GameRow,
+	user: Player,
+	todayNumber: number
+): Promise<GameView> {
+	const [all, crowd, streak, standing, nameIt] = await Promise.all([
+		guessesOf(game),
+		crowdFor(day.number),
+		streakFor(user.id, todayNumber),
+		standingFor(day, game),
+		nameItFor(day, game)
+	]);
+	return assembleView(day, game, all, user, crowd, streak, standing, nameIt);
 }
 
 /** Standing for a finished game; never lets a stats hiccup break the game view. */
@@ -248,12 +293,13 @@ export async function viewFor(user: Player | null, now = new Date()): Promise<Ga
 
 	const day = unfinishedYesterday ? await loadDay(today.number - 1) : today;
 	const game = unfinishedYesterday ? yesterdays! : todays;
-	const [gameGuesses, crowd, standing] = await Promise.all([
+	const [gameGuesses, crowd, standing, nameIt] = await Promise.all([
 		game ? guessesOf(game) : Promise.resolve([]),
 		crowdFor(day.number),
-		standingFor(day, game)
+		standingFor(day, game),
+		nameItFor(day, game)
 	]);
-	return assembleView(day, game, gameGuesses, user, crowd, streak, standing);
+	return assembleView(day, game, gameGuesses, user, crowd, streak, standing, nameIt);
 }
 
 export interface PlaceCallInput {
@@ -367,13 +413,38 @@ export async function placeCall(
 		return updated;
 	});
 
-	const [all, crowdNow, streak, standing] = await Promise.all([
-		guessesOf(outcome),
-		crowdFor(day.number),
-		streakFor(user.id, today.number),
-		standingFor(day, outcome)
-	]);
-	const view = assembleView(day, outcome, all, user, crowdNow, streak, standing);
+	const view = await viewOfGame(day, outcome, user, today.number);
 	const result = view.results.find((r) => r.step === input.step)!;
 	return { view, result };
+}
+
+/**
+ * Store the player's "Name it" guess (an option index, or null to skip), then send the view
+ * with the reveal. Only once per game: a second answer just returns the stored one.
+ */
+export async function nameMoment(
+	user: Player,
+	puzzleNumber: number,
+	choice: number | null,
+	now = new Date()
+): Promise<GameView> {
+	const today = await loadToday(now);
+	const grace = puzzleNumber === today.number - 1 && now.getTime() - today.unlockAt < GRACE_MS;
+	if (puzzleNumber !== today.number && !grace) {
+		throw new PlayError(409, 'A new chart just came out. Here it is.');
+	}
+	const day = grace ? await loadDay(puzzleNumber) : today;
+	const options = await optionsFor(day.puzzle);
+	if (choice != null && (!Number.isInteger(choice) || choice < 0 || choice >= options.length)) {
+		throw new PlayError(400, 'Pick one of the options');
+	}
+	const where = and(eq(games.userId, user.id), eq(games.puzzleNumber, day.number));
+	const [updated] = await db
+		.update(games)
+		.set({ nameGuess: choice == null ? '' : options[choice].slug })
+		.where(and(where, isNotNull(games.finishedAt), isNull(games.nameGuess)))
+		.returning();
+	const game = updated ?? (await db.select().from(games).where(where))[0];
+	if (!game || game.finishedAt == null) throw new PlayError(409, 'Finish the game first');
+	return viewOfGame(day, game, user, today.number);
 }

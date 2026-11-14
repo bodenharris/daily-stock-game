@@ -36,6 +36,13 @@
       "when": 1794660861563,
       "tag": "0004_splits",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794681738735,
+      "tag": "0005_name_guess",
+      "breakpoints": true
     }
   ]
 }

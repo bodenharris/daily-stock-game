@@ -36,6 +36,18 @@ export interface Reveal {
 	hindsight: { date: string; close: number; change: number } | null;
 }
 
+/** The "Name it" step between the last call and the reveal. */
+export interface NameIt {
+	/** The four moments offered, in the order shown. The same for every player. */
+	options: string[];
+	/** Answered or skipped. The reveal is withheld until it is. */
+	answered: boolean;
+	/** Index picked; null when skipped or not answered yet. */
+	guess: number | null;
+	/** Index of the right moment, only once answered. */
+	answer: number | null;
+}
+
 export interface GameView {
 	/** 1-based puzzle number, the same for everyone on a given Eastern calendar day. */
 	number: number;
@@ -62,6 +74,8 @@ export interface GameView {
 	streak: number;
 	/** Where this finish stands among today's players (finished games only). */
 	standing: { betterThan: number | null; finished: number } | null;
+	/** "Name it" for a finished game; null before the last call. */
+	nameIt: NameIt | null;
 	/** Real or Random score, once played. */
 	bonus: { correct: number; total: number } | null;
 }

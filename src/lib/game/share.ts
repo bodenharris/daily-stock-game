@@ -52,6 +52,8 @@ export interface ShareInput {
 	readonly gameName?: string;
 	/** Optional standing, e.g. "2nd of 5 today", added to the archetype line. Spoils nothing. */
 	readonly standing?: string | null;
+	/** Named the moment before the reveal: adds a 🎯 after the row. Spoils nothing. */
+	readonly named?: boolean;
 	readonly startBalanceCents?: number;
 }
 
@@ -93,7 +95,7 @@ export function buildShareText(input: ShareInput): string {
 
 	const lines = [
 		`${name} #${puzzleNumber.toLocaleString('en-US')} · ${formatWholeDollars(start)} → ${formatWholeDollars(final)}`,
-		shareRow(calls),
+		shareRow(calls) + (input.named ? ' 🎯' : ''),
 		`${archetype.emoji} ${archetype.label}${input.standing ? ` · ${input.standing}` : ''}`
 	];
 	if (input.bonus) {

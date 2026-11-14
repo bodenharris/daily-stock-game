@@ -19,6 +19,11 @@
 	const records = $derived(toRecords(view.results));
 	const archetype = $derived(classifyArchetype(records));
 	const standing = $derived(standingText(view.standing));
+	const n = $derived(view.nameIt);
+	const named = $derived(!!n && n.guess != null && n.guess === n.answer);
+	const wrongGuess = $derived(
+		n && n.guess != null && n.guess !== n.answer ? n.options[n.guess] : null
+	);
 	const light = new MediaQuery('(prefers-color-scheme: light)');
 
 	const range = $derived.by(() => {
@@ -43,6 +48,7 @@
 			theme: light.current ? 'light' : 'dark',
 			bonus: view.bonus ? { label: 'Real or Random', ...view.bonus } : undefined,
 			standing,
+			named,
 			url: page.url.origin
 		})
 	);
@@ -99,6 +105,11 @@
 		<p class="mt-0.5 type-label-lg text-chart-reveal">
 			<span class="type-numeric">{reveal.ticker}</span> · {range}
 		</p>
+		{#if named}
+			<p class="mt-1 type-label-lg text-up">🎯 You named it</p>
+		{:else if wrongGuess}
+			<p class="mt-1 type-label-lg text-on-surface-variant">You guessed {wrongGuess}</p>
+		{/if}
 		{#if !playingBonus}
 			<p class="mt-2 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
 		{/if}

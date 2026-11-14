@@ -13,6 +13,7 @@
 	import CallPips from './CallPips.svelte';
 	import CallLog from './CallLog.svelte';
 	import Reveal from './Reveal.svelte';
+	import NameIt from './NameIt.svelte';
 	import { dollars, percent } from './money.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
@@ -63,6 +64,20 @@
 		return () => clearTimeout(id);
 	});
 	const finished = $derived(view.finished && !revealing && endingReady);
+
+	// "Name the moment" sits between the last call and the unmasking. Once answered, the right
+	// option stays on screen for a beat before the reveal takes over.
+	let nameHold = $state(false);
+	const naming = $derived(
+		finished && !!view.nameIt && (!view.nameIt.answered || nameHold || !view.reveal)
+	);
+	const showReveal = $derived(finished && !!view.reveal && !naming);
+	function answered(named: boolean) {
+		fresh = true;
+		nameHold = true;
+		buzz(named ? [8, 60, 16] : 20);
+		setTimeout(() => (nameHold = false), prefersReducedMotion.current ? 0 : 1400);
+	}
 
 	// Back to the middle chip after each call, so a big bet is always a choice, never a leftover.
 	// svelte-ignore state_referenced_locally
@@ -240,7 +255,7 @@
 				{callsMade}
 				results={view.results}
 				{pending}
-				labels={finished && view.reveal
+				labels={showReveal && view.reveal
 					? { dates: view.reveal.dates, closes: view.reveal.closes }
 					: null}
 			/>
@@ -257,8 +272,12 @@
 			</div>
 		{/if}
 
-		{#if finished && view.reveal}
+		{#if showReveal}
 			<Reveal {view} {fresh} />
+		{:else if naming && view.nameIt}
+			<div class="controls flex flex-col">
+				<NameIt number={view.number} nameIt={view.nameIt} onAnswered={answered} />
+			</div>
 		{:else}
 			<div class="controls flex flex-col pb-4">
 				<div class="flex min-h-10 items-center justify-center px-2 text-center">
@@ -312,7 +331,7 @@
 							if (document.activeElement === document.body) node.focus({ preventScroll: true });
 						}}
 					>
-						Unmasking the chart…
+						{view.reveal ? 'Unmasking the chart…' : 'One last question…'}
 					</p>
 				{/if}
 

@@ -19,8 +19,8 @@
 			your bet, plus a crowd bonus when most players called it the other way.
 		</p>
 		<p class="text-on-surface-variant">
-			Then the chart is unmasked. Finish for a bonus round, and come back tomorrow for the next one
-			(midnight Eastern).
+			Then name the moment, just for bragging rights, and the chart is unmasked. Finish for a bonus
+			round, and come back tomorrow for the next one (midnight Eastern).
 		</p>
 		<p class="keys hidden text-on-surface-variant">
 			On a keyboard: <span class="whitespace-nowrap"><kbd>↑</kbd> and <kbd>↓</kbd></span> make the
