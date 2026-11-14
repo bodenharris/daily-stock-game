@@ -23,7 +23,8 @@
 		"db:studio": "drizzle-kit studio",
 		"auth:schema": "auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes",
 		"db:custom": "drizzle-kit generate --custom",
-		"verify": "npm run check && npm run lint && npm run test"
+		"verify": "npm run check && npm run lint && npm run test",
+		"smoke": "node scripts/smoke.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
