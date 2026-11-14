@@ -35,7 +35,14 @@ healthy() {
 	return 1
 }
 
-previous=$(readlink -f "$base/current" 2>/dev/null || true)
+# Only a real symlink to a release counts. On the first deploy `current` doesn't exist yet, and
+# `readlink -f` would return the path itself, so a failed first deploy would "roll back" to a
+# symlink pointing at itself.
+previous=
+if [[ -L $base/current ]]; then
+	previous=$(readlink -f "$base/current" 2>/dev/null || true)
+	[[ $previous == "$base"/releases/* ]] || previous=
+fi
 point_at "$release"
 sudo /usr/bin/systemctl restart "hindsight@$slot"
 
