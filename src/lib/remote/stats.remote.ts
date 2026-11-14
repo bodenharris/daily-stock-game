@@ -1,7 +1,7 @@
 import { getRequestEvent, query } from '$app/server';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
-import { games } from '#lib/server/db/schema.ts';
+import { games, guesses } from '#lib/server/db/schema.ts';
 import { loadToday } from '#lib/server/game/play.ts';
 import { betterThan, statsFor, type Stats } from '#lib/server/stats.ts';
 import type { Direction } from '#lib/play/types.ts';
@@ -15,6 +15,8 @@ export interface CallSplit {
 	ups: number;
 	/** Which way the chart actually went. */
 	answer: Direction;
+	/** Which way the viewer called it. */
+	you: Direction | null;
 }
 
 export type LiveStats = Omit<Stats, 'steps'> & {
@@ -31,7 +33,7 @@ export type LiveStats = Omit<Stats, 'steps'> & {
 async function finishedGame(userId: string | undefined, puzzleNumber: number) {
 	if (!userId) return null;
 	const [row] = await db
-		.select({ balanceCents: games.balanceCents })
+		.select({ id: games.id, balanceCents: games.balanceCents })
 		.from(games)
 		.where(
 			and(
@@ -40,7 +42,13 @@ async function finishedGame(userId: string | undefined, puzzleNumber: number) {
 				isNotNull(games.finishedAt)
 			)
 		);
-	return row ? { puzzle: puzzleNumber, balanceCents: row.balanceCents } : null;
+	if (!row) return null;
+	const calls = await db
+		.select({ step: guesses.step, up: guesses.up })
+		.from(guesses)
+		.where(and(eq(guesses.gameId, row.id), eq(guesses.puzzleNumber, puzzleNumber)));
+	const directions = new Map(calls.map((c) => [c.step, (c.up ? 'up' : 'down') as Direction]));
+	return { puzzle: puzzleNumber, balanceCents: row.balanceCents, directions };
 }
 
 /**
@@ -52,7 +60,7 @@ export const liveStats = query.live(async function* (): AsyncGenerator<LiveStats
 	const userId = getRequestEvent().locals.user?.id;
 	// Which puzzle the viewer's finish belongs to, so a page left open past midnight
 	// stops showing tomorrow's answers until they finish that one too.
-	let mine: { puzzle: number; balanceCents: number } | null = null;
+	let mine: Awaited<ReturnType<typeof finishedGame>> = null;
 	while (true) {
 		const today = await loadToday();
 		// A finish never un-happens, so once found it is not looked up again until the day rolls.
@@ -66,7 +74,13 @@ export const liveStats = query.live(async function* (): AsyncGenerator<LiveStats
 			calls: mine
 				? today.puzzle.outcomes.map((answer, i) => {
 						const s = steps.find((x) => x.step === i + 1);
-						return { step: i + 1, calls: s?.calls ?? 0, ups: s?.ups ?? 0, answer };
+						return {
+							step: i + 1,
+							calls: s?.calls ?? 0,
+							ups: s?.ups ?? 0,
+							answer,
+							you: mine?.directions.get(i + 1) ?? null
+						};
 					})
 				: null,
 			you: mine ? { balanceCents: mine.balanceCents, betterThan: rank } : null

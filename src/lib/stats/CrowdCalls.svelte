@@ -14,6 +14,7 @@
 		<li>
 			<p class="sr-only">
 				Call {call.step}: {up}% called up, {100 - up}% called down. It went {call.answer}.
+				{#if call.you}You called {call.you}.{/if}
 			</p>
 			<div aria-hidden="true">
 				<div class="grid grid-cols-[1fr_auto_1fr] items-baseline gap-2 type-label-lg type-numeric">
@@ -26,7 +27,9 @@
 						{#if upWon}<Check class="size-4" strokeWidth={3} />{/if}
 						{up}% up
 					</span>
-					<span class="type-label-md text-on-surface-variant">Call {call.step}</span>
+					<span class="type-label-md text-on-surface-variant">
+						Call {call.step}{#if call.you}&nbsp;· you: {call.you}{/if}
+					</span>
 					<span
 						class={[
 							'flex items-center gap-1 justify-self-end',
