@@ -15,6 +15,8 @@ export interface CallResult {
 	balanceAfterCents: number;
 	/** Share of other players (blended with the prior) who called up when this call was placed. */
 	crowdUpShareAtCall: number;
+	/** How much the price moved over this call's stretch, in percent (e.g. -6.5). */
+	move: number;
 	/** Live crowd for this step, including this player. */
 	crowd: { up: number; down: number };
 }

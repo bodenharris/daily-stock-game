@@ -1,6 +1,7 @@
 import { asc, eq, gte } from 'drizzle-orm';
 import { client, db } from '#lib/server/db/index.ts';
-import { puzzles } from '#lib/server/db/schema.ts';
+import { puzzles, schedule } from '#lib/server/db/schema.ts';
+import { slugForNumber } from './schedule-order.ts';
 import type { Direction } from '#lib/play/types.ts';
 
 export interface PuzzleData {
@@ -48,23 +49,12 @@ export function outcomesFor(
 
 // Puzzles never change once loaded, so keep them in memory: a call never waits on the
 // price table twice for the same puzzle.
-const cache = new Map<number, Promise<PuzzleData>>();
-let countCache: { count: number; at: number } | null = null;
+const bySlug = new Map<string, Promise<PuzzleData>>();
+const byNumber = new Map<number, Promise<PuzzleData>>();
 
-export async function puzzleCount(): Promise<number> {
-	if (countCache && Date.now() - countCache.at < 60_000) return countCache.count;
-	const rows = await db
-		.select({ slug: puzzles.slug })
-		.from(puzzles)
-		.where(gte(puzzles.position, 0))
-		.orderBy(asc(puzzles.position));
-	countCache = { count: rows.length, at: Date.now() };
-	return rows.length;
-}
-
-async function load(position: number): Promise<PuzzleData> {
-	const [p] = await db.select().from(puzzles).where(eq(puzzles.position, position));
-	if (!p) throw new Error(`No puzzle at position ${position}`);
+async function load(slug: string): Promise<PuzzleData> {
+	const [p] = await db.select().from(puzzles).where(eq(puzzles.slug, slug));
+	if (!p) throw new Error(`No puzzle ${slug}`);
 	const after = p.calls * p.stepBars;
 	const rows = await client<{ ts: string; close: number }[]>`
 		(select ts::text as ts, close from prices
@@ -98,20 +88,49 @@ async function load(position: number): Promise<PuzzleData> {
 	};
 }
 
-/** Puzzle data for a catalog position (0-based). Cached for the life of the process. */
-export function puzzleAt(position: number): Promise<PuzzleData> {
-	let hit = cache.get(position);
+function cached<K>(map: Map<K, Promise<PuzzleData>>, key: K, make: () => Promise<PuzzleData>) {
+	let hit = map.get(key);
 	if (!hit) {
-		hit = load(position);
-		hit.catch(() => cache.delete(position));
-		cache.set(position, hit);
+		hit = make();
+		hit.catch(() => map.delete(key));
+		map.set(key, hit);
 	}
 	return hit;
+}
+
+/** Puzzle data by slug. Cached for the life of the process. */
+export function puzzleBySlug(slug: string): Promise<PuzzleData> {
+	return cached(bySlug, slug, () => load(slug));
+}
+
+/**
+ * The puzzle for daily number `number`. The first request for a number writes it into the
+ * `schedule` table; after that the day's puzzle never changes.
+ */
+export function puzzleForNumber(number: number, secret: string): Promise<PuzzleData> {
+	return cached(byNumber, number, async () => {
+		const [hit] = await db.select().from(schedule).where(eq(schedule.number, number));
+		if (hit) return puzzleBySlug(hit.slug);
+		const active = await db
+			.select({ slug: puzzles.slug })
+			.from(puzzles)
+			.where(gte(puzzles.position, 0))
+			.orderBy(asc(puzzles.position));
+		if (active.length === 0) throw new Error('No puzzles loaded yet');
+		const slug = slugForNumber(
+			number,
+			active.map((a) => a.slug),
+			secret
+		);
+		await db.insert(schedule).values({ number, slug }).onConflictDoNothing();
+		const [row] = await db.select().from(schedule).where(eq(schedule.number, number));
+		return puzzleBySlug(row.slug);
+	});
 }
 
 /** Visible closes before call `nextStep`, normalised so the last context close is 100. */
 export function visibleBars(p: PuzzleData, callsMade: number): number[] {
 	const end = callsMade >= p.calls ? p.closes.length : lastVisibleIndex(p, callsMade + 1) + 1;
 	const base = p.closes[p.contextBars - 1];
-	return p.closes.slice(0, end).map((c) => Math.round((c / base) * 100 * 1000) / 1000);
+	return p.closes.slice(0, end).map((c) => Math.round((c / base) * 1000) / 10);
 }

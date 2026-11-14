@@ -1,25 +1,22 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
 	import { getGame } from '#lib/remote/game.remote.ts';
 
+	/**
+	 * Time until the next chart. At zero it offers the new chart instead of swapping it in, so
+	 * nobody loses the result they are looking at.
+	 */
 	let { to }: { to: number } = $props();
-	let now = $state(Date.now());
+	let now = $state<number | null>(null);
 
 	$effect(() => {
-		const id = setInterval(() => {
-			now = Date.now();
-			if (now >= to) {
-				clearInterval(id);
-				// A new puzzle is out: fetch it.
-				void getGame().refresh();
-				void invalidateAll();
-			}
-		}, 1000);
+		now = Date.now();
+		const id = setInterval(() => (now = Date.now()), 1000);
 		return () => clearInterval(id);
 	});
 
-	const left = $derived(Math.max(0, to - now));
+	const left = $derived(now === null ? null : Math.max(0, to - now));
 	const text = $derived.by(() => {
+		if (left === null) return '';
 		const s = Math.floor(left / 1000);
 		const h = Math.floor(s / 3600);
 		const m = Math.floor((s % 3600) / 60);
@@ -29,4 +26,13 @@
 	});
 </script>
 
-<span class="type-numeric">{text}</span>
+{#if left === 0}
+	<button
+		class="type-label-lg text-m3-primary underline underline-offset-4"
+		onclick={() => getGame().refresh()}
+	>
+		Today's chart is out. Play it
+	</button>
+{:else}
+	<span>Next chart in <span class="type-numeric">{text}</span></span>
+{/if}

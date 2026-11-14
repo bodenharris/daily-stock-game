@@ -62,5 +62,5 @@ export function dailyVolatility(closes: number[]): number {
 /** Normalise so the first close is 100 and round, so values carry no hint of their source. */
 export function normalise(closes: number[]): number[] {
 	const base = closes[0];
-	return closes.map((c) => Math.round((c / base) * 100 * 100) / 100);
+	return closes.map((c) => Math.round((c / base) * 1000) / 10);
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('#lib/server/db/index.ts', () => ({ db: {}, client: {} }));
+vi.mock('#lib/server/db/schema.ts', () => ({ puzzles: {}, schedule: {} }));
 
 const { outcomesFor, lastVisibleIndex, visibleBars } = await import('./puzzle-data.ts');
 
@@ -27,7 +28,7 @@ describe('puzzle outcomes', () => {
 			calls: 4,
 			closes
 		} as unknown as Parameters<typeof visibleBars>[0];
-		expect(visibleBars(p, 0)).toEqual([83.333, 91.667, 100]);
+		expect(visibleBars(p, 0)).toEqual([83.3, 91.7, 100]);
 		expect(visibleBars(p, 1)).toHaveLength(5);
 		expect(visibleBars(p, 4)).toHaveLength(closes.length);
 	});

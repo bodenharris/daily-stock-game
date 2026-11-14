@@ -1,19 +1,27 @@
 /**
  * The end-of-game label. Deterministic: the first rule in ARCHETYPES whose test passes wins.
  *
- * Priority order (most remarkable story first):
+ * Priority order (most remarkable story first). Every label is earned by something the player
+ * can see in their own game: how many calls were right, how big they bet, which side of the
+ * crowd they were on, and where their balance went.
+ *
  *   1. The Oracle       every call right
  *   2. Margin Call      3+ calls at the biggest chip, finished below half the start
  *   3. The Contrarian   3+ calls on the minority side, 2+ of them right
  *   4. Diamond Hands    4+ calls at the biggest chip, finished at or above the start
- *   5. Comeback Kid     dipped below 75% of the start, finished above it
+ *   5. Comeback Kid     dipped below 75% of the start, finished at or above it
  *   6. Herd Animal      4+ calls on the majority side
  *   7. The Index Fund   4+ calls at the smallest chip
- *   8. The Day Trader   anything else, finished at or above the start
- *   9. The Bagholder    anything else, finished below the start
+ *   8. Cool Customer    anything else that finished at or above the start
+ *                       (by priority it never dipped below 75%: cool, and kept the money)
+ *   9. Paid Tuition     anything else that finished below the start
  *
- * No archetype depends on whether calls were up or down: the label goes into the share text,
- * and together with the right/wrong grid a direction-based label would spoil the chart.
+ * The two catch-alls only claim what is true of every game that reaches them, so no label is
+ * an accusation the player can't recognise in their own play.
+ *
+ * Spoiler rule: no archetype depends on whether calls were up or down. The label goes into the
+ * share text, and together with the right/wrong row a direction-based label would spoil the
+ * chart.
  */
 import { ARCHETYPE_RULES, PAYOUT_RULES, START_BALANCE_CENTS, type PayoutRules } from './config.ts';
 import { settleCall, type Direction } from './economy.ts';
@@ -40,15 +48,15 @@ export type ArchetypeKey =
 	| 'comeback'
 	| 'herd'
 	| 'index-fund'
-	| 'day-trader'
-	| 'bagholder';
+	| 'cool-customer'
+	| 'paid-tuition';
 
 export interface Archetype {
 	readonly key: ArchetypeKey;
 	readonly label: string;
-	/** One dry line under the label. */
+	/** One dry line under the label. Short enough for one line on a phone. */
 	readonly line: string;
-	/** Shown in the share text. Chosen from emoji every major platform has rendered for years. */
+	/** Shown in the share text only. A single code point every major platform has had for years. */
 	readonly emoji: string;
 }
 
@@ -97,7 +105,7 @@ const RULES: readonly Rule[] = [
 		archetype: {
 			key: 'contrarian',
 			label: 'The Contrarian',
-			line: 'Faded the crowd and got paid for it.',
+			line: 'Went against the crowd. Got paid for it.',
 			emoji: '🙃'
 		},
 		test: (f) => f.minorityCalls >= R.contrarianCalls && f.minorityWins >= R.contrarianWins
@@ -118,8 +126,9 @@ const RULES: readonly Rule[] = [
 			line: 'Down bad, then not.',
 			emoji: '🧗'
 		},
+		// Back to even counts: clawing back from a deep hole is the story, not the last cent.
 		test: (f) =>
-			f.lowCents * 100 < f.startCents * R.comebackLowPercent && f.finalCents > f.startCents
+			f.lowCents * 100 < f.startCents * R.comebackLowPercent && f.finalCents >= f.startCents
 	},
 	{
 		archetype: {
@@ -141,19 +150,19 @@ const RULES: readonly Rule[] = [
 	},
 	{
 		archetype: {
-			key: 'day-trader',
-			label: 'The Day Trader',
-			line: 'In, out, a little up. Expense the coffee.',
-			emoji: '💼'
+			key: 'cool-customer',
+			label: 'Cool Customer',
+			line: 'Kept your cool and your money.',
+			emoji: '🧊'
 		},
 		test: (f) => f.finalCents >= f.startCents
 	},
 	{
 		archetype: {
-			key: 'bagholder',
-			label: 'The Bagholder',
-			line: 'Held the bag. It was heavy.',
-			emoji: '🎒'
+			key: 'paid-tuition',
+			label: 'Paid Tuition',
+			line: 'Markets charge for lessons.',
+			emoji: '🎓'
 		},
 		test: () => true
 	}

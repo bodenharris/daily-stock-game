@@ -14,9 +14,12 @@
 	import Reveal from './Reveal.svelte';
 	import { dollars, multiplier, percent } from './money.ts';
 	import { sameSideShare } from './records.ts';
-	import type { Direction, GameView } from './types.ts';
+	import type { CallResult, Direction, GameView } from './types.ts';
 
 	let { view }: { view: GameView } = $props();
+
+	/** How long the chart takes to draw a new stretch. Everything else waits for it. */
+	const DRAW_MS = 900;
 
 	let stakePercent = $state('25');
 	let pending = $state<Direction | null>(null);
@@ -24,42 +27,70 @@
 	/** Set when a call settles in this session, so its result animates in. */
 	let fresh = $state(false);
 
-	const callsMade = $derived(view.results.length);
-	const latest = $derived(view.results.at(-1) ?? null);
-	const outcomes = $derived(
-		view.results.map((r) =>
-			r.correct ? r.direction : r.direction === 'up' ? ('down' as const) : ('up' as const)
-		)
-	);
-
-	// The balance counts to its new value just after the line finishes drawing.
+	/**
+	 * Results the player has *seen*. The server answers instantly, but the dots, balance, result
+	 * and next stakes only update once the chart has drawn the stretch, so nothing gives the
+	 * outcome away before the line does.
+	 */
 	// svelte-ignore state_referenced_locally
-	const shownBalance = new Tween(view.balanceCents, { duration: 700, easing: cubicOut });
+	let shown = $state(view.results.length);
 	$effect(() => {
-		const target = view.balanceCents;
-		if (prefersReducedMotion.current) shownBalance.set(target, { duration: 0 });
-		else shownBalance.set(target, { delay: fresh ? 650 : 0 });
+		const total = view.results.length;
+		if (total < shown) {
+			shown = total; // new day or a different game
+			return;
+		}
+		if (total === shown) return;
+		const wait = prefersReducedMotion.current ? 0 : DRAW_MS;
+		const id = setTimeout(() => (shown = total), wait);
+		return () => clearTimeout(id);
 	});
 
-	const crowdLine = $derived.by(() => {
+	const results = $derived(view.results.slice(0, shown));
+	const latest = $derived<CallResult | null>(results.at(-1) ?? null);
+	const revealing = $derived(shown < view.results.length);
+	const finished = $derived(view.finished && !revealing);
+	const balanceCents = $derived(latest?.balanceAfterCents ?? START_BALANCE_CENTS);
+	const callsMade = $derived(view.results.length);
+
+	// svelte-ignore state_referenced_locally
+	const shownBalance = new Tween(balanceCents, { duration: 700, easing: cubicOut });
+	$effect(() => {
+		const target = balanceCents;
+		shownBalance.set(target, { duration: prefersReducedMotion.current ? 0 : 700 });
+	});
+
+	function paidHundredths(r: CallResult) {
+		const chip = STAKE_OPTIONS.find((o) => o.percent === r.stakePercent);
+		return Math.floor((r.multiplierHundredths * (chip?.payoutPercent ?? 100)) / 100);
+	}
+
+	const resultLine = $derived.by(() => {
 		if (!latest) return '';
-		const head = latest.correct ? 'Called it.' : 'Not this time.';
+		const paid = multiplier(paidHundredths(latest));
 		const others = latest.crowd.up + latest.crowd.down - 1;
-		if (others < 3) return `${head} You're one of the first to call this one.`;
+		if (others < 3) {
+			return latest.correct
+				? `Right. You're one of the first today. Paid ${paid}.`
+				: `Missed. You're one of the first today.`;
+		}
 		const share = percent(sameSideShare(latest));
-		const chip = STAKE_OPTIONS.find((o) => o.percent === latest.stakePercent);
-		const paidHundredths = Math.floor(
-			(latest.multiplierHundredths * (chip?.payoutPercent ?? 100)) / 100
-		);
-		const paid = latest.correct ? ` · paid ${multiplier(paidHundredths)}` : '';
-		return `${head} ${share} called it your way${paid}.`;
+		const minority = sameSideShare(latest) < 0.5;
+		if (latest.correct) {
+			return minority
+				? `Right, and only ${share} saw it coming. Paid ${paid}.`
+				: `Right, but ${share} saw it too. Paid ${paid}.`;
+		}
+		return minority
+			? `Missed. Only ${share} called ${latest.direction}.`
+			: `Missed, along with ${share} of players.`;
 	});
 
 	const stakeOptions = $derived(
 		STAKE_OPTIONS.map((o) => ({
 			value: String(o.percent),
 			percent: o.percent,
-			cents: Math.floor((view.balanceCents * o.percent) / 100)
+			cents: Math.floor((balanceCents * o.percent) / 100)
 		}))
 	);
 
@@ -68,7 +99,7 @@
 	}
 
 	async function call(direction: Direction) {
-		if (pending || view.finished) return;
+		if (pending || revealing || view.finished) return;
 		error = null;
 		pending = direction;
 		buzz(12);
@@ -80,7 +111,7 @@
 				stakePercent: Number(stakePercent)
 			});
 			fresh = true;
-			setTimeout(() => buzz(res.result.correct ? [8, 60, 16] : 40), 650);
+			setTimeout(() => buzz(res.result.correct ? [8, 60, 16] : 40), DRAW_MS);
 		} catch (e) {
 			const status = (e as { status?: number }).status;
 			if (status === 409) {
@@ -97,38 +128,35 @@
 		}
 	}
 
-	function onkeydown(e: KeyboardEvent) {
-		if (view.finished || e.metaKey || e.ctrlKey || e.altKey) return;
-		const target = e.target as HTMLElement | null;
-		if (target?.closest('input, textarea, [role="dialog"]')) return;
-		if (e.key === 'ArrowUp') call('up');
-		else if (e.key === 'ArrowDown') call('down');
-		else if (e.key === '1' || e.key === '2' || e.key === '3') {
-			stakePercent = String(STAKE_OPTIONS[Number(e.key) - 1].percent);
-		} else return;
-		e.preventDefault();
-	}
+	const busy = $derived(!!pending || revealing);
+	/** The call in flight or being revealed, highlighted until the result lands. */
+	const chosen = $derived<Direction | null>(
+		pending ?? (revealing ? (view.results.at(-1)?.direction ?? null) : null)
+	);
 </script>
 
-<svelte:window {onkeydown} />
+<!-- One calm announcement per call for screen readers (the visible numbers animate). -->
+<p class="sr-only" aria-live="polite">
+	{#if latest}{resultLine} Balance {dollars(balanceCents, { cents: false })}.{/if}
+</p>
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<!-- Balance: the one number that matters. -->
-	<div class="flex items-end justify-between gap-3 px-1 pt-2">
+	<div class="flex items-end justify-between gap-3 px-1 pt-1">
 		<div>
 			<p class="type-label-md text-on-surface-variant">
-				{view.finished ? 'Final balance' : 'Balance'}
+				{finished ? 'Final balance' : 'Balance'}
 			</p>
-			<p class="type-display-sm-emphasized text-on-surface type-numeric" aria-live="polite">
+			<p class="balance type-display-sm-emphasized text-on-surface type-numeric">
 				{dollars(Math.round(shownBalance.current), { cents: false })}
 			</p>
 		</div>
-		{#if view.finished}
+		{#if finished}
 			{@const change = view.balanceCents - START_BALANCE_CENTS}
 			<span
 				class="mb-1.5 rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
 				{change >= 0 ? 'bg-up-container text-on-up-container' : 'bg-down-container text-on-down-container'}"
-				in:pop={{ delay: fresh ? 900 : 0 }}
+				in:pop
 			>
 				{change >= 0 ? '+' : '−'}{Math.round((Math.abs(change) / START_BALANCE_CENTS) * 100)}%
 			</span>
@@ -139,7 +167,7 @@
 					{latest.correct
 						? 'bg-up-container text-on-up-container'
 						: 'bg-down-container text-on-down-container'}"
-					in:pop={{ delay: 650 }}
+					in:pop
 				>
 					{dollars(latest.deltaCents, { sign: true })}
 				</span>
@@ -148,72 +176,107 @@
 	</div>
 
 	<!-- The chart is the hero. -->
-	<div class="relative mt-3 min-h-[220px] flex-1">
+	<div class="chart-area relative mt-2 flex-1">
 		<PriceChart
 			class="absolute inset-0"
 			values={view.bars}
 			shape={{ contextBars: view.contextBars, stepBars: view.stepBars, calls: view.calls }}
 			{callsMade}
-			{outcomes}
+			results={view.results}
 			{pending}
-			labels={view.reveal ? { dates: view.reveal.dates, closes: view.reveal.closes } : null}
+			labels={finished && view.reveal
+				? { dates: view.reveal.dates, closes: view.reveal.closes }
+				: null}
 		/>
 	</div>
 
-	<CallPips results={view.results} calls={view.calls} />
+	<CallPips {results} calls={view.calls} />
 
-	{#if view.finished && view.reveal}
+	{#if finished && view.reveal}
 		<Reveal {view} {fresh} />
 	{:else}
-		<div class="flex flex-col gap-4 pt-3 pb-4">
-			<div class="flex min-h-6 items-center justify-center text-center">
+		<div class="controls flex flex-col pb-4">
+			<div class="flex min-h-10 items-center justify-center px-2 text-center">
 				{#if latest}
 					{#key latest.step}
 						<p
-							class="type-body-md text-on-surface-variant"
-							in:fly={{ y: 6, duration: fresh ? 300 : 0, delay: fresh ? 800 : 0 }}
+							class="type-body-md text-balance text-on-surface-variant"
+							in:fly={{ y: 6, duration: fresh ? 250 : 0 }}
 						>
-							{crowdLine}
+							{resultLine}
 						</p>
 					{/key}
 				{:else}
-					<p class="type-title-md text-on-surface">Where does it go next?</p>
+					<div>
+						<p class="type-title-md text-on-surface">Up or down next?</p>
+						<p class="hint type-body-sm text-on-surface-variant">
+							Win more when the crowd gets it wrong.
+						</p>
+					</div>
 				{/if}
 			</div>
 
-			<div>
+			<div class="mt-3">
 				<p class="mb-2 text-center type-label-md text-on-surface-variant">
-					Bet on call {callsMade + 1} of {view.calls}
+					Stake for call {Math.min(results.length + 1, view.calls)} of {view.calls}
 				</p>
-				<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={!!pending} />
+				<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
 			</div>
 
-			<div class="grid grid-cols-2 gap-3">
-				<Button
-					variant="up"
-					size="hero"
-					disabled={!!pending}
-					aria-label="Call up"
-					onclick={() => call('up')}
-				>
-					<ArrowUp strokeWidth={2.5} />
-					Up
-				</Button>
-				<Button
-					variant="down"
-					size="hero"
-					disabled={!!pending}
-					aria-label="Call down"
-					onclick={() => call('down')}
-				>
-					<ArrowDown strokeWidth={2.5} />
-					Down
-				</Button>
+			<div class="calls mt-3 grid grid-cols-2 gap-3">
+				{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
+					<Button
+						variant="tonal"
+						size="hero"
+						class="call {chosen === b.dir ? 'chosen' : ''} {chosen && chosen !== b.dir
+							? 'other'
+							: ''}"
+						disabled={busy && chosen !== b.dir}
+						aria-label="Call {b.label.toLowerCase()}"
+						onclick={() => call(b.dir)}
+					>
+						{#if b.dir === 'up'}<ArrowUp strokeWidth={2.5} />{:else}<ArrowDown
+								strokeWidth={2.5}
+							/>{/if}
+						{b.label}
+					</Button>
+				{/each}
 			</div>
 
 			{#if error}
-				<p class="text-center type-body-sm text-error" role="alert">{error}</p>
+				<p class="mt-2 text-center type-body-sm text-error" role="alert">{error}</p>
 			{/if}
 		</div>
 	{/if}
 </div>
+
+<style>
+	.chart-area {
+		min-height: 200px;
+	}
+	/* The tapped call lights up at once; the other steps back while the stretch is revealed. */
+	.calls :global(.call.chosen) {
+		background: var(--md-sys-color-primary);
+		color: var(--md-sys-color-on-primary);
+		--btn-r: var(--btn-r-square);
+		pointer-events: none;
+	}
+	.calls :global(.call.other) {
+		opacity: 0.5;
+	}
+	@media (max-height: 700px) {
+		.chart-area {
+			min-height: 150px;
+		}
+		.balance {
+			font-size: 1.875rem;
+			line-height: 2.25rem;
+		}
+		.calls :global(.call) {
+			--btn-h: 64px;
+		}
+		.hint {
+			display: none;
+		}
+	}
+</style>

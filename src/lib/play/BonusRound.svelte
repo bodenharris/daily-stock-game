@@ -4,25 +4,22 @@
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { finishBonus, getBonus, revealBonusRound } from '#lib/remote/game.remote.ts';
+	import { getBonus, guessBonusRound } from '#lib/remote/game.remote.ts';
 	import MiniChart from './MiniChart.svelte';
 
-	let { onDone }: { onDone: () => void } = $props();
+	let { number, onDone }: { number: number; onDone: () => void } = $props();
 
-	const bonus = $derived(await getBonus());
-	let index = $state(0);
-	let guesses = $state<boolean[]>([]);
-	let answer = $state<{
-		real: boolean;
-		ticker: string | null;
-		from: string | null;
-		to: string | null;
-	} | null>(null);
-	let busy = $state(false);
-	let score = $state<{ correct: number; total: number } | null>(null);
-
+	const bonus = $derived(await getBonus(number));
 	const total = $derived(bonus.charts.length);
-	const right = $derived(answer && guesses[index] === answer.real);
+
+	/** The round on screen. Starts at the first unanswered round, so a reload resumes. */
+	// svelte-ignore state_referenced_locally
+	let index = $state(Math.min(bonus.answered.length, bonus.charts.length - 1));
+	let busy = $state<boolean | null>(null);
+
+	const done = $derived(bonus.answered[index] ?? null);
+	const right = $derived(done ? done.guess === done.answer.real : false);
+	const score = $derived(bonus.answered.filter((a) => a.guess === a.answer.real).length);
 
 	const fmt = (iso: string) =>
 		new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', {
@@ -32,71 +29,78 @@
 		});
 
 	async function guess(real: boolean) {
-		if (busy || answer) return;
-		busy = true;
-		guesses[index] = real;
+		if (busy !== null || done) return;
+		busy = real;
 		try {
-			answer = await revealBonusRound({ puzzleNumber: bonus.number, index });
-			if (index === total - 1) {
-				score = await finishBonus({ puzzleNumber: bonus.number, guesses });
-			}
+			await guessBonusRound({ puzzleNumber: number, index, real });
 		} finally {
-			busy = false;
+			busy = null;
 		}
 	}
 
 	function next() {
-		if (index < total - 1) {
-			index++;
-			answer = null;
-		} else {
-			onDone();
-		}
+		if (index < total - 1) index++;
+		else onDone();
 	}
 </script>
 
-<section class="flex flex-col gap-4 pt-1 pb-6" in:fly={{ y: 16, duration: 400, easing: cubicOut }}>
-	<div class="flex items-baseline justify-between">
-		<h2 class="type-title-lg-emphasized text-on-surface">Real or random?</h2>
+<section class="flex flex-col gap-3 pt-1 pb-6" in:fly={{ y: 16, duration: 400, easing: cubicOut }}>
+	<div class="flex items-baseline justify-between gap-3">
+		<div>
+			<h2 class="type-title-lg-emphasized text-on-surface">Real or random?</h2>
+			<p class="type-body-sm text-on-surface-variant">
+				A real stock, or a chart a computer made up?
+			</p>
+		</div>
 		<span class="type-label-lg text-on-surface-variant type-numeric">{index + 1} / {total}</span>
 	</div>
 
 	{#key index}
 		<div
-			class="h-40 overflow-hidden rounded-m3-xl bg-surface-container p-3"
+			class="h-36 overflow-hidden rounded-m3-xl bg-surface-container p-3"
 			in:fly={{ x: 24, duration: 300, easing: cubicOut }}
 		>
 			<MiniChart
 				values={bonus.charts[index].values}
-				tone={answer ? (right ? 'up' : 'down') : 'ink'}
+				tone={done ? (right ? 'up' : 'down') : 'ink'}
 			/>
 		</div>
 	{/key}
 
-	{#if answer}
-		<div class="flex items-center gap-3" in:fly={{ y: 8, duration: 250 }}>
-			<span
-				class="grid size-8 place-items-center rounded-full {right
-					? 'bg-up text-on-up'
-					: 'bg-down text-on-down'}"
-			>
-				{#if right}<Check class="size-5" />{:else}<X class="size-5" />{/if}
-			</span>
-			<p class="type-body-lg text-on-surface">
-				{#if answer.real && answer.ticker && answer.from && answer.to}
-					Real: {answer.ticker}, {fmt(answer.from)} – {fmt(answer.to)}
-				{:else}
-					Random: a computer made this one up.
-				{/if}
-			</p>
-		</div>
-		<Button variant="filled" size="md" onclick={next}>
-			{#if index < total - 1}Next chart{:else}You got {score?.correct ?? 0} of {total}{/if}
-		</Button>
-	{:else}
-		<div class="grid grid-cols-2 gap-3">
-			<Button variant="tonal" size="md" disabled={busy} onclick={() => guess(true)}>Real</Button>
-			<Button variant="tonal" size="md" disabled={busy} onclick={() => guess(false)}>Random</Button>
-		</div>
-	{/if}
+	<div class="min-h-[6.5rem]">
+		{#if done}
+			<div class="flex flex-col gap-3" in:fly={{ y: 8, duration: 250 }}>
+				<div class="flex items-center gap-3">
+					<span
+						class="grid size-8 shrink-0 place-items-center rounded-full {right
+							? 'bg-up text-on-up'
+							: 'bg-down text-on-down'}"
+						aria-hidden="true"
+					>
+						{#if right}<Check class="size-5" />{:else}<X class="size-5" />{/if}
+					</span>
+					<p class="type-body-lg text-on-surface" role="status">
+						<span class="sr-only">{right ? 'Right.' : 'Wrong.'}</span>
+						{#if done.answer.real && done.answer.ticker && done.answer.from && done.answer.to}
+							Real: {done.answer.ticker}, {fmt(done.answer.from)} – {fmt(done.answer.to)}
+						{:else}
+							Random: a computer made this one up.
+						{/if}
+					</p>
+				</div>
+				<Button variant="filled" size="md" onclick={next}>
+					{#if index < total - 1}Next chart{:else}Done · {score} of {total}{/if}
+				</Button>
+			</div>
+		{:else}
+			<div class="grid grid-cols-2 gap-3">
+				<Button variant="tonal" size="md" disabled={busy !== null} onclick={() => guess(true)}>
+					{busy === true ? 'Checking…' : 'Real'}
+				</Button>
+				<Button variant="tonal" size="md" disabled={busy !== null} onclick={() => guess(false)}>
+					{busy === false ? 'Checking…' : 'Random'}
+				</Button>
+			</div>
+		{/if}
+	</div>
 </section>

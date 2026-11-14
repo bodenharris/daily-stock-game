@@ -22,6 +22,13 @@
       "when": 1794658159242,
       "tag": "0002_stats_aggregates",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794659629198,
+      "tag": "0003_schedule_and_bonus_guesses",
+      "breakpoints": true
     }
   ]
 }

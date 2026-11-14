@@ -60,6 +60,19 @@ export const puzzles = pgTable('puzzles', {
 	calls: smallint('calls').notNull()
 });
 
+/**
+ * Which puzzle each daily number shows. Written once, the first time a number is played, so a
+ * day's puzzle never changes afterwards (even if the catalog is edited) and the order is not
+ * readable from the public repo (it comes from a server secret).
+ */
+export const schedule = pgTable('schedule', {
+	number: integer('number').primaryKey(),
+	slug: text('slug')
+		.notNull()
+		.references(() => puzzles.slug),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+});
+
 /** One row per player per daily puzzle. Ordinary table; holds the game state. */
 export const games = pgTable(
 	'games',
@@ -76,6 +89,8 @@ export const games = pgTable(
 		balanceCents: integer('balance_cents').notNull(),
 		archetype: text('archetype'),
 		bonusCorrect: smallint('bonus_correct'),
+		/** Real-or-random guesses in order, stored before each answer is revealed. */
+		bonusGuesses: boolean('bonus_guesses').array(),
 		bonusTotal: smallint('bonus_total'),
 		source: text('source').notNull().default('real'),
 		startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
@@ -116,7 +131,7 @@ export const guesses = pgTable(
 	]
 );
 
-export const sources = ['real', 'sim'] as const;
+export const sources = ['real', 'dev', 'sim'] as const;
 export type Source = (typeof sources)[number];
 
 export * from './auth.schema';

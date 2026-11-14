@@ -70,7 +70,7 @@
 </script>
 
 {#if playingBonus}
-	<BonusRound onDone={() => (playingBonus = false)} />
+	<BonusRound number={view.number} onDone={() => (playingBonus = false)} />
 {:else}
 	<section class="flex flex-col gap-4 pt-1 pb-6">
 		<div in:rise={{ delay: d(250) }}>
@@ -109,7 +109,7 @@
 					<span>Real or random {view.bonus.correct}/{view.bonus.total}</span>
 					<span aria-hidden="true">&nbsp;·&nbsp;</span>
 				{/if}
-				<span>Next chart in <Countdown to={view.nextPuzzleAt} /></span>
+				<Countdown to={view.nextPuzzleAt} />
 			</p>
 		</div>
 	</section>
