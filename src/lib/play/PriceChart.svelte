@@ -245,6 +245,8 @@
 		color: var(--chart-ink);
 	}
 	svg {
+		position: absolute;
+		inset: 0;
 		display: block;
 		overflow: visible;
 	}

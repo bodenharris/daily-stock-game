@@ -1,7 +1,8 @@
 /** Display helpers for money. Balances are integer cents. */
 
 export function dollars(cents: number, opts: { cents?: boolean; sign?: boolean } = {}): string {
-	const showCents = opts.cents ?? Math.abs(cents) % 100 !== 0;
+	// Whole dollars read faster; cents only matter on small amounts.
+	const showCents = opts.cents ?? (Math.abs(cents) < 1000 && Math.abs(cents) % 100 !== 0);
 	const abs = Math.abs(cents) / 100;
 	const body = abs.toLocaleString('en-US', {
 		minimumFractionDigits: showCents ? 2 : 0,

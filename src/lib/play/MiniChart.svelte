@@ -26,7 +26,7 @@
 	});
 </script>
 
-<div class="h-full w-full {tone}" bind:clientWidth={width} bind:clientHeight={height}>
+<div class="relative h-full w-full {tone}" bind:clientWidth={width} bind:clientHeight={height}>
 	<svg {width} {height} viewBox="0 0 {width} {height}" aria-hidden="true">
 		<path d={geo.area} class="fill" />
 		<path d={geo.line} class="stroke" />
@@ -44,6 +44,8 @@
 		--ink: var(--chart-down);
 	}
 	svg {
+		position: absolute;
+		inset: 0;
 		display: block;
 	}
 	.stroke {

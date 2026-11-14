@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { Tween, prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
-	import { fly, scale } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
+	import { pop } from '#lib/m3/transitions.ts';
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as ButtonGroup from '#lib/components/ui/button-group/index.js';
-	import { STAKE_OPTIONS } from '#lib/game/config.ts';
+	import { START_BALANCE_CENTS, STAKE_OPTIONS } from '#lib/game/config.ts';
 	import { makeCall } from '#lib/remote/game.remote.ts';
 	import PriceChart from './PriceChart.svelte';
 	import CallPips from './CallPips.svelte';
@@ -110,31 +111,33 @@
 	<!-- Balance: the one number that matters. -->
 	<div class="flex items-end justify-between gap-3 px-1 pt-2">
 		<div>
-			<p class="type-label-md text-on-surface-variant">Balance</p>
+			<p class="type-label-md text-on-surface-variant">
+				{view.finished ? 'Final balance' : 'Balance'}
+			</p>
 			<p class="type-display-sm-emphasized text-on-surface type-numeric" aria-live="polite">
 				{dollars(Math.round(shownBalance.current), { cents: false })}
 			</p>
 		</div>
-		{#if latest}
+		{#if view.finished}
+			{@const change = view.balanceCents - START_BALANCE_CENTS}
+			<span
+				class="mb-1.5 rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
+				{change >= 0 ? 'bg-up-container text-on-up-container' : 'bg-down-container text-on-down-container'}"
+				in:pop={{ delay: fresh ? 900 : 0 }}
+			>
+				{change >= 0 ? '+' : '−'}{Math.round((Math.abs(change) / START_BALANCE_CENTS) * 100)}%
+			</span>
+		{:else if latest}
 			{#key latest.step}
-				<div
-					class="mb-1.5 flex flex-col items-end"
-					in:scale={{
-						start: 0.6,
-						duration: fresh ? 450 : 0,
-						delay: fresh ? 650 : 0,
-						easing: cubicOut
-					}}
+				<span
+					class="mb-1.5 rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
+					{latest.correct
+						? 'bg-up-container text-on-up-container'
+						: 'bg-down-container text-on-down-container'}"
+					in:pop={{ delay: 650 }}
 				>
-					<span
-						class="rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
-						{latest.correct
-							? 'bg-up-container text-on-up-container'
-							: 'bg-down-container text-on-down-container'}"
-					>
-						{dollars(latest.deltaCents, { sign: true })}
-					</span>
-				</div>
+					{dollars(latest.deltaCents, { sign: true })}
+				</span>
 			{/key}
 		{/if}
 	</div>

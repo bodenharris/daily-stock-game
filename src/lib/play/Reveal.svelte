@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { rise } from '#lib/m3/transitions.ts';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { page } from '$app/state';
 	import Share2 from '@lucide/svelte/icons/share-2';
@@ -8,7 +7,6 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { classifyArchetype } from '#lib/game/archetype.ts';
 	import { buildShareText } from '#lib/game/share.ts';
-	import { dollars } from './money.ts';
 	import { toRecords } from './records.ts';
 	import Countdown from './Countdown.svelte';
 	import BonusRound from './BonusRound.svelte';
@@ -75,47 +73,43 @@
 	<BonusRound onDone={() => (playingBonus = false)} />
 {:else}
 	<section class="flex flex-col gap-4 pt-1 pb-6">
-		<div in:fly={{ y: 16, duration: d(500), delay: d(250), easing: cubicOut }}>
+		<div in:rise={{ delay: d(250) }}>
 			<p class="type-label-lg text-chart-reveal">
 				<span class="type-numeric">{reveal.ticker}</span> · {range}
 			</p>
-			<h2 class="type-headline-md-emphasized text-on-surface">{reveal.headline}</h2>
-			<p class="mt-1 type-body-md text-on-surface-variant">{reveal.story}</p>
+			<h2 class="mt-0.5 type-headline-sm-emphasized text-balance text-on-surface">
+				{reveal.headline}
+			</h2>
+			<p class="mt-1 type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
 		</div>
 
-		<div
-			class="flex items-center gap-4 rounded-m3-xl bg-surface-container p-4"
-			in:fly={{ y: 16, duration: d(500), delay: d(450), easing: cubicOut }}
-		>
-			<span class="text-4xl leading-none" aria-hidden="true">{archetype.emoji}</span>
-			<div class="min-w-0">
-				<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
-				<p class="type-body-md text-on-surface-variant">{archetype.line}</p>
-			</div>
+		<div class="rounded-m3-lg bg-surface-container px-4 py-3" in:rise={{ delay: d(450) }}>
+			<p class="type-label-md text-on-surface-variant">You played like</p>
+			<p class="type-title-lg-emphasized text-on-surface">{archetype.label}</p>
+			<p class="type-body-sm text-on-surface-variant">{archetype.line}</p>
 		</div>
 
-		<div
-			in:fly={{ y: 16, duration: d(500), delay: d(650), easing: cubicOut }}
-			class="flex flex-col gap-3"
-		>
-			<Button variant="filled" size="md" onclick={share} aria-live="polite">
-				{#if copied}
-					<Check /> Copied
-				{:else}
-					<Share2 /> Share {dollars(view.balanceCents, { cents: false })}
-				{/if}
-			</Button>
-			{#if view.bonus}
-				<p class="text-center type-body-md text-on-surface-variant">
-					Real or random: {view.bonus.correct} of {view.bonus.total}
-				</p>
-			{:else}
-				<Button variant="tonal" size="md" onclick={() => (playingBonus = true)}>
-					<Dices /> Bonus: real or random?
+		<div class="flex flex-col gap-2" in:rise={{ delay: d(650) }}>
+			<div class="grid grid-cols-[1fr_auto] gap-2">
+				<Button variant="filled" size="md" onclick={share} aria-live="polite">
+					{#if copied}
+						<Check /> Copied
+					{:else}
+						<Share2 /> Share
+					{/if}
 				</Button>
-			{/if}
+				{#if !view.bonus}
+					<Button variant="tonal" size="md" onclick={() => (playingBonus = true)}>
+						<Dices /> Bonus
+					</Button>
+				{/if}
+			</div>
 			<p class="text-center type-body-sm text-on-surface-variant">
-				Next chart in <Countdown to={view.nextPuzzleAt} />
+				{#if view.bonus}
+					<span>Real or random {view.bonus.correct}/{view.bonus.total}</span>
+					<span aria-hidden="true">&nbsp;·&nbsp;</span>
+				{/if}
+				<span>Next chart in <Countdown to={view.nextPuzzleAt} /></span>
 			</p>
 		</div>
 	</section>
