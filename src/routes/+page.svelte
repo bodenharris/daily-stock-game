@@ -9,6 +9,7 @@
 	import type { Component } from 'svelte';
 	import { GAME_NAME } from '#lib/game/config.ts';
 	import WolfScene from '#lib/brand/WolfScene.svelte';
+	import SoundButton from '#lib/play/SoundButton.svelte';
 
 	const view = $derived(await getGame());
 	/** The day's date, newspaper style ("Sat, Nov 14, 2026"), in parts so narrow phones can drop
@@ -96,6 +97,7 @@
 			>
 				<CircleHelp />
 			</IconButton>
+			<SoundButton />
 			<IconButton
 				class="pixel-panel"
 				variant="tonal"

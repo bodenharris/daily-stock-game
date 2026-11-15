@@ -5,6 +5,7 @@
 	import { GAME_NAME } from '#lib/game/config.ts';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import WolfNotice from '#lib/brand/WolfNotice.svelte';
+	import { sound } from '#lib/audio/sound.svelte.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -14,7 +15,26 @@
 	const description =
 		'One famous stock chart a day, name hidden. Five up-or-down calls on what it did next.';
 	const ogImage = $derived(new URL('/og.png', page.url.origin).href);
+
+	$effect(() => sound.load());
+
+	/** Browsers only allow audio after a tap or key press, so the first one opens it. */
+	const unlock = () => sound.unlock();
+
+	/**
+	 * Every button and link clicks softly. Controls with a sound of their own (the Up and Down
+	 * calls) opt out with `data-sfx="none"`. Runs after the control's own
+	 * handler, so switching effects on is heard and switching them off is not.
+	 */
+	function tap(e: MouseEvent) {
+		const el = (e.target as Element | null)?.closest('button, a[href], [role="button"]');
+		if (!el || el.closest('[data-sfx="none"]')) return;
+		sound.play('tap');
+	}
 </script>
+
+<svelte:window onpointerdown={unlock} onkeydown={unlock} onclick={tap} />
+<svelte:document onvisibilitychange={() => sound.visibility(document.hidden)} />
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
