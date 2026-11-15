@@ -319,17 +319,18 @@ function standingFor(day: Day, game: GameRow | null): Promise<Standing | null> {
  * Where everyone finished that day, for the end screen's curve, plus the viewer's exact
  * place, in one statement over the day's finished games (the `(puzzle_number, finished_at)`
  * index narrows it to one day). Balances come in $10 buckets, the same ones the stats page
- * gets. The place counts strictly better balances, so ties share the better place. Nobody is
- * named. Only for a finished game, and never lets a failure here break the game view.
+ * gets. The place counts strictly better balances, so ties share the better place. The
+ * leader's exact balance comes too, for the gap line on the end card. Nobody is named. Only for a finished game, and never lets a failure here break the game view.
  */
 async function finishesFor(day: Day, game: GameRow | null): Promise<Finishes | null> {
 	if (!game || game.finishedAt == null) return null;
 	try {
-		const rows = await db.execute<{ cents: number; count: number; above: number }>(sql`
+		const rows = await db.execute<{ cents: number; count: number; above: number; top: number }>(sql`
 			select least(balance_cents / ${FINISH_BUCKET_CENTS} * ${FINISH_BUCKET_CENTS},
 					${FINISH_CAP_CENTS})::int as cents,
 				count(*)::int as count,
-				count(*) filter (where balance_cents > ${game.balanceCents})::int as above
+				count(*) filter (where balance_cents > ${game.balanceCents})::int as above,
+				max(balance_cents)::int as top
 			from games
 			where puzzle_number = ${day.number} and finished_at is not null and ${sourceIn}
 			group by 1
@@ -338,7 +339,8 @@ async function finishesFor(day: Day, game: GameRow | null): Promise<Finishes | n
 		return {
 			buckets: rows.map((r) => ({ cents: r.cents, count: r.count })),
 			place: rows.reduce((n, r) => n + r.above, 0) + 1,
-			finished: rows.reduce((n, r) => n + r.count, 0)
+			finished: rows.reduce((n, r) => n + r.count, 0),
+			leaderCents: Math.max(...rows.map((r) => r.top))
 		};
 	} catch (e) {
 		console.error('finishes failed', e);
