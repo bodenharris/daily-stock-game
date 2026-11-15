@@ -11,7 +11,8 @@ import { DEFAULT_PREFS, PREFS_KEY, parsePrefs } from './prefs.ts';
  * ever changes in the browser (`load` and the setters run from effects and event handlers),
  * so nothing leaks between requests on the server, which only reads the defaults.
  */
-export type Sfx = 'tap' | 'select' | 'call-up' | 'call-down' | 'right' | 'wrong' | 'finale';
+export type Sfx =
+	'tap' | 'select' | 'call-up' | 'call-down' | 'right' | 'wrong' | 'finale' | 'bark';
 
 /** Bus levels: effects sit under the UI, the ambience well under the effects. */
 const EFFECTS_GAIN = 0.32;
@@ -130,7 +131,50 @@ class SoundBoard {
 			case 'finale':
 				this.#finale(ctx, out, t);
 				break;
+			case 'bark':
+				// "Ruff ruff": a quick yap, then a slightly lower one.
+				this.#bark(ctx, out, t, 1);
+				this.#bark(ctx, out, t + 0.17, 0.88);
+				break;
 		}
+	}
+
+	/**
+	 * One yap: a buzzy voice that jumps up and drops, plus a breath of noise, both through a
+	 * band-pass that stands in for the mouth. `pitch` scales the whole thing.
+	 */
+	#bark(ctx: AudioContext, out: AudioNode, t: number, pitch: number) {
+		const dur = 0.13;
+		const mouth = ctx.createBiquadFilter();
+		mouth.type = 'bandpass';
+		mouth.frequency.setValueAtTime(900 * pitch, t);
+		mouth.frequency.exponentialRampToValueAtTime(1400 * pitch, t + 0.03);
+		mouth.frequency.exponentialRampToValueAtTime(600 * pitch, t + dur);
+		mouth.Q.value = 1.4;
+		const env = ctx.createGain();
+		env.gain.setValueAtTime(0.0001, t);
+		env.gain.exponentialRampToValueAtTime(0.9, t + 0.008);
+		env.gain.exponentialRampToValueAtTime(0.35, t + 0.05);
+		env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+		mouth.connect(env).connect(out);
+
+		const voice = ctx.createOscillator();
+		voice.type = 'sawtooth';
+		voice.frequency.setValueAtTime(380 * pitch, t);
+		voice.frequency.exponentialRampToValueAtTime(620 * pitch, t + 0.025);
+		voice.frequency.exponentialRampToValueAtTime(260 * pitch, t + dur);
+		voice.connect(mouth);
+		voice.start(t);
+		voice.stop(t + dur + 0.02);
+
+		const len = Math.ceil(ctx.sampleRate * dur);
+		const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+		const data = buffer.getChannelData(0);
+		for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+		const breath = ctx.createBufferSource();
+		breath.buffer = buffer;
+		breath.connect(mouth);
+		breath.start(t);
 	}
 
 	#context(): AudioContext | null {
