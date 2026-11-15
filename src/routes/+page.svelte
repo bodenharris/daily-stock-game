@@ -11,6 +11,17 @@
 	import WolfScene from '#lib/brand/WolfScene.svelte';
 
 	const view = $derived(await getGame());
+	/** The day's date, newspaper style ("Sat, Nov 14, 2026"). Fixed locale and zone, so the
+	 * server and the browser print the same thing. */
+	const issueDate = $derived(
+		new Date(view.date + 'T12:00:00Z').toLocaleDateString('en-US', {
+			weekday: 'short',
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			timeZone: 'UTC'
+		})
+	);
 	let helpOpen = $state(false);
 	let accountOpen = $state(false);
 
@@ -57,8 +68,8 @@
 		</h1>
 		<p class="neon-text mt-2 type-title-md md:type-title-lg">The daily hunt</p>
 		<p class="type-label-lg tracking-[0.12em] text-on-surface-variant uppercase type-numeric">
-			Hunt #{view.number}{#if view.streak > 1}<span title="Daily streak"
-					>&ensp;·&ensp;{view.streak} day streak</span
+			Issue #{view.number}&ensp;·&ensp;<time datetime={view.date}>{issueDate}</time
+			>{#if view.streak > 1}<span title="Daily streak">&ensp;·&ensp;{view.streak} day streak</span
 				>{/if}
 		</p>
 		{#snippet actions()}
