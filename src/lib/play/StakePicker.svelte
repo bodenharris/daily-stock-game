@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { stateLayer } from '#lib/m3/ripple.svelte.ts';
 	import { dollars } from './money.ts';
+	import { sound } from '#lib/audio/sound.svelte.ts';
 
 	/**
 	 * The stake chips: a connected row of toggles built on native radio inputs, so it needs no UI
@@ -26,6 +27,7 @@
 				name="stake"
 				value={o.value}
 				bind:group={value}
+				onchange={() => sound.play('select')}
 				{disabled}
 				aria-label="Bet {o.percent}%, {dollars(o.cents, { cents: false })}"
 			/>
