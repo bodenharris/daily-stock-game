@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { ripple } from '#lib/m3/ripple.svelte.ts';
+	import { stateLayer } from '#lib/m3/ripple.svelte.ts';
 	import { dollars } from './money.ts';
 
 	/**
-	 * The stake chips: an M3 connected button group (small, tonal toggles) built on native radio
-	 * inputs, so it needs no UI library on first paint and works with arrow keys for free.
-	 * Selected chip: primary fill, fully round. Others: a quiet surface, 8px inner corners.
+	 * The stake chips: a connected row of toggles built on native radio inputs, so it needs no UI
+	 * library on first paint and works with arrow keys for free. Selected chip: primary fill.
+	 * Whole dollars only: the chips are a choice of size, not an invoice.
 	 */
 	let {
 		value = $bindable(),
@@ -20,17 +20,19 @@
 
 <div class="group" role="radiogroup" aria-label="Stake">
 	{#each options as o (o.value)}
-		<label class="chip" class:on={value === o.value} class:disabled {@attach ripple()}>
+		<label class="chip" class:on={value === o.value} class:disabled {@attach stateLayer()}>
 			<input
 				type="radio"
 				name="stake"
 				value={o.value}
 				bind:group={value}
 				{disabled}
-				aria-label="Bet {o.percent}%, {dollars(o.cents)}"
+				aria-label="Bet {o.percent}%, {dollars(o.cents, { cents: false })}"
 			/>
 			<span class="flex items-baseline gap-1.5">
-				<span class="type-label-lg type-numeric">{dollars(o.cents)}</span>
+				<span class="type-label-lg type-numeric lg:type-title-md"
+					>{dollars(o.cents, { cents: false })}</span
+				>
 				<span class="pct type-label-sm type-numeric">{o.percent}%</span>
 			</span>
 		</label>
@@ -43,47 +45,38 @@
 		gap: 2px;
 	}
 	.chip {
-		--h: 40px;
-		--inner: var(--md-sys-shape-corner-small, 8px);
-		--outer: calc(var(--h) / 2);
 		position: relative;
 		flex: 1 1 0;
 		display: grid;
 		place-items: center;
-		height: var(--h);
+		min-height: 44px;
 		cursor: pointer;
 		user-select: none;
 		-webkit-tap-highlight-color: transparent;
 		background: var(--md-sys-color-surface-container-highest);
 		color: var(--md-sys-color-on-surface);
-		border-radius: var(--inner);
 		transition:
-			border-radius var(--md-sys-motion-spring-fast-spatial-duration, 300ms)
-				var(--md-sys-motion-spring-fast-spatial-easing, ease),
 			background-color var(--md-sys-motion-spring-default-effects-duration, 200ms)
 				var(--md-sys-motion-spring-default-effects-easing, ease),
 			color var(--md-sys-motion-spring-default-effects-duration, 200ms)
 				var(--md-sys-motion-spring-default-effects-easing, ease);
 	}
-	/* 48px touch target without changing the visual size. */
-	.chip::after {
-		content: '';
-		position: absolute;
-		inset: -4px 0;
+	/* Small phones: a slimmer chip, with the touch target kept at 44px. */
+	@media (max-width: 1023px) and (max-height: 620px) {
+		.chip {
+			min-height: 36px;
+		}
+		.chip::after {
+			content: '';
+			position: absolute;
+			inset: -4px 0;
+		}
 	}
-	.chip:first-child {
-		border-start-start-radius: var(--outer);
-		border-end-start-radius: var(--outer);
-	}
-	.chip:last-child {
-		border-start-end-radius: var(--outer);
-		border-end-end-radius: var(--outer);
-	}
+	/* An arcade key: it sinks the moment it's pressed, no easing. */
 	.chip:active:not(.disabled) {
-		--inner: var(--md-sys-shape-corner-extra-small, 4px);
+		translate: 0 2px;
 	}
 	.chip.on {
-		border-radius: var(--outer);
 		background: var(--md-sys-color-primary);
 		color: var(--md-sys-color-on-primary);
 	}

@@ -2,7 +2,7 @@
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
 	import { rise } from '#lib/m3/transitions.ts';
-	import { ripple } from '#lib/m3/ripple.svelte.ts';
+	import { stateLayer } from '#lib/m3/ripple.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { nameIt as sendGuess } from '#lib/remote/game.remote.ts';
 	import type { NameIt } from './types.ts';
@@ -79,7 +79,7 @@
 				disabled={busy || done}
 				aria-pressed={picked === i || nameIt.guess === i}
 				onclick={() => choose(i)}
-				{@attach ripple()}
+				{@attach stateLayer()}
 			>
 				<span class="min-w-0 flex-1 text-left">{option}</span>
 				{#if s === 'right'}

@@ -74,13 +74,13 @@
 
 <script lang="ts">
 	import { cn, type WithElementRef } from '#lib/utils.js';
-	import { ripple } from '#lib/m3/ripple.svelte.js';
+	import { stateLayer } from '#lib/m3/ripple.svelte.js';
 	import type { HTMLAnchorAttributes, HTMLAttributes } from 'svelte/elements';
 
 	type CardProps = WithElementRef<HTMLAttributes<HTMLElement>> & {
 		variant?: CardVariant;
 		shape?: CardShape;
-		/** The whole card is one action: state layer + ripple, hover elevation, focus ring. */
+		/** The whole card is one action: state layer, hover elevation, focus ring. */
 		interactive?: boolean;
 		/** Renders the card as a link (implies `interactive`). */
 		href?: HTMLAnchorAttributes['href'];
@@ -128,7 +128,7 @@
 		class={classes}
 		{onkeydown}
 		{...restProps as HTMLAnchorAttributes}
-		{@attach ripple()}
+		{@attach stateLayer()}
 	>
 		{@render children?.()}
 	</a>
@@ -144,7 +144,7 @@
 		class={classes}
 		onkeydown={handleKeydown}
 		{...restProps}
-		{@attach ripple({ disabled })}
+		{@attach stateLayer({ disabled })}
 	>
 		{@render children?.()}
 	</div>

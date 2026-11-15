@@ -205,7 +205,7 @@
 
 		<Section
 			title="Type"
-			note="Google Sans Flex (display, headline, title-lg, numbers) · Roboto Flex (everything else). Emphasized adds weight + ROND 100."
+			note="VT323 everywhere (one weight, so emphasized differs by size only) · Press Start 2P for the wordmark (font-pixel)."
 		>
 			<div class="flex flex-col gap-3">
 				{#each typeStyles as [name, base, emphasized] (name)}

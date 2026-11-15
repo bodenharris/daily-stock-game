@@ -100,7 +100,7 @@
 			stroke-dasharray="4 4"
 		/>
 		<path d="{path} L{lastX} {H} L0 {H} Z" class="fill-chart-area" />
-		<rect x={lastX} y="0" width={W - lastX} height={H} rx="16" class="fill-chart-mask" />
+		<rect x={lastX} y="0" width={W - lastX} height={H} class="fill-chart-mask" />
 		<line x1={lastX} x2={lastX} y1="0" y2={H} class="stroke-chart-mask-edge" stroke-width="1" />
 		<path
 			d={path}

@@ -3,7 +3,7 @@
 	import { ToggleGroup as ToggleGroupPrimitive } from 'bits-ui';
 	import { cn } from '#lib/utils.js';
 	import { Button, buttonVariants, type ButtonVariant } from '#lib/components/ui/button/index.js';
-	import { ripple } from '#lib/m3/ripple.svelte.js';
+	import { stateLayer } from '#lib/m3/ripple.svelte.js';
 	import { getButtonGroupContext } from './context.js';
 
 	/*
@@ -48,7 +48,7 @@
 					}),
 					className
 				)}
-				{@attach ripple()}
+				{@attach stateLayer()}
 			>
 				{@render children?.()}
 			</button>

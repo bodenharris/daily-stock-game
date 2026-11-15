@@ -15,7 +15,7 @@
 			<div class="flex h-full flex-1 items-end">
 				{#if h.calls > 0}
 					<div
-						class="bar w-full rounded-t-[3px] bg-m3-primary"
+						class="bar w-full bg-m3-primary"
 						style:height="{Math.max(8, (h.calls / max) * 100)}%"
 					></div>
 				{/if}

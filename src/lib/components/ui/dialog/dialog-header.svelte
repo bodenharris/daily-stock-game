@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Dialog as DialogPrimitive } from 'bits-ui';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { ripple } from '#lib/m3/ripple.svelte.js';
+	import { stateLayer } from '#lib/m3/ripple.svelte.js';
 	import { cn, type WithElementRef } from '#lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { DIALOG_ICON_BUTTON, getDialogLayout } from './context.svelte.js';
@@ -42,7 +42,7 @@
 					type="button"
 					class={DIALOG_ICON_BUTTON}
 					aria-label={layout.closeLabel}
-					{@attach ripple()}
+					{@attach stateLayer()}
 				>
 					<XIcon class="size-6 text-on-surface" aria-hidden="true" />
 				</button>

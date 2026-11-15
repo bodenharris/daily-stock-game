@@ -42,11 +42,12 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 
 ## Look
 
-- **Seed `#2E6B3A`, TonalSpot, 2021 spec.** The 2025 spec output of material-color-utilities 0.4 gave a near-black inverse surface and a non-white on-primary in light mode.
-- **Down is a harmonised coral, not red,** at lower chroma than the green so Down never shouts louder than Up. Every up/down pair passes AA.
-- **Dark mode follows the system.** No toggle, no flash on load.
+- **Arcade pixel look, after krillion.io's title screen** (replaced the green M3 Expressive scheme). A dusk sky over a city skyline at the top of the home page, a dark navy deep below where the game sits, square corners, hard pixel frames instead of soft shadows, faint CRT scanlines on the header sky only (over the whole page they striped bright buttons and cut small text). Buttons sink into their pixel drop when pressed; there's no Material ripple.
+- **The mascot is the wolf:** standing on two legs in a navy suit and pink tie, drawn as a 24×39 sprite in `src/lib/brand/wolf.json`. The site, the favicon, the app icons and the link preview all draw from that one file (`scripts/make-images.py` makes the images), always at whole-number scales so the pixels stay square.
+- **One dark scheme, hand-tuned.** No light mode, like an arcade cabinet. The M3 role names stay, so components didn't change; only the values did. The old seed generator is gone.
+- **Up is neon green, down is hot pink.** Pink and cyan are also the two halves of the wordmark's glitch split. Cyan is the signal colour (frames, focus, the chart line); the wolf's yellow eyes are the reveal accent.
 - **Lucide icons, not Material Symbols:** the icon font is several MB.
-- **Self-hosted fonts** (~250 KB): Google Sans Flex for display and numbers, Roboto Flex for body.
+- **Self-hosted pixel fonts** (~45 KB, both OFL): VT323 for all text, scaled up 125% with `size-adjust` because it runs small; Press Start 2P for the wordmark and the balance. VT323 has one weight, so faux bold is switched off and the emphasized styles differ by size only.
 
 ## Bonus round
 
@@ -62,8 +63,8 @@ Choices made while building, with the reason for each. Newest at the bottom of e
 
 - **The reveal is sequenced, not instant.** The server settles a call immediately, but the dots, balance, result line and next stakes update only after the chart has drawn the stretch (900 ms), and the ending appears only after the last stretch lands. A playtester could read the result from the shrinking stake buttons before the line moved.
 - **Green and coral mean one thing: good or bad for you.** Revealed stretches are coloured by whether the call was right, not by direction; the Up and Down buttons are neutral, and the tapped one lights up at once. Before, a winning Down call drew a red line.
-- **Straight lines on a log scale.** Smooth curves on 2-bar stretches looked invented; a log price scale keeps the history readable after a 4× spike instead of squashing it flat on every reveal. The size of each move sits under its score dot (the chart slots are too narrow for labels).
-- **The result line always explains the crowd payout** ("Right, and only 33% saw it coming. Paid 1.34×." / "Right, but 64% saw it too. Paid 0.82×."). The rule was invisible before.
+- **Straight lines on a log scale.** Smooth curves on 2-bar stretches looked invented; a log price scale keeps the history readable after a 4× spike instead of squashing it flat on every reveal. What each call won or lost, in dollars, sits under its score dot (the chart slots are too narrow for labels). The dollars are rounded on the running balance so they always add up to the final change.
+- **The result line leads with the outcome, then the crowd** ("Right. +$10. 73% called up too." / "Missed. −$14."), and names the crowd bonus only when one is paid. The question stays under it for the next call.
 - **A stored, secret daily schedule.** The first request for a day writes `schedule(number → slug)`; the order is a SHA-256 shuffle keyed by `PUZZLE_SECRET` (falls back to `BETTER_AUTH_SECRET`), reshuffled on every pass through the catalog. Day #1 is pinned to GameStop. The public catalog no longer reveals which day plays which chart, and editing the catalog can never change a day that has started.
 - **Three hours of grace after midnight.** A game started before midnight Eastern can be finished until 3 a.m.; it is shown before today's chart, and the countdown offers the new chart instead of yanking the result away.
 - **Bonus guesses are stored before answers are revealed**, in order, in one atomic update; reloading resumes where you were, and a round can't be replayed. Each chart is real or random on an independent coin flip (earlier answers say nothing about later ones), real windows come only from after US decimalisation (2001), and real and generated charts are rounded identically.

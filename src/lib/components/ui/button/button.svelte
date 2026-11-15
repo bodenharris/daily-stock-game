@@ -17,9 +17,9 @@
 	 *   --btn-r-ss/-se/-es/-ee  optional per-corner overrides (logical corners)
 	 *   --btn-outline  outlined stroke width
 	 *
-	 * Press feedback: ripple + the corner morphs from full to the pressed radius. On `hero` the
-	 * morph runs on the bouncy fast-spatial spring (the game's main moment); elsewhere on
-	 * default-effects (no bounce), per spec.
+	 * Press feedback, arcade style: a flat state layer (hover, focus, press) and an instant step
+	 * down. A `.pixel-frame` / `.pixel-panel` button sinks into its drop instead (layout.css).
+	 * Corners are all 0 in this theme, so the --btn-r* shape protocol is kept but never morphs.
 	 */
 
 	// 48px minimum touch target for the 32/40px sizes (buttons.md §1.5).
@@ -35,13 +35,15 @@
 	export const buttonVariants = tv({
 		base: [
 			'group/button relative inline-flex shrink-0 cursor-pointer items-center justify-center align-middle whitespace-nowrap no-underline select-none',
+			// arcade: capitals with tracking, and a one-step press down
+			'uppercase tracking-[0.12em] active:translate-y-0.5',
 			'h-(--btn-h) gap-(--btn-gap) px-(--btn-px)',
 			// shape: rest → (selected) → pressed; "full" is the real half-height so it can animate
-			'[--btn-r-full:calc(var(--btn-h)/2)] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
+			'[--btn-r-full:0px] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
 			'[border-start-start-radius:var(--btn-r-ss,var(--btn-r))] [border-start-end-radius:var(--btn-r-se,var(--btn-r))] [border-end-start-radius:var(--btn-r-es,var(--btn-r))] [border-end-end-radius:var(--btn-r-ee,var(--btn-r))]',
-			// motion: press morph on default-effects (no bounce), colors on default-effects
 			'[--btn-shape-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)] [--btn-color-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)]',
-			'[transition:border-radius_var(--btn-shape-t),border-start-start-radius_var(--btn-shape-t),border-start-end-radius_var(--btn-shape-t),border-end-start-radius_var(--btn-shape-t),border-end-end-radius_var(--btn-shape-t),background-color_var(--btn-color-t),color_var(--btn-color-t),box-shadow_var(--btn-color-t)]',
+			// colors ease; the press (translate, a framed button's drop) is instant
+			'[transition:background-color_var(--btn-color-t),color_var(--btn-color-t)]',
 			// icons (lucide <svg>): size from the button, no per-icon sizing classes needed
 			'[&_svg]:pointer-events-none [&_svg]:size-(--btn-icon) [&_svg]:shrink-0',
 			'disabled:pointer-events-none disabled:cursor-default aria-disabled:pointer-events-none aria-disabled:cursor-default'
@@ -72,10 +74,7 @@
 				md: '[--btn-h:56px] [--btn-px:24px] [--btn-gap:8px] [--btn-icon:24px] [--btn-r-square:var(--radius-m3-lg)] [--btn-r-pressed:var(--radius-m3-md)] [--btn-outline:1px] type-title-md',
 				lg: '[--btn-h:96px] [--btn-px:48px] [--btn-gap:12px] [--btn-icon:32px] [--btn-r-square:var(--radius-m3-xl)] [--btn-r-pressed:var(--radius-m3-lg)] [--btn-outline:2px] type-headline-sm',
 				xl: '[--btn-h:136px] [--btn-px:64px] [--btn-gap:16px] [--btn-icon:40px] [--btn-r-square:var(--radius-m3-xl)] [--btn-r-pressed:var(--radius-m3-lg)] [--btn-outline:3px] type-headline-lg',
-				/**
-				 * The Up / Down call buttons: 80px tall, fills its cell, emphasized headline label,
-				 * bouncy press morph (full → 20px) on fast-spatial.
-				 */
+				/** The Up / Down call buttons: 80px tall, fills its cell, emphasized headline label. */
 				hero: '[--btn-h:80px] [--btn-px:20px] [--btn-gap:10px] [--btn-icon:28px] [--btn-r-square:var(--radius-m3-xl)] [--btn-r-pressed:var(--radius-m3-lg-increased)] [--btn-outline:2px] type-headline-sm-emphasized [--btn-shape-t:var(--md-sys-motion-spring-fast-spatial-duration)_var(--md-sys-motion-spring-fast-spatial-easing)]',
 				// shadcn compatibility aliases
 				default: `[--btn-h:40px] [--btn-px:16px] [--btn-gap:8px] [--btn-icon:20px] [--btn-r-square:var(--radius-m3-md)] [--btn-r-pressed:var(--radius-m3-sm)] [--btn-outline:1px] type-label-lg ${TARGET}`,
@@ -172,7 +171,7 @@
 </script>
 
 <script lang="ts">
-	import { ripple } from '#lib/m3/ripple.svelte.js';
+	import { stateLayer } from '#lib/m3/ripple.svelte.js';
 
 	let {
 		class: className,
@@ -221,7 +220,7 @@
 		tabindex={disabled ? -1 : undefined}
 		onclick={onclick as HTMLAnchorAttributes['onclick']}
 		{...restProps}
-		{@attach ripple()}
+		{@attach stateLayer()}
 	>
 		{@render children?.()}
 	</a>
@@ -239,7 +238,7 @@
 		{disabled}
 		onclick={handleClick}
 		{...restProps}
-		{@attach ripple()}
+		{@attach stateLayer()}
 	>
 		{@render children?.()}
 	</button>

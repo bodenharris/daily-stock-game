@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Tween, prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
@@ -14,11 +15,23 @@
 	import CallLog from './CallLog.svelte';
 	import Reveal from './Reveal.svelte';
 	import NameIt from './NameIt.svelte';
+	import MarkerLayer from './MarkerLayer.svelte';
+	import { Marker } from './marker.svelte.ts';
+	import { IconButton } from '#lib/components/ui/icon-button/index.js';
+	import Highlighter from '@lucide/svelte/icons/highlighter';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import Eraser from '@lucide/svelte/icons/eraser';
 	import { dollars, percent } from './money.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
 	/** `archive`: a past day played from the archive, not today's chart. */
 	let { view, archive = false }: { view: GameView; archive?: boolean } = $props();
+
+	/** The red marker: the player's own notes on today's chart, kept in this browser. */
+	const marker = new Marker();
+	$effect(() => {
+		marker.load(`thewolf:marks:${view.number}`);
+	});
 
 	/** How long the chart takes to draw a new stretch. Everything else waits for it. */
 	const DRAW_MS = 900;
@@ -99,26 +112,24 @@
 		shownBalance.set(target, { duration: prefersReducedMotion.current ? 0 : 700 });
 	});
 
-	const resultLine = $derived.by(() => {
-		if (!latest) return '';
+	/** The last call's result: the outcome and money first, then how the crowd called it. */
+	const result = $derived.by(() => {
+		if (!latest) return null;
 		const total = latest.crowd.up + latest.crowd.down;
 		const same = latest.direction === 'up' ? latest.crowd.up : latest.crowd.down;
+		// Short enough to sit on one line of a phone, crowd bonus aside.
 		const crowd =
 			total <= 1
 				? `You're the first to call this one.`
 				: total <= 20
-					? `${same} of ${total} players called ${latest.direction}.`
-					: `${percent(same / total)} of players called ${latest.direction}.`;
-		if (!latest.correct) return `Missed. ${crowd}`;
+					? `${same} of ${total} called ${latest.direction}.`
+					: `${percent(same / total)} called ${latest.direction} too.`;
 		// A right call returns the stake, plus a crowd bonus when most players called it wrong.
-		const bonus = latest.deltaCents - latest.stakeCents;
-		const payout =
-			bonus > 0
-				? `Crowd bonus ${dollars(bonus, { sign: true })}.`
-				: total > 1
-					? 'Most saw it too, so no crowd bonus.'
-					: '';
-		return `Right. ${crowd} ${payout}`.trim();
+		const bonus = latest.correct ? latest.deltaCents - latest.stakeCents : 0;
+		return {
+			outcome: `${latest.correct ? 'Right.' : 'Missed.'} ${dollars(latest.deltaCents, { sign: true })}.`,
+			crowd: bonus > 0 ? `${crowd} Crowd bonus ${dollars(bonus, { sign: true })}.` : crowd
+		};
 	});
 
 	/** How long each call covers, in plain words. */
@@ -186,6 +197,21 @@
 
 	const busy = $derived(!!pending || revealing || view.finished);
 
+	/**
+	 * Phones: the quiz and the unmasking land below the chart. Scroll the balance to the top so
+	 * the balance, the chart and what comes next share one screen. Short phones go straight to
+	 * the new part instead.
+	 */
+	function bringIntoView(node: HTMLElement) {
+		if (!untrack(() => fresh) || !matchMedia('(max-width: 1023px)').matches) return;
+		const balance = node.closest('.game')?.querySelector('.balance-row');
+		const target = innerHeight < 680 || !balance ? (node.querySelector('h2') ?? node) : balance;
+		scrollTo({
+			top: target.getBoundingClientRect().top + scrollY - 16,
+			behavior: prefersReducedMotion.current ? 'instant' : 'smooth'
+		});
+	}
+
 	/** Keyboard play: ↑ / ↓ make the call, 1 / 2 / 3 pick the bet. Never while typing or in a sheet. */
 	function onKey(e: KeyboardEvent) {
 		if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || busy) return;
@@ -207,16 +233,21 @@
 
 <!-- One calm announcement per call for screen readers (the visible numbers animate). -->
 <p class="sr-only" aria-live="polite">
-	{#if latest}{resultLine} Balance {dollars(balanceCents, { cents: false })}.{/if}
+	{#if result}{result.outcome}
+		{result.crowd} Balance {dollars(balanceCents, { cents: false })}.{/if}
 </p>
 
 <svelte:window onkeydown={onKey} />
 
-<div class="game min-h-0 flex-1">
+<!-- Past days have a shorter header than the skyline, so the game can stand taller. -->
+<div
+	class={['game min-h-0 flex-1', view.finished && 'done']}
+	style:--scene-h={archive ? 'var(--scene-h-compact, 3.5rem)' : undefined}
+>
 	<!-- Balance: the one number that matters. -->
 	<div class="balance-row flex items-end justify-between gap-3 pt-1">
 		<div>
-			<p class="type-label-md text-on-surface-variant">
+			<p class="neon-text type-label-md lg:type-label-lg">
 				{finished ? 'Final balance' : 'Balance'}
 			</p>
 			<p class="balance type-display-sm-emphasized text-on-surface type-numeric">
@@ -226,29 +257,17 @@
 		{#if finished}
 			{@const change = view.balanceCents - START_BALANCE_CENTS}
 			<span
-				class="mb-1.5 rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
+				class="mb-1.5 rounded-none px-3 py-1 type-title-lg-emphasized type-numeric
 				{change >= 0 ? 'bg-up-container text-on-up-container' : 'bg-down-container text-on-down-container'}"
 				in:pop
 			>
 				{change >= 0 ? '+' : '−'}{Math.round((Math.abs(change) / START_BALANCE_CENTS) * 100)}%
 			</span>
-		{:else if latest}
-			{#key latest.step}
-				<span
-					class="mb-1.5 rounded-full px-3 py-1 type-title-lg-emphasized type-numeric
-					{latest.correct
-						? 'bg-up-container text-on-up-container'
-						: 'bg-down-container text-on-down-container'}"
-					in:pop
-				>
-					{dollars(latest.deltaCents, { sign: true })}
-				</span>
-			{/key}
 		{/if}
 	</div>
 
 	<!-- The chart is the hero. On wide screens it gets the stage and a card of its own. -->
-	<div class="chart-area mt-2 flex flex-col">
+	<div class="chart-area mt-3 flex flex-col">
 		<div class="relative min-h-0 flex-1">
 			<PriceChart
 				class="absolute inset-0"
@@ -260,12 +279,34 @@
 				labels={showReveal && view.reveal
 					? { dates: view.reveal.dates, closes: view.reveal.closes }
 					: null}
-			/>
+				ticker={showReveal ? (view.reveal?.ticker ?? null) : null}
+			>
+				{#snippet tools()}
+					<IconButton
+						size="xs"
+						toggle
+						bind:pressed={marker.active}
+						aria-label={marker.active ? 'Stop drawing' : 'Draw on the chart with a red marker'}
+						title="Red marker"
+					>
+						<Highlighter />
+					</IconButton>
+					{#if marker.strokes.length > 0}
+						<IconButton size="xs" aria-label="Undo the last mark" onclick={() => marker.undo()}>
+							<Undo2 />
+						</IconButton>
+						<IconButton size="xs" aria-label="Clear all marks" onclick={() => marker.clear()}>
+							<Eraser />
+						</IconButton>
+					{/if}
+				{/snippet}
+			</PriceChart>
+			<MarkerLayer {marker} />
 		</div>
 	</div>
 
 	<div class="panel flex min-w-0 flex-col">
-		<div class={[!finished && 'hide-wide']}>
+		<div class={['pips', !finished && 'hide-wide']}>
 			<CallPips {results} calls={view.calls} />
 		</div>
 		{#if !finished}
@@ -275,41 +316,48 @@
 		{/if}
 
 		{#if showReveal}
-			<Reveal {view} {fresh} {archive} />
+			<div {@attach bringIntoView}>
+				<Reveal {view} {fresh} {archive} />
+			</div>
 		{:else if naming && view.nameIt}
-			<div class="controls flex flex-col">
+			<div class="naming flex flex-col" {@attach bringIntoView}>
 				<NameIt number={view.number} nameIt={view.nameIt} {archive} onAnswered={answered} />
 			</div>
 		{:else}
 			<div class="controls flex flex-col pb-4">
-				<div class="flex min-h-10 items-center justify-center px-2 text-center">
-					{#if latest}
-						{#key latest.step}
+				<!-- The last result, then the next question: the ask never leaves the screen. -->
+				<div class="prompt flex flex-col gap-1 text-center lg:text-left">
+					{#if result}
+						{#key latest?.step}
 							<p
-								class="type-body-md text-balance text-on-surface-variant"
+								class="type-body-md text-balance text-on-surface-variant lg:type-body-lg"
+								aria-hidden="true"
 								in:fly={{ y: 6, duration: fresh ? 250 : 0 }}
 							>
-								{resultLine}
+								<span class={latest?.correct ? 'text-up' : 'text-down'}>{result.outcome}</span>
+								{result.crowd}
 							</p>
 						{/key}
-					{:else}
-						<div>
-							<p class="type-title-md text-balance text-on-surface">Up or down over {stretch}?</p>
-						</div>
+					{/if}
+					{#if !view.finished}
+						<p class="ask type-title-md text-balance text-on-surface lg:type-body-lg">
+							Bet on {stretch}: up or down?
+						</p>
 					{/if}
 				</div>
 
 				{#if !view.finished}
-					<div class="mt-3">
+					<div class="stakes mt-4">
 						<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
 					</div>
 
-					<div class="calls mt-3 grid grid-cols-2 gap-3">
+					<div class="calls mt-6 grid grid-cols-2 gap-6 px-1.5 pt-1.5 pb-3">
 						{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
 							<Button
 								variant="tonal"
 								size="hero"
-								class="call {chosen === b.dir ? 'chosen' : ''} {chosen && chosen !== b.dir
+								class="call pixel-frame {b.dir} {chosen === b.dir ? 'chosen' : ''} {chosen &&
+								chosen !== b.dir
 									? 'other'
 									: ''}"
 								disabled={busy && chosen !== b.dir}
@@ -326,7 +374,7 @@
 					</div>
 				{:else}
 					<p
-						class="unmasking mt-6 text-center type-title-md text-on-surface-variant"
+						class="unmasking mt-6 text-center type-title-md text-on-surface-variant lg:text-left"
 						tabindex="-1"
 						{@attach (node) => {
 							// The Up/Down buttons just went away; keep keyboard focus on the game.
@@ -362,17 +410,27 @@
 	.panel {
 		grid-area: panel;
 	}
+	.pips {
+		margin-top: 1rem;
+	}
+	.controls {
+		padding-top: 1rem;
+	}
+	.naming {
+		padding-top: 1.5rem;
+	}
 	.key,
 	.log {
 		display: none;
 	}
 
 	/* Wide screens: the chart takes the stage on the left, the game sits in a rail on the right,
-	   with the call buttons level with the bottom of the chart. */
+	   with the call buttons level with the bottom of the chart, and both above the fold
+	   (--scene-h is the skyline header's height). */
 	@media (min-width: 1024px) {
 		.game {
 			flex: none;
-			min-height: clamp(480px, calc(100dvh - 7rem), 700px);
+			min-height: clamp(440px, calc(100dvh - var(--scene-h, 224px) - 4rem), 700px);
 			margin-top: 0.5rem;
 			margin-bottom: 2rem;
 			grid-template-columns: minmax(0, 1fr) 22.5rem;
@@ -380,11 +438,21 @@
 			grid-template-areas: 'chart balance' 'chart panel';
 			column-gap: 2.5rem;
 		}
+		/* The chart keeps its play-time size when the reveal makes the rail long, and stays in
+		   view while the rail scrolls. */
 		.chart-area {
+			align-self: start;
+			position: sticky;
+			top: 1rem;
+			height: clamp(440px, calc(100dvh - var(--scene-h, 224px) - 4rem), 700px);
 			margin-top: 0;
 			padding: 1.5rem 1.25rem 1rem;
-			border-radius: var(--md-sys-shape-corner-extra-large, 28px);
+			border-radius: 0;
 			background: var(--md-sys-color-surface-container-low);
+			box-shadow:
+				0 0 0 2px var(--pixel-ink),
+				0 0 0 4px var(--md-sys-color-outline-variant),
+				0 6px 0 4px var(--md-sys-color-shadow);
 		}
 		.balance-row {
 			padding-top: 0.5rem;
@@ -395,14 +463,44 @@
 		.hide-wide {
 			display: none;
 		}
+		/* The log's rows take up the rail's slack, so no dead gap opens above the question. */
 		.log {
-			display: block;
-			margin-top: 1.25rem;
+			display: flex;
+			flex: 1 1 auto;
+			flex-direction: column;
+			max-height: 22.5rem; /* five 4rem rows and their gaps; past that, the gap is fine */
+			margin-top: 1.5rem;
+		}
+		.log > :global(ol) {
+			flex: 1 1 auto;
 		}
 		.controls {
 			margin-top: auto;
 			padding-top: 1.5rem;
 			padding-bottom: 0;
+		}
+	}
+	@media (min-width: 1280px) {
+		.game {
+			grid-template-columns: minmax(0, 1fr) 26rem;
+		}
+	}
+	/* Short laptops: smaller call buttons, and below ~740px the rail swaps the log for the pips,
+	   so the whole game still fits above the fold. */
+	@media (min-width: 1024px) and (max-height: 840px) {
+		.calls :global(.call) {
+			--btn-h: 64px;
+		}
+		.log {
+			margin-top: 1rem;
+		}
+	}
+	@media (min-width: 1024px) and (max-height: 740px) {
+		.hide-wide {
+			display: block;
+		}
+		.log {
+			display: none;
 		}
 	}
 	@media (min-width: 1024px) and (pointer: fine) {
@@ -412,23 +510,56 @@
 			min-width: 1.5rem;
 			height: 1.5rem;
 			margin-left: 0.25rem;
-			border-radius: 6px;
+			border-radius: 0;
 			background: color-mix(in srgb, currentColor 12%, transparent);
 			font: inherit;
 			font-size: 0.875rem;
 			line-height: 1;
 		}
 	}
+	/* The score readout: chunky 8-bit digits. */
+	.balance {
+		font-family: var(--md-ref-typeface-pixel);
+		font-size: 2rem;
+		line-height: 2.75rem;
+		letter-spacing: 0;
+		text-shadow: 0 3px 0 var(--pixel-ink);
+	}
 	/* The tapped call lights up at once; the other steps back while the stretch is revealed. */
-	/* Up and Down wear the brand: primary container, the tapped one fills to primary. */
+	/* Up and Down are arcade cabinet buttons: navy face, a green or pink neon frame; the tapped
+	   one floods with its color. */
 	.calls :global(.call) {
-		background: var(--md-sys-color-primary-container);
-		color: var(--md-sys-color-on-primary-container);
+		background: var(--md-sys-color-surface-container);
+		color: var(--md-sys-color-on-surface);
+	}
+	.calls :global(.call.up) {
+		--frame: var(--up);
+	}
+	.calls :global(.call.down) {
+		--frame: var(--down);
+	}
+	/* Mouse only: on touch a tapped button would keep the hover and read as preselected. */
+	@media (hover: hover) {
+		.calls :global(.call:hover) {
+			background: var(--md-sys-color-surface-container-highest);
+		}
+	}
+	/* Cabinet press: no easing. The button drops onto its base the instant it's hit. */
+	.calls :global(.call) {
+		transition:
+			background-color 120ms linear,
+			color 120ms linear;
+	}
+	.calls :global(.call:active:not(:disabled)) {
+		translate: 0 6px;
+		box-shadow:
+			0 0 0 3px var(--pixel-ink),
+			0 0 0 6px var(--frame),
+			0 0 26px 0 color-mix(in srgb, var(--frame) 30%, transparent);
 	}
 	.calls :global(.call.chosen) {
-		background: var(--md-sys-color-primary);
-		color: var(--md-sys-color-on-primary);
-		--btn-r: var(--btn-r-square);
+		background: var(--frame);
+		color: var(--md-sys-color-surface-container-lowest);
 		pointer-events: none;
 	}
 	.unmasking {
@@ -453,11 +584,42 @@
 			min-height: 150px;
 		}
 		.balance {
-			font-size: 1.875rem;
+			font-size: 1.5rem;
 			line-height: 2.25rem;
 		}
 		.calls :global(.call) {
 			--btn-h: 64px;
+		}
+	}
+	/* Once the calls are made, nothing has to fit above the fold: the chart gets its room back. */
+	.game.done .chart-area {
+		min-height: 200px;
+	}
+	/* Small phones (an SE, or a phone browser with its bars out): tighter beats all the way down,
+	   so the call buttons still make the fold. */
+	@media (max-width: 1023px) and (max-height: 620px) {
+		.balance-row {
+			padding-top: 0;
+		}
+		.chart-area {
+			min-height: 96px;
+			margin-top: 0.5rem;
+		}
+		.pips {
+			margin-top: 0.5rem;
+		}
+		.controls {
+			padding-top: 0.5rem;
+		}
+		.ask {
+			font-size: 0.875rem;
+			line-height: 1.25rem;
+		}
+		.stakes {
+			margin-top: 0.5rem;
+		}
+		.calls {
+			margin-top: 0.75rem;
 		}
 	}
 </style>
