@@ -1,9 +1,10 @@
+import barkUrl from '#lib/assets/bark.wav';
 import { DEFAULT_PREFS, PREFS_KEY, parsePrefs } from './prefs.ts';
 
 /**
  * The game's sound: short 8-bit effects and an optional night ambience (wind, crickets, a far
- * off city hum), all synthesized with the Web Audio API, so there are no files to load or
- * license. Nothing makes a sound until the player has tapped or pressed a key (browsers block
+ * off city hum), synthesized with the Web Audio API. The one recording is the wolf's bark
+ * (`bark.wav`, credited in CREDITS.md), fetched on the first tap and played from memory. Nothing makes a sound until the player has tapped or pressed a key (browsers block
  * audio before that), and the game never waits on audio: every call here is fire and forget,
  * and does nothing where Web Audio is missing.
  *
@@ -17,6 +18,14 @@ export type Sfx =
 /** Bus levels: effects sit under the UI, the ambience well under the effects. */
 const EFFECTS_GAIN = 0.32;
 const AMBIENCE_GAIN = 0.5;
+/** The bark recording peaks near full scale; this brings it level with the howl. */
+const BARK_GAIN = 0.75;
+
+function fetchBark(): Promise<ArrayBuffer | null> {
+	return fetch(barkUrl)
+		.then((r) => (r.ok ? r.arrayBuffer() : null))
+		.catch(() => null);
+}
 
 type Wave = OscillatorType;
 type Blip = {
@@ -28,115 +37,6 @@ type Blip = {
 	gain?: number;
 };
 
-/** A soft clip, for the grit in the bark's voice. */
-let softClip: Float32Array<ArrayBuffer> | undefined;
-function clipCurve() {
-	if (!softClip) {
-		softClip = new Float32Array(1024);
-		for (let i = 0; i < softClip.length; i++) {
-			const x = (i / (softClip.length - 1)) * 2 - 1;
-			softClip[i] = Math.tanh(x * 3) / Math.tanh(3);
-		}
-	}
-	return softClip;
-}
-
-/**
- * One bark, built the way a voice is: a rough source shaped by a mouth.
- *
- * The source is a sawtooth with a growl an octave below it, its loudness fluttering about 70
- * times a second (the rasp of a throat) and lightly clipped, plus a puff of breath that is
- * strongest at the onset. The mouth is three formant band-passes in parallel that slide from
- * an open "ah" to a rounder "oo" as the pitch jumps up and falls away, so it reads as "rrowf"
- * rather than a beep. `pitch` scales the voice (the formants less, like a slightly smaller
- * dog), `level` the loudness, and every bark jitters a little so repeats don't sound pasted.
- * Exported so it can be rendered offline.
- */
-export function bark(ctx: BaseAudioContext, out: AudioNode, t: number, pitch = 1, level = 1) {
-	const jitter = (amount: number) => 1 + (Math.random() - 0.5) * amount;
-	const f0 = 290 * pitch * jitter(0.08);
-	const dur = 0.2 * jitter(0.1);
-	const end = t + dur;
-	const tract = Math.sqrt(pitch);
-
-	// Loudness: a hard onset, a short hold, a quick fall. The low-pass takes off the 8-bit edge.
-	const env = ctx.createGain();
-	env.gain.setValueAtTime(0.0001, t);
-	env.gain.exponentialRampToValueAtTime(level, t + 0.012);
-	env.gain.setValueAtTime(level, t + 0.045);
-	env.gain.exponentialRampToValueAtTime(0.0001, end);
-	const air = ctx.createBiquadFilter();
-	air.type = 'lowpass';
-	air.frequency.value = 4000;
-	env.connect(air).connect(out);
-
-	// The mouth: [start Hz, end Hz, Q, gain] for each formant, "ah" sliding to "oo".
-	const mouth = ctx.createGain();
-	for (const [from, to, q, gain] of [
-		[800, 480, 5, 1.6],
-		[1450, 1000, 7, 0.9],
-		[2700, 2300, 9, 0.4]
-	]) {
-		const band = ctx.createBiquadFilter();
-		band.type = 'bandpass';
-		band.frequency.setValueAtTime(from * tract, t);
-		band.frequency.exponentialRampToValueAtTime(to * tract, end);
-		band.Q.value = q;
-		const g = ctx.createGain();
-		g.gain.value = gain;
-		mouth.connect(band).connect(g).connect(env);
-	}
-
-	// The throat: its loudness flutters, then it is clipped for grit.
-	const throat = ctx.createGain();
-	throat.gain.value = 0.6;
-	const flutter = ctx.createOscillator();
-	flutter.type = 'triangle';
-	flutter.frequency.value = 70 * jitter(0.2);
-	const depth = ctx.createGain();
-	depth.gain.value = 0.35;
-	flutter.connect(depth).connect(throat.gain);
-	const grit = ctx.createWaveShaper();
-	grit.curve = clipCurve();
-	throat.connect(grit).connect(mouth);
-
-	// The voice and its growl: up fast, then falling away.
-	const sources: AudioScheduledSourceNode[] = [flutter];
-	for (const [ratio, gain] of [
-		[1, 1],
-		[0.5, 0.45]
-	]) {
-		const osc = ctx.createOscillator();
-		osc.type = 'sawtooth';
-		const f = f0 * ratio;
-		osc.frequency.setValueAtTime(f * 0.8, t);
-		osc.frequency.exponentialRampToValueAtTime(f * 1.15, t + 0.035);
-		osc.frequency.exponentialRampToValueAtTime(f * 0.65, end);
-		const g = ctx.createGain();
-		g.gain.value = gain;
-		osc.connect(g).connect(throat);
-		sources.push(osc);
-	}
-
-	// The breath: white noise, strongest as the bark bursts out.
-	const len = Math.ceil(ctx.sampleRate * dur);
-	const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
-	const data = buffer.getChannelData(0);
-	for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-	const noise = ctx.createBufferSource();
-	noise.buffer = buffer;
-	const puff = ctx.createGain();
-	puff.gain.setValueAtTime(0.7, t);
-	puff.gain.exponentialRampToValueAtTime(0.18, t + 0.05);
-	noise.connect(puff).connect(mouth);
-	noise.start(t);
-
-	for (const s of sources) {
-		s.start(t);
-		s.stop(end + 0.02);
-	}
-}
-
 class SoundBoard {
 	effects = $state(DEFAULT_PREFS.effects);
 	ambience = $state(DEFAULT_PREFS.ambience);
@@ -145,6 +45,8 @@ class SoundBoard {
 	#fx: GainNode | null = null;
 	#amb: { bus: GainNode; stop: () => void } | null = null;
 	#unlocked = false;
+	#barkBytes: Promise<ArrayBuffer | null> | null = null;
+	#barkBuffer: Promise<AudioBuffer | null> | null = null;
 
 	/** Reads the saved settings. Call once in the browser. */
 	load() {
@@ -187,6 +89,8 @@ class SoundBoard {
 	unlock() {
 		if (this.#unlocked) return;
 		this.#unlocked = true;
+		// Small (about 30 KB), so the first bark doesn't wait on the network.
+		this.#barkBytes = fetchBark();
 		if (this.ambience) this.#startAmbience();
 	}
 
@@ -241,11 +145,33 @@ class SoundBoard {
 				this.#finale(ctx, out, t);
 				break;
 			case 'bark':
-				// "Woof woof": a bark, then a slightly lower, softer one.
-				bark(ctx, out, t, 1, 1);
-				bark(ctx, out, t + 0.3, 0.92, 0.8);
+				this.#bark(ctx, out);
 				break;
 		}
+	}
+
+	/**
+	 * A real Rottweiler's "woof woof", decoded once. Each play is nudged a few percent in pitch so
+	 * repeated taps don't sound pasted.
+	 */
+	#bark(ctx: AudioContext, out: AudioNode) {
+		this.#barkBuffer ??= (this.#barkBytes ??= fetchBark()).then((bytes) =>
+			bytes ? ctx.decodeAudioData(bytes).catch(() => null) : null
+		);
+		void this.#barkBuffer.then((buffer) => {
+			if (!buffer) {
+				// Offline or a bad decode: fetch afresh on the next tap (decoding used up the bytes).
+				this.#barkBytes = this.#barkBuffer = null;
+				return;
+			}
+			const src = ctx.createBufferSource();
+			src.buffer = buffer;
+			src.playbackRate.value = 0.96 + Math.random() * 0.08;
+			const level = ctx.createGain();
+			level.gain.value = BARK_GAIN;
+			src.connect(level).connect(out);
+			src.start();
+		});
 	}
 
 	#context(): AudioContext | null {

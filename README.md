@@ -2,6 +2,8 @@
 
 One famous market chart a day, hidden. Five up-or-down calls with real stakes. Then the unmasking.
 
+Third-party media (the bark recording) and their licenses are listed in [CREDITS.md](CREDITS.md).
+
 ## Tech Stack
 
 - **[Svelte](https://svelte.dev)** (Svelte 5) - frontend framework

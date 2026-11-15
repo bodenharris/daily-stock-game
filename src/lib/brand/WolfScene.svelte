@@ -388,12 +388,20 @@
 		left: 0;
 	}
 	.wolf-button {
+		position: relative;
 		display: block;
 		padding: 0;
 		border: 0;
 		background: none;
 		cursor: pointer;
 		-webkit-tap-highlight-color: transparent;
+	}
+	/* A tap target a little bigger than the sprite: above his ears and either side of him, but
+	   short of the title and the buttons. Not below, where the street line is. */
+	.wolf-button::before {
+		content: '';
+		position: absolute;
+		inset: -16px -8px 0;
 	}
 	.wolf-button:focus-visible {
 		outline: 2px solid var(--md-sys-color-primary);
