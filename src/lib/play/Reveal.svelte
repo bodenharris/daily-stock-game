@@ -162,9 +162,7 @@
 			{#if behindLeader}
 				{@const { gap, leader } = behindLeader}
 				<p class="mt-1 type-label-lg text-pretty type-numeric opacity-80">
-					{dollars(gap, { cents: false })} behind the pack leader's {dollars(leader, {
-						cents: false
-					})}
+					{dollars(gap)} behind the pack leader's {dollars(leader)}
 				</p>
 			{/if}
 		</div>
