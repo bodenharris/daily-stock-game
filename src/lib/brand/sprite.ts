@@ -3,7 +3,9 @@
  * character a key into `palette`. `wolf.json` is shared with scripts/make-images.py, which draws
  * the app icons and link preview from the same grid.
  */
+import type { PackRankKey } from '#lib/game/rank.ts';
 import wolf from './wolf.json';
+import ranks from './ranks.json';
 
 export interface Sprite {
 	rows: string[];
@@ -34,3 +36,15 @@ export function spriteRuns({ rows, palette }: Sprite): Run[] {
 }
 
 export const WOLF: Sprite = wolf;
+
+/** One 16×16 badge per Wolf Pack Rank, from `ranks.json`, all on one shared palette. */
+const badge = (rows: string[]): Sprite => ({ rows, palette: ranks.palette });
+const { pup, scout, sentinel, hunter, elder, alpha } = ranks.sprites;
+export const RANK_BADGES: Record<PackRankKey, Sprite> = {
+	pup: badge(pup),
+	scout: badge(scout),
+	sentinel: badge(sentinel),
+	hunter: badge(hunter),
+	elder: badge(elder),
+	alpha: badge(alpha)
+};

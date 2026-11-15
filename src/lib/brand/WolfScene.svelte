@@ -91,7 +91,7 @@
 
 	/**
 	 * The home page's title screen: `children` is the title block, `actions` the buttons pinned
-	 * top right. With `title` it is the compact strip for the inner pages instead: a back button
+	 * top right (left of the wolf on the compact strip). With `title` it is the compact strip for the inner pages instead: a back button
 	 * (`back`), the page `title` with `children` as the line under it, and a smaller wolf.
 	 * The foreground sits on the same column as the page's `<main>` (max-w-md, md:max-w-2xl,
 	 * and from 1024px `maxWidth`, which the home page defaults to 80rem, with px-safe gutters
@@ -411,6 +411,12 @@
 		/* framed 40px buttons: 12px apart, so their 6px frames meet edge to edge */
 		gap: 0.75rem;
 	}
+	/* The narrowest phones: five buttons share their frames instead, clear of the wolf's ears. */
+	@media (max-width: 359px) {
+		.actions {
+			gap: 6px;
+		}
+	}
 	@media (max-height: 700px) and (max-width: 767px) {
 		.stage > .title {
 			top: 4.25rem;
@@ -485,6 +491,20 @@
 		align-items: center;
 		gap: 1rem;
 	}
+	/* Compact actions sit level with the back button, just left of the wolf (48px wide). */
+	.compact .actions {
+		top: 1rem;
+		right: calc(48px + 1rem);
+	}
+	/* The narrowest phones have no room for both: the buttons take the wolf's spot. */
+	@media (max-width: 359px) {
+		.compact:has(.actions) .hero {
+			display: none;
+		}
+		.compact .actions {
+			right: 0;
+		}
+	}
 	.compact .title {
 		align-items: flex-start;
 		min-width: 0;
@@ -516,6 +536,11 @@
 		}
 		.compact .moon {
 			display: block;
+		}
+		/* ... and of his moon */
+		.compact .actions {
+			top: 1.75rem;
+			right: calc(48px + 3.75rem);
 		}
 		.page-title {
 			--glitch-split: 3px;

@@ -23,6 +23,7 @@
 	import Eraser from '@lucide/svelte/icons/eraser';
 	import { dollars, percent } from './money.ts';
 	import { callSpan, chartTimeframe } from './timeframe.ts';
+	import { sound } from '#lib/audio/sound.svelte.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
 	/** `archive`: a past day played from the archive, not today's chart. */
@@ -91,6 +92,7 @@
 		fresh = true;
 		nameHold = true;
 		buzz(named ? [8, 60, 16] : 20);
+		sound.play(named ? 'right' : 'wrong');
 		setTimeout(() => (nameHold = false), prefersReducedMotion.current ? 0 : 1400);
 	}
 
@@ -155,6 +157,7 @@
 		error = null;
 		pending = direction;
 		buzz(12);
+		sound.play(direction === 'up' ? 'call-up' : 'call-down');
 		try {
 			const res = await makeCall({
 				puzzleNumber: view.number,
@@ -164,7 +167,11 @@
 				stakePercent: Number(stakePercent)
 			});
 			fresh = true;
-			setTimeout(() => buzz(res.result.correct ? [8, 60, 16] : 40), DRAW_MS);
+			// The result is felt and heard as the line lands, not when the server answers.
+			setTimeout(() => {
+				buzz(res.result.correct ? [8, 60, 16] : 40);
+				sound.play(res.result.correct ? 'right' : 'wrong');
+			}, DRAW_MS);
 		} catch (e) {
 			const status = (e as { status?: number }).status;
 			const message = (e as { body?: { message?: string } }).body?.message;
@@ -203,6 +210,11 @@
 		});
 	}
 
+	/** The unmasking gets its fanfare and howl, but only when it happens now, not on a reload. */
+	function howl() {
+		if (untrack(() => fresh)) sound.play('finale');
+	}
+
 	/** Keyboard play: ↑ / ↓ make the call, 1 / 2 / 3 pick the bet. Never while typing or in a sheet. */
 	function onKey(e: KeyboardEvent) {
 		if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || busy) return;
@@ -214,7 +226,10 @@
 			return;
 		}
 		const stake = STAKE_OPTIONS[Number(e.key) - 1];
-		if (stake) stakePercent = String(stake.percent);
+		if (stake && stakePercent !== String(stake.percent)) {
+			stakePercent = String(stake.percent);
+			sound.play('select');
+		}
 	}
 	/** The call in flight or being revealed, highlighted until the result lands. */
 	const chosen = $derived<Direction | null>(
@@ -307,7 +322,7 @@
 		{/if}
 
 		{#if showReveal}
-			<div {@attach bringIntoView}>
+			<div {@attach bringIntoView} {@attach howl}>
 				<Reveal {view} {fresh} {archive} />
 			</div>
 		{:else if naming && view.nameIt}
@@ -359,6 +374,7 @@
 									: ''}"
 								disabled={busy && chosen !== b.dir}
 								aria-label="Call {b.label.toLowerCase()}"
+								data-sfx="none"
 								onclick={() => call(b.dir)}
 							>
 								{#if b.dir === 'up'}<ArrowUp strokeWidth={2.5} />{:else}<ArrowDown

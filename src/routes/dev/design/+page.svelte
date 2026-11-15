@@ -31,6 +31,8 @@
 	import { pop, rise } from '#lib/m3/transitions.js';
 	import { SPRING_TOKENS } from '#lib/m3/motion.js';
 	import Section from './Section.svelte';
+	import RankBadge from '#lib/brand/RankBadge.svelte';
+	import { ALPHA, PACK_RANKS } from '#lib/game/rank.ts';
 	import Swatch from './Swatch.svelte';
 	import GameMock from './GameMock.svelte';
 
@@ -221,6 +223,20 @@
 					<span class="type-headline-lg-emphasized type-numeric">$8,888.88</span>
 					<span class="type-headline-lg-emphasized text-down type-numeric">−$12.40</span>
 				</div>
+			</div>
+		</Section>
+
+		<Section
+			title="Wolf Pack Ranks"
+			note="One pixel badge per rank, shown beside it on the end card."
+		>
+			<div class="flex flex-wrap gap-4">
+				{#each [...PACK_RANKS, ALPHA] as r (r.key)}
+					<div class="flex flex-col items-center gap-1.5">
+						<RankBadge rank={r.key} scale={3} />
+						<span class="type-label-sm text-on-surface-variant">{r.label}</span>
+					</div>
+				{/each}
 			</div>
 		</Section>
 
