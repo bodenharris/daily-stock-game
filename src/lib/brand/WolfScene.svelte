@@ -88,6 +88,9 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import { IconButton } from '#lib/components/ui/icon-button/index.js';
 	import Wolf from './Wolf.svelte';
+	import { LIBERTY, spriteRuns } from './sprite.ts';
+
+	const liberty = spriteRuns(LIBERTY);
 
 	/**
 	 * The home page's title screen: `children` is the title block, `actions` the buttons pinned
@@ -252,6 +255,20 @@
 				</svg>
 				<Wolf scale={compact ? 2 : PX} class="wolf" />
 			</div>
+			{#if !compact}
+				<svg
+					class="liberty pixel-art"
+					viewBox="0 0 {LIBERTY.rows[0].length} {LIBERTY.rows.length}"
+					width={LIBERTY.rows[0].length * 2}
+					height={LIBERTY.rows.length * 2}
+					shape-rendering="crispEdges"
+					aria-hidden="true"
+				>
+					{#each liberty as r (`${r.x},${r.y}`)}
+						<rect x={r.x} y={r.y} width={r.w} height="1" fill={r.fill} />
+					{/each}
+				</svg>
+			{/if}
 			{#if compact}
 				<div class="bar">
 					{#if back}
@@ -389,6 +406,27 @@
 		/* phones: high over his head, clear of the title (117px is his height) */
 		left: 2.25rem;
 		top: calc(117px + 0.625rem - var(--scene-h));
+	}
+	/* Lady Liberty on the right edge, standing on the skyline under the buttons: the wolf's
+	   counterpart, torch lit. 2px a pixel, so she reads as distant. */
+	.liberty {
+		position: absolute;
+		right: 0.25rem;
+		bottom: 0;
+		filter: drop-shadow(2px 0 0 var(--pixel-ink)) drop-shadow(-2px 0 0 var(--pixel-ink))
+			drop-shadow(0 0 8px rgb(255 210 63 / 0.25));
+	}
+	/* Phones: 1px a pixel in her own strip on the right, so the title never runs into her. */
+	@media (max-width: 767px) {
+		.stage > .liberty ~ .title {
+			right: 1.25rem;
+		}
+		.liberty {
+			width: 13px;
+			height: 25px;
+			filter: drop-shadow(1px 0 0 var(--pixel-ink)) drop-shadow(-1px 0 0 var(--pixel-ink))
+				drop-shadow(0 0 6px rgb(255 210 63 / 0.25));
+		}
 	}
 	.title {
 		display: flex;

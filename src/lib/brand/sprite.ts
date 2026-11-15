@@ -37,6 +37,46 @@ export function spriteRuns({ rows, palette }: Sprite): Run[] {
 
 export const WOLF: Sprite = wolf;
 
+/** A small Statue of Liberty on her pedestal, torch lit, for the title screen's skyline. */
+export const LIBERTY: Sprite = {
+	rows: [
+		'..F..........',
+		'.FOF.........',
+		'..O..........',
+		'.GgG.........',
+		'..g..........',
+		'..g...G.G.G..',
+		'..g....GgG...',
+		'..g...GgggG..',
+		'..g....ggG...',
+		'..gg...gG....',
+		'...gggggggG..',
+		'.....ggggGTT.',
+		'.....gggGgTT.',
+		'.....ggGggTT.',
+		'.....gGggGg..',
+		'.....Gggggg..',
+		'....gggGggG..',
+		'....ggGgggG..',
+		'....gGggGggG.',
+		'...gggggGggG.',
+		'..sssssssssss',
+		'...SsssssssS.',
+		'...SsSsSsSsS.',
+		'...SsssssssS.',
+		'..SSSSSSSSSSS'
+	],
+	palette: {
+		F: '#ffd23f',
+		O: '#ff8a3d',
+		g: '#6cc4ad',
+		G: '#3f8f7f',
+		T: '#2f6e62',
+		s: '#8a82a6',
+		S: '#5c5578'
+	}
+};
+
 /** One 16×16 badge per Wolf Pack Rank, from `ranks.json`, all on one shared palette. */
 const badge = (rows: string[]): Sprite => ({ rows, palette: ranks.palette });
 const { pup, scout, sentinel, hunter, elder, alpha } = ranks.sprites;
