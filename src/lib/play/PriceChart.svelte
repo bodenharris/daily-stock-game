@@ -5,6 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import type { CallResult, Direction } from './types.ts';
 	import { domainFor, pointsFor, slotBounds, xFor, type ChartShape, type Frame } from './layout.ts';
+	import ChartScenery from './ChartScenery.svelte';
 
 	interface Props {
 		/** Visible values (normalised or real, the chart only cares about shape). */
@@ -148,6 +149,12 @@
 
 	/** True while a stretch is drawing itself in. */
 	const drawing = $derived(drawEnd.current < lastIndex - 0.01);
+
+	/** The last day closed down, and the line has finished drawing it: the wolf howls. */
+	const howl = $derived.by(() => {
+		const last = segments.find((s) => s.step === shape.calls);
+		return !!last && last.drawn && last.move < 0;
+	});
 
 	/**
 	 * The last-price tag on the right edge, like a trading terminal. It shows the move of the
@@ -337,6 +344,14 @@
 				width={Math.max(0, width - frame.padLeft - frame.padRight)}
 				height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
 				fill="url(#{uid}-paper)"
+			/>
+			<ChartScenery
+				{uid}
+				x0={frame.padLeft}
+				x1={width - frame.padRight}
+				top={frame.padTop - 4}
+				bottom={height - frame.padBottom + 4}
+				{howl}
 			/>
 			{#if !labels}
 				<text class="watermark" x={width - frame.padRight - 4} y={height - frame.padBottom - 2}
