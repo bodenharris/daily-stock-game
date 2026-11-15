@@ -38,6 +38,13 @@ export function spriteRuns({ rows, palette }: Sprite): Run[] {
 export const WOLF: Sprite = wolf;
 
 /** One 16×16 badge per Wolf Pack Rank, from `ranks.json`, all on one shared palette. */
-export const RANK_BADGES = Object.fromEntries(
-	Object.entries(ranks.sprites).map(([key, rows]) => [key, { rows, palette: ranks.palette }])
-) as Record<PackRankKey, Sprite>;
+const badge = (rows: string[]): Sprite => ({ rows, palette: ranks.palette });
+const { pup, scout, sentinel, hunter, elder, alpha } = ranks.sprites;
+export const RANK_BADGES: Record<PackRankKey, Sprite> = {
+	pup: badge(pup),
+	scout: badge(scout),
+	sentinel: badge(sentinel),
+	hunter: badge(hunter),
+	elder: badge(elder),
+	alpha: badge(alpha)
+};
