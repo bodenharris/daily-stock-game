@@ -13,6 +13,7 @@
 	import Countdown from './Countdown.svelte';
 	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
 	import Wolf from '#lib/brand/Wolf.svelte';
+	import RankBadge from '#lib/brand/RankBadge.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
 	import type { GameView } from './types.ts';
@@ -134,8 +135,13 @@
 		<div class="min-w-0 flex-1">
 			<!-- The Wolf Pack Rank. Without a standing there is no rank, so the balance leads. -->
 			<div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-				<p class="rank font-pixel">
-					{rank ? rank.label : dollars(view.balanceCents, { cents: false })}
+				<p class="rank flex items-center gap-2 font-pixel">
+					{#if rank}
+						<RankBadge rank={rank.key} />
+						{rank.label}
+					{:else}
+						{dollars(view.balanceCents, { cents: false })}
+					{/if}
 				</p>
 				<!-- The histogram below says this better, so it only stands in when there isn't one. -->
 				{#if standing && !view.finishes}
