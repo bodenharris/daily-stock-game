@@ -2,7 +2,7 @@
 	import { area, curveMonotoneX, line } from 'd3-shape';
 	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
 	import { dollars } from '#lib/play/money.ts';
-	import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS as cap, type FinishBucket } from './finishes.ts';
+	import { FINISH_BUCKET_CENTS, groupFinishes, type FinishBucket } from './finishes.ts';
 
 	let {
 		finishes,
@@ -14,37 +14,8 @@
 		you?: number | null;
 	} = $props();
 
-	/**
-	 * The day's range split into round-width groups ($10, $20, $25, $50 …): they set where the
-	 * axis ends, and give the screen-reader summary its "$60 to $80 group". Widths are tried
-	 * narrowest first; the first that fits the range in MAX_GROUPS wins.
-	 */
-	const WIDTHS = [1_000, 2_000, 2_500, 5_000, 10_000, 20_000, 25_000, 50_000];
-	const MAX_GROUPS = 16;
-
-	const chart = $derived.by(() => {
-		const top = Math.max(0, ...finishes.map((f) => f.cents));
-		const capped = top >= cap;
-		// Always reach past the start, so the start line has room on both sides.
-		const end = Math.max(top + 1, START_BALANCE_CENTS * 2);
-		const width = WIDTHS.find((w) => Math.ceil(end / w) <= MAX_GROUPS) ?? WIDTHS.at(-1)!;
-		const n = Math.ceil(end / width);
-		const groups = Array.from({ length: n }, (_, i) => ({
-			from: i * width,
-			to: (i + 1) * width,
-			count: 0,
-			open: capped && i === n - 1
-		}));
-		for (const f of finishes) groups[Math.min(n - 1, Math.floor(f.cents / width))].count += f.count;
-		const mine = you == null ? -1 : Math.min(n - 1, Math.floor(Math.min(you, cap) / width));
-		return {
-			groups,
-			mine,
-			total: groups.reduce((s, b) => s + b.count, 0),
-			end: n * width,
-			capped
-		};
-	});
+	/** Round-width groups: they set where the axis ends, and give the summary its "$60 to $80 group". */
+	const chart = $derived(groupFinishes(finishes, you));
 
 	const money = (cents: number) => dollars(cents, { cents: false });
 	const range = (b: { from: number; to: number; open: boolean }) =>

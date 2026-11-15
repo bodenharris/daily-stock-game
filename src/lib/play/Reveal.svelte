@@ -8,9 +8,9 @@
 	import { classifyArchetype } from '#lib/game/archetype.ts';
 	import { buildShareText } from '#lib/game/share.ts';
 	import { toRecords } from './records.ts';
-	import { standingText } from './standing.ts';
+	import { exactStanding, standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
-	import FinishCurve from '#lib/stats/FinishCurve.svelte';
+	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
 	import type { GameView } from './types.ts';
@@ -189,7 +189,13 @@
 					{finished === 1 ? 'player' : 'players'}
 				</p>
 			</div>
-			<FinishCurve finishes={view.finishes.buckets} you={view.balanceCents} />
+			<FinishHistogram
+				finishes={view.finishes.buckets}
+				you={view.balanceCents}
+				betterThan={exactStanding(view.finishes.place, finished).betterThan}
+				among={archive ? 'players' : 'today'}
+				animate={fresh}
+			/>
 			{#if finished === 1}
 				<p class="px-1 type-body-sm text-on-surface-variant">
 					{archive ? 'Nobody else has played this one yet.' : "You're the first to finish today."}
