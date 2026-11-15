@@ -1,3 +1,5 @@
+import type { FinishBucket } from '#lib/stats/finishes.ts';
+
 /** Shapes sent from the server to the game screen. Shared by client and server. */
 
 export type Direction = 'up' | 'down';
@@ -76,6 +78,18 @@ export interface GameView {
 	standing: { betterThan: number | null; finished: number } | null;
 	/** "Name it" for a finished game; null before the last call. */
 	nameIt: NameIt | null;
+	/** Where everyone finished that day, sent with the reveal only. */
+	finishes: Finishes | null;
+}
+
+/** The day's final balances, for the end screen's curve. Nobody is named. */
+export interface Finishes {
+	/** Finished games per $10 bucket, lowest first; only non-empty buckets. */
+	buckets: FinishBucket[];
+	/** The viewer's exact place by final balance (1-based; ties share the better place). */
+	place: number;
+	/** Finished games on this day, the viewer's included. */
+	finished: number;
 }
 
 export interface CallResponse {

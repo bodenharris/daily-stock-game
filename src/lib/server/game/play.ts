@@ -13,7 +13,9 @@ import { optionsFor } from './name-it.ts';
 import { GRACE_MS, countStreak, dateForNumber, playedOnItsDay } from './streak.ts';
 
 export { GRACE_MS, dateForNumber };
-import type { CallResult, Direction, GameView, NameIt } from '#lib/play/types.ts';
+import { exactStanding } from '#lib/play/standing.ts';
+import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS } from '#lib/stats/finishes.ts';
+import type { CallResult, Direction, Finishes, GameView, NameIt } from '#lib/play/types.ts';
 
 /**
  * Plays from a dev server are tagged 'dev' so testing never moves the real crowd. In development
@@ -218,7 +220,8 @@ function assembleView(
 	crowd: Crowd,
 	streak: number,
 	standing: Standing | null = null,
-	nameIt: NameIt | null = null
+	nameIt: NameIt | null = null,
+	finishes: Finishes | null = null
 ): GameView {
 	const p = day.puzzle;
 	const callsMade = game?.step ?? 0;
@@ -226,6 +229,10 @@ function assembleView(
 	// After the last call the player names the moment first; nothing identifying is sent until
 	// that guess is stored. (If the options can't be built, the reveal goes out anyway.)
 	const revealed = finished && (!nameIt || nameIt.answered);
+	// The standing line sits above the finishes curve, so it comes from the same exact place and count
+	// whenever there is one. The percentile sketch (an estimate, cached for a few seconds) is the
+	// fallback if the finishes couldn't be read.
+	const shownStanding = finishes ? exactStanding(finishes.place, finishes.finished) : standing;
 	return {
 		number: day.number,
 		date: day.date,
@@ -255,8 +262,9 @@ function assembleView(
 		signedIn: !!user && !user.isAnonymous,
 		email: user && !user.isAnonymous ? (user.email ?? null) : null,
 		streak,
-		standing: finished ? standing : null,
-		nameIt
+		standing: finished ? shownStanding : null,
+		nameIt,
+		finishes: revealed ? finishes : null
 	};
 }
 
@@ -289,20 +297,52 @@ async function viewOfGame(
 	user: Player,
 	todayNumber: number
 ): Promise<GameView> {
-	const [all, crowd, streak, standing, nameIt] = await Promise.all([
+	const [all, crowd, streak, standing, nameIt, finishes] = await Promise.all([
 		guessesOf(game),
 		crowdFor(day.number),
 		streakFor(user.id, todayNumber),
 		standingFor(day, game),
-		nameItFor(day, game)
+		nameItFor(day, game),
+		finishesFor(day, game)
 	]);
-	return assembleView(day, game, all, user, crowd, streak, standing, nameIt);
+	return assembleView(day, game, all, user, crowd, streak, standing, nameIt, finishes);
 }
 
 /** Standing for a finished game; never lets a stats hiccup break the game view. */
 function standingFor(day: Day, game: GameRow | null): Promise<Standing | null> {
 	if (!game || game.finishedAt == null) return Promise.resolve(null);
 	return standingOf(day.number, game.balanceCents).catch(() => null);
+}
+
+/**
+ * Where everyone finished that day, for the end screen's curve, plus the viewer's exact
+ * place, in one statement over the day's finished games (the `(puzzle_number, finished_at)`
+ * index narrows it to one day). Balances come in $10 buckets, the same ones the stats page
+ * gets. The place counts strictly better balances, so ties share the better place. Nobody is
+ * named. Only for a finished game, and never lets a failure here break the game view.
+ */
+async function finishesFor(day: Day, game: GameRow | null): Promise<Finishes | null> {
+	if (!game || game.finishedAt == null) return null;
+	try {
+		const rows = await db.execute<{ cents: number; count: number; above: number }>(sql`
+			select least(balance_cents / ${FINISH_BUCKET_CENTS} * ${FINISH_BUCKET_CENTS},
+					${FINISH_CAP_CENTS})::int as cents,
+				count(*)::int as count,
+				count(*) filter (where balance_cents > ${game.balanceCents})::int as above
+			from games
+			where puzzle_number = ${day.number} and finished_at is not null and ${sourceIn}
+			group by 1
+			order by 1`);
+		if (rows.length === 0) return null;
+		return {
+			buckets: rows.map((r) => ({ cents: r.cents, count: r.count })),
+			place: rows.reduce((n, r) => n + r.above, 0) + 1,
+			finished: rows.reduce((n, r) => n + r.count, 0)
+		};
+	} catch (e) {
+		console.error('finishes failed', e);
+		return null;
+	}
 }
 
 /**
@@ -329,13 +369,14 @@ export async function viewFor(user: Player | null, now = new Date()): Promise<Ga
 
 	const day = unfinishedYesterday ? await loadDay(today.number - 1) : today;
 	const game = unfinishedYesterday ? yesterdays! : todays;
-	const [gameGuesses, crowd, standing, nameIt] = await Promise.all([
+	const [gameGuesses, crowd, standing, nameIt, finishes] = await Promise.all([
 		game ? guessesOf(game) : Promise.resolve([]),
 		crowdFor(day.number),
 		standingFor(day, game),
-		nameItFor(day, game)
+		nameItFor(day, game),
+		finishesFor(day, game)
 	]);
-	return assembleView(day, game, gameGuesses, user, crowd, streak, standing, nameIt);
+	return assembleView(day, game, gameGuesses, user, crowd, streak, standing, nameIt, finishes);
 }
 
 export interface PlaceCallInput {

@@ -7,6 +7,7 @@
 	import CrowdCalls from '#lib/stats/CrowdCalls.svelte';
 	import HourlyCalls from '#lib/stats/HourlyCalls.svelte';
 	import HowItWorks from '#lib/stats/HowItWorks.svelte';
+	import FinishCurve from '#lib/stats/FinishCurve.svelte';
 
 	const live = liveStats();
 	const s = $derived(await live);
@@ -28,10 +29,11 @@
 		if (s.finished > 1 && s.bestCents != null && you.balanceCents >= s.bestCents) {
 			return 'The best finish today';
 		}
-		if (you.betterThan == null) return s.finished <= 1 ? 'The first to finish today' : null;
+		if (you.betterThan == null) return you.finished <= 1 ? 'The first to finish today' : null;
 		// Small crowds read better as a place than a percentile ("3rd of 4", not "better than 0%").
-		if (s.finished <= 20) {
-			const place = Math.max(1, s.finished - Math.round(you.betterThan * (s.finished - 1)));
+		// The place and count are exact, the same ones the game's end screen uses.
+		if (you.finished <= 20) {
+			const place = Math.max(1, you.finished - Math.round(you.betterThan * (you.finished - 1)));
 			const suffix =
 				place % 10 === 1 && place % 100 !== 11
 					? 'st'
@@ -40,7 +42,7 @@
 						: place % 10 === 3 && place % 100 !== 13
 							? 'rd'
 							: 'th';
-			return `${place}${suffix} of ${s.finished} players today`;
+			return `${place}${suffix} of ${you.finished} players today`;
 		}
 		const pct = Math.round(you.betterThan * 100);
 		return pct >= 50
@@ -114,6 +116,16 @@
 					<span class="text-on-surface type-numeric">{dollars(s.bestCents, { cents: false })}</span
 					>.
 				</p>
+			{/if}
+
+			<!-- Read straight from today's games, so it can be a tick ahead of the counts above. -->
+			{#if s.finishes.length > 0}
+				<section class="mt-8">
+					<h2 class="type-title-md text-on-surface">Where everyone finished</h2>
+					<div class="mt-3">
+						<FinishCurve finishes={s.finishes} you={s.you?.balanceCents} />
+					</div>
+				</section>
 			{/if}
 		</div>
 		<div>
