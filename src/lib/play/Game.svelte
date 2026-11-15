@@ -22,6 +22,7 @@
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Eraser from '@lucide/svelte/icons/eraser';
 	import { dollars, percent } from './money.ts';
+	import { callSpan, chartTimeframe } from './timeframe.ts';
 	import { sound } from '#lib/audio/sound.svelte.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
@@ -135,17 +136,7 @@
 	});
 
 	/** How long each call covers, in plain words. */
-	const stretch = $derived(
-		view.stepBars === 1
-			? 'the next day'
-			: view.stepBars === 5
-				? 'the next week'
-				: view.stepBars === 10
-					? 'the next two weeks'
-					: view.stepBars >= 20 && view.stepBars <= 22
-						? 'the next month'
-						: `the next ${view.stepBars} trading days`
-	);
+	const stretch = $derived(`the next ${callSpan(view.stepBars)}`);
 
 	const stakeOptions = $derived(
 		STAKE_OPTIONS.map((o) => ({
@@ -336,7 +327,13 @@
 			</div>
 		{:else if naming && view.nameIt}
 			<div class="naming flex flex-col" {@attach bringIntoView}>
-				<NameIt number={view.number} nameIt={view.nameIt} {archive} onAnswered={answered} />
+				<NameIt
+					number={view.number}
+					nameIt={view.nameIt}
+					timeframe={chartTimeframe(view)}
+					{archive}
+					onAnswered={answered}
+				/>
 			</div>
 		{:else}
 			<div class="controls flex flex-col pb-4">
