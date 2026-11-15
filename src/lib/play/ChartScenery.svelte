@@ -160,10 +160,16 @@
 	const at = (share: number) => x0 + w * share;
 	const star = $derived(Math.max(1.5, Math.round(p * 0.45)));
 
-	/** A big moon, as wide as half the plot height (whole art pixels, so it stays crisp). */
+	/** Where the tower stands, as a share of the plot width (its centre). */
+	const TOWER_AT = 0.62;
+
+	/**
+	 * A big moon, as wide as half the plot height (whole art pixels, so it stays crisp), centred
+	 * behind the tower so its mast and setbacks stand out against it.
+	 */
 	const moon = $derived.by(() => {
 		const size = Math.max(15, Math.round((h * 0.5) / 15) * 15);
-		return { size, x: at(0.82) - size / 2, y: top + h * 0.06 };
+		return { size, x: at(TOWER_AT) - size / 2, y: top + h * 0.06 };
 	});
 
 	// Two planes take turns crossing the sky, each towing the next slogan when it comes round.
@@ -248,7 +254,7 @@
 		</g>
 	{/each}
 
-	<g transform="translate({at(0.62) - (TOWER_W * p) / 2} {bottom - TOWER_H * p}) scale({p})">
+	<g transform="translate({at(TOWER_AT) - (TOWER_W * p) / 2} {bottom - TOWER_H * p}) scale({p})">
 		<path class="building" d={TOWER} />
 		{#each TOWER_LIGHTS as l, i (i)}
 			<rect
