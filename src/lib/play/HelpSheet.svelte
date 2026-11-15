@@ -18,6 +18,7 @@
 		START_BALANCE_CENTS,
 		STAKE_OPTIONS
 	} from '#lib/game/config.ts';
+	import { stakeCentsFor } from '#lib/game/economy.ts';
 	import { dollars } from './money.ts';
 
 	/**
@@ -52,7 +53,7 @@
 	const ranks = [...PACK_RANKS, ALPHA];
 	const stakes = STAKE_OPTIONS.map((o) => ({
 		percent: o.percent,
-		cents: Math.floor((START_BALANCE_CENTS * o.percent) / 100)
+		cents: stakeCentsFor(START_BALANCE_CENTS, o.percent)
 	}));
 
 	let index = $state(0);

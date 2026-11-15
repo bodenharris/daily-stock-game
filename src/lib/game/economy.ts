@@ -2,6 +2,8 @@
  * Money rules. Pure functions, integer arithmetic only.
  *
  * - Balances and stakes are integer cents.
+ * - Stakes and crowd bonuses are whole dollars, rounded down, so a balance that starts in whole
+ *   dollars stays in whole dollars and the bet, the payout and the balance on screen always agree.
  * - Multipliers are integer hundredths (160 = 1.60x).
  * - Every division rounds down (toward zero for non-negative values), so results are the same on
  *   every device and the player never receives a fraction of a cent the rules did not award.
@@ -107,7 +109,15 @@ export function stakeOptionFor(
 	return option;
 }
 
-/** Cents at risk for a chip: floor(balance x percent / 100). */
+/** Cents rounded down to whole dollars. */
+function wholeDollarsDown(cents: number): number {
+	return Math.floor(cents / 100) * 100;
+}
+
+/**
+ * Cents at risk for a chip: balance x percent / 100, rounded down to whole dollars. Under $10 the
+ * small chip can come to $0, which risks (and wins) nothing but the crowd bonus.
+ */
 export function stakeCentsFor(
 	balanceCents: number,
 	stakePercent: number,
@@ -115,7 +125,7 @@ export function stakeCentsFor(
 ): number {
 	assertCount(balanceCents, 'balanceCents');
 	const option = stakeOptionFor(stakePercent, rules);
-	return Math.floor((balanceCents * option.percent) / 100);
+	return wholeDollarsDown(Math.floor((balanceCents * option.percent) / 100));
 }
 
 /**
@@ -133,7 +143,8 @@ export function paidMultiplierFor(
 
 /**
  * Settle one call. A wrong call loses the stake. A right call wins the stake back as profit
- * (even money) plus the crowd bonus: floor(stake x (multiplier - 1) x chip bonus share). So a
+ * (even money) plus the crowd bonus: stake x (multiplier - 1) x chip bonus share, rounded down to
+ * whole dollars (see stakeCentsFor). So a
  * right call never pays less than the stake, and the balance can never go below zero because
  * no chip risks more than the balance.
  */
@@ -157,9 +168,9 @@ export function settleCall(input: SettleInput, rules: PayoutRules = PAYOUT_RULES
 	if (option.percent <= 0 || option.percent > 100) {
 		throw new RangeError('stake percent must be in (0, 100]');
 	}
-	const stakeCents = Math.floor((balanceCents * option.percent) / 100);
-	const bonusCents = Math.floor(
-		(stakeCents * (multiplierHundredths - 100) * option.payoutPercent) / 10_000
+	const stakeCents = stakeCentsFor(balanceCents, stakePercent, rules);
+	const bonusCents = wholeDollarsDown(
+		Math.floor((stakeCents * (multiplierHundredths - 100) * option.payoutPercent) / 10_000)
 	);
 	const deltaCents = correct ? stakeCents + bonusCents : -stakeCents;
 	return {

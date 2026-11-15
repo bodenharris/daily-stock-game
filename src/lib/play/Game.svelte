@@ -8,6 +8,7 @@
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { START_BALANCE_CENTS, STAKE_OPTIONS } from '#lib/game/config.ts';
+	import { stakeCentsFor } from '#lib/game/economy.ts';
 	import { getDay, getGame, makeCall } from '#lib/remote/game.remote.ts';
 	import PriceChart from './PriceChart.svelte';
 	import StakePicker from './StakePicker.svelte';
@@ -128,10 +129,10 @@
 					? `${same} of ${total} called ${latest.direction}.`
 					: `${percent(same / total)} called ${latest.direction} too.`;
 		// A right call returns the stake, plus a crowd bonus when most players called it wrong.
-		// Under 50¢ the bonus rounds to nothing, so it isn't mentioned.
-		const bonus = latest.correct ? wholeDollarCents(latest.deltaCents - latest.stakeCents) : 0;
-		// The same amount the scoreboard shows for this call, so the two never disagree.
+		// The same amount the scoreboard shows for this call, so the two never disagree, and the
+		// bonus is what's left over after the stake, so the sentence adds up.
 		const paid = paidByCall(results, START_BALANCE_CENTS).at(-1) ?? 0;
+		const bonus = latest.correct ? paid - wholeDollarCents(latest.stakeCents) : 0;
 		return {
 			outcome: `${latest.correct ? 'Right.' : 'Missed.'} ${dollars(paid, { sign: true })}.`,
 			crowd: bonus > 0 ? `${crowd} Crowd bonus ${dollars(bonus, { sign: true })}.` : crowd
@@ -145,7 +146,7 @@
 		STAKE_OPTIONS.map((o) => ({
 			value: String(o.percent),
 			percent: o.percent,
-			cents: Math.floor((balanceCents * o.percent) / 100)
+			cents: stakeCentsFor(balanceCents, o.percent)
 		}))
 	);
 

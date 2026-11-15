@@ -66,7 +66,7 @@ describe('buildShareText', () => {
 		};
 		const text = buildShareText({ ...input, theme: 'light' });
 		expect(text).toBe(
-			['Other #1,234 · $100 → $59', '🟥🟥🟥🟥🟥', '🐺 Alpha', 'https://example.com/?s=1'].join('\n')
+			['Other #1,234 · $100 → $60', '🟥🟥🟥🟥🟥', '🐺 Alpha', 'https://example.com/?s=1'].join('\n')
 		);
 		expect(buildShareText({ ...input, theme: 'dark' })).toBe(text);
 		expect(buildShareText(input)).toBe(text);
@@ -83,13 +83,13 @@ describe('buildShareText', () => {
 
 	it('shows big balances in whole dollars with thousands separators', () => {
 		const text = buildShareText({ puzzleNumber: 1, calls: playGame(Array(5).fill([50, W, 0])) });
-		// $1,048.57 on the books, $1,049 on screen.
-		expect(text.split('\n')[0]).toBe('The Wolf #1 · $100 → $1,049');
+		// Whole dollars, with a thousands separator.
+		expect(text.split('\n')[0]).toBe('The Wolf #1 · $100 → $1,044');
 	});
 
 	it('handles an unfinished game', () => {
 		const text = buildShareText({ puzzleNumber: 2, calls: playGame(CONTRARIAN_GAME.slice(0, 2)) });
-		expect(text.split('\n').slice(0, 2)).toEqual(['The Wolf #2 · $100 → $141', '🟩⭐']);
+		expect(text.split('\n').slice(0, 2)).toEqual(['The Wolf #2 · $100 → $140', '🟩⭐']);
 	});
 
 	it('rejects games it cannot describe', () => {

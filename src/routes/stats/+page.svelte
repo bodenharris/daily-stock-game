@@ -28,7 +28,9 @@
 	/** The same rank line as the end card and the share text, from the same exact place. */
 	const standing = $derived.by(() => {
 		const rank = s.you && packRank(s.you);
-		return rank ? rankLine(rank, standingText(s.you)) : null;
+		if (!rank) return null;
+		// Alone on the board there's no place to give, so say what the rank means instead.
+		return rankLine(rank, standingText(s.you) ?? 'the first to finish today');
 	});
 </script>
 
