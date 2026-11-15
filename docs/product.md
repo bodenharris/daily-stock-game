@@ -17,12 +17,12 @@ It will be judged by people playing it live on their phones, from a public GitHu
 - The player makes five up-or-down calls on what the chart does next. Each call reveals the next stretch of the chart.
 - The player starts with $100 and stakes part of it on each call (max 50% of the current balance). Winnings compound.
 - A correct call pays more when most players called the other way.
-- At the end: the chart is unmasked (ticker, dates, what happened), with the final balance, an emoji share grid that spoils nothing, and an archetype label such as "The Contrarian".
+- At the end: the chart is unmasked (ticker, dates, what happened), with the final balance, an emoji share grid that spoils nothing, and a Wolf Pack Rank for where the player finished among the day's players, from Pup to Alpha.
 - Optional bonus round, "Real or Random": is this chart real or generated?
 
 Known design risk: a single up/down call is close to a coin flip. Stake sizing and the crowd payout have to carry the skill, so they matter more than anything else in the design.
 
-Not yet decided: how long each call's stretch is, the exact payout formula, what the crowd payout does before enough people have played, the archetype list, and which puzzles ship. About 30 hand-picked puzzles should be preloaded.
+Not yet decided: how long each call's stretch is, the exact payout formula, what the crowd payout does before enough people have played, and which puzzles ship. About 30 hand-picked puzzles should be preloaded.
 
 ## Stack
 - SvelteKit with `@sveltejs/adapter-node`. Mobile first.

@@ -5,8 +5,9 @@
 	import Share2 from '@lucide/svelte/icons/share-2';
 	import Check from '@lucide/svelte/icons/check';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { classifyArchetype } from '#lib/game/archetype.ts';
+	import { packRank } from '#lib/game/rank.ts';
 	import { buildShareText } from '#lib/game/share.ts';
+	import { dollars } from './money.ts';
 	import { toRecords } from './records.ts';
 	import { exactStanding, standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
@@ -23,7 +24,7 @@
 	}: { view: GameView; fresh?: boolean; archive?: boolean } = $props();
 	const reveal = $derived(view.reveal!);
 	const records = $derived(toRecords(view.results));
-	const archetype = $derived(classifyArchetype(records));
+	const rank = $derived(packRank(view.standing));
 	const standing = $derived(standingText(view.standing, archive ? 'players' : 'today'));
 	const n = $derived(view.nameIt);
 	const named = $derived(!!n && n.guess != null && n.guess === n.answer);
@@ -51,7 +52,7 @@
 		buildShareText({
 			puzzleNumber: view.number,
 			calls: records,
-			archetype,
+			rank,
 			theme: light.current ? 'light' : 'dark',
 			standing,
 			named,
@@ -131,14 +132,19 @@
 	>
 		<div class="wolf shrink-0" aria-hidden="true"><Wolf scale={2} /></div>
 		<div class="min-w-0 flex-1">
+			<!-- The Wolf Pack Rank. Without a standing there is no rank, so the balance leads. -->
 			<div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-				<p class="archetype font-pixel">{archetype.label}</p>
+				<p class="rank font-pixel">
+					{rank ? rank.label : dollars(view.balanceCents, { cents: false })}
+				</p>
 				<!-- The histogram below says this better, so it only stands in when there isn't one. -->
 				{#if standing && !view.finishes}
 					<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
 				{/if}
 			</div>
-			<p class="mt-2 type-body-md opacity-80">{archetype.line}</p>
+			{#if rank}
+				<p class="mt-2 type-body-md opacity-80">{rank.line}</p>
+			{/if}
 		</div>
 	</div>
 
@@ -238,8 +244,8 @@
 </section>
 
 <style>
-	/* The archetype in the arcade face, on its 8px grid. */
-	.archetype {
+	/* The rank in the arcade face, on its 8px grid. */
+	.rank {
 		font-size: 1rem;
 		line-height: 1.5rem;
 		letter-spacing: 0;

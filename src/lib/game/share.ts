@@ -3,7 +3,7 @@
  *
  *   The Wolf #12 · $100 → $146
  *   🟩⭐⭐🟥🟥
- *   🙃 The Contrarian
+ *   🐺 Hunter · 3rd of 6 today
  *   https://thewolf.example
  *
  * One square per call: 🟩 right, 🟥 wrong, ⭐ right while most players called it the other way.
@@ -17,13 +17,17 @@
  * Spoiler rule: nothing here depends on whether a call was up or down, so the text reveals
  * neither the chart's direction nor its shape. Only right/wrong, crowd position and the balance.
  *
+ * The third line is the player's Wolf Pack Rank and place (src/lib/game/rank.ts). It is left out
+ * when the day's finishes couldn't be read, since then there is no rank to give.
+ *
  * Rendering: the first line is what lock-screen previews show, so it carries the result. Only
  * single-code-point emoji every major platform has rendered for years, with no variation
  * selectors to garble. The URL goes last on its own line so iMessage, WhatsApp and Slack unfurl
  * it as a preview card. At most 5 lines.
  */
 import { CALLS_PER_GAME, GAME_NAME, SITE_URL, START_BALANCE_CENTS } from './config.ts';
-import { classifyArchetype, type Archetype, type CallRecord } from './archetype.ts';
+import type { CallRecord } from './archetype.ts';
+import { PACK_EMOJI, type PackRank } from './rank.ts';
 
 export const SHARE_CELLS = {
 	right: '🟩',
@@ -34,14 +38,14 @@ export const SHARE_CELLS = {
 export interface ShareInput {
 	readonly puzzleNumber: number;
 	readonly calls: readonly CallRecord[];
-	/** Defaults to the classification of `calls`. */
-	readonly archetype?: Archetype;
+	/** The player's Wolf Pack Rank. Without one, the rank line is left out. */
+	readonly rank?: PackRank | null;
 	/** Defaults to SITE_URL. */
 	readonly url?: string;
 	/** @deprecated Ignored: the one-row text has no empty cells to colour. Still accepted. */
 	readonly theme?: 'dark' | 'light';
 	readonly gameName?: string;
-	/** Optional standing, e.g. "2nd of 5 today", added to the archetype line. Spoils nothing. */
+	/** Optional standing, e.g. "2nd of 5 today", added to the rank line. Spoils nothing. */
 	readonly standing?: string | null;
 	/** Named the moment before the reveal: adds a 🎯 after the row. Spoils nothing. */
 	readonly named?: boolean;
@@ -81,14 +85,15 @@ export function buildShareText(input: ShareInput): string {
 	}
 	const start = input.startBalanceCents ?? START_BALANCE_CENTS;
 	const final = calls[calls.length - 1].balanceAfterCents;
-	const archetype = input.archetype ?? classifyArchetype(calls, { startBalanceCents: start });
 	const name = input.gameName ?? GAME_NAME;
 
 	const lines = [
 		`${name} #${puzzleNumber.toLocaleString('en-US')} · ${formatWholeDollars(start)} → ${formatWholeDollars(final)}`,
-		shareRow(calls) + (input.named ? ' 🎯' : ''),
-		`${archetype.emoji} ${archetype.label}${input.standing ? ` · ${input.standing}` : ''}`
+		shareRow(calls) + (input.named ? ' 🎯' : '')
 	];
+	if (input.rank) {
+		lines.push(`${PACK_EMOJI} ${input.rank.label}${input.standing ? ` · ${input.standing}` : ''}`);
+	}
 	lines.push(input.url ?? SITE_URL);
 	return lines.join('\n');
 }
