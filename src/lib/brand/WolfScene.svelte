@@ -384,6 +384,8 @@
 	/* Home: the wolf stands on the content's left edge, the icons end on its right edge. */
 	.hero {
 		position: absolute;
+		/* above the title block, which is full width from 768px and would swallow taps on him */
+		z-index: 1;
 		bottom: 0;
 		left: 0;
 	}
