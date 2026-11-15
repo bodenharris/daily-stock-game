@@ -1,5 +1,7 @@
 /**
- * The end-of-game label. Deterministic: the first rule in ARCHETYPES whose test passes wins.
+ * How a game was played, as one label. Deterministic: the first rule in ARCHETYPES whose test
+ * passes wins. The server stores it on every finished game, but the end card and share text now
+ * show the Wolf Pack Rank instead (src/lib/game/rank.ts).
  *
  * Priority order (most remarkable story first). Every label is earned by something the player
  * can see in their own game: how many calls were right, how big they bet, which side of the

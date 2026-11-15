@@ -5,8 +5,9 @@
 	import Share2 from '@lucide/svelte/icons/share-2';
 	import Check from '@lucide/svelte/icons/check';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { classifyArchetype } from '#lib/game/archetype.ts';
+	import { packRank } from '#lib/game/rank.ts';
 	import { buildShareText } from '#lib/game/share.ts';
+	import { dollars } from './money.ts';
 	import { toRecords } from './records.ts';
 	import { standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
@@ -22,7 +23,7 @@
 	}: { view: GameView; fresh?: boolean; archive?: boolean } = $props();
 	const reveal = $derived(view.reveal!);
 	const records = $derived(toRecords(view.results));
-	const archetype = $derived(classifyArchetype(records));
+	const rank = $derived(packRank(view.standing));
 	const standing = $derived(standingText(view.standing, archive ? 'players' : 'today'));
 	const n = $derived(view.nameIt);
 	const named = $derived(!!n && n.guess != null && n.guess === n.answer);
@@ -49,7 +50,7 @@
 		buildShareText({
 			puzzleNumber: view.number,
 			calls: records,
-			archetype,
+			rank,
 			theme: light.current ? 'light' : 'dark',
 			standing,
 			named,
@@ -135,13 +136,15 @@
 		]}
 		in:pop={{ delay: d(450), start: 0.92 }}
 	>
+		<!-- The Wolf Pack Rank and place. Without a standing there is no rank, so the balance leads. -->
 		<div class="flex items-baseline justify-between gap-3">
-			<p class="type-title-lg-emphasized">{archetype.label}</p>
+			<p class="type-title-lg-emphasized">
+				{rank ? rank.label : dollars(view.balanceCents, { cents: false })}
+			</p>
 			{#if standing}
 				<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
 			{/if}
 		</div>
-		<p class="type-body-sm opacity-80">{archetype.line}</p>
 	</div>
 
 	<div class="flex flex-col gap-2" in:rise={{ delay: d(650) }}>
