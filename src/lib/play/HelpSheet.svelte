@@ -28,7 +28,7 @@
 			bet.
 		</p>
 	</div>
-	<Button variant="tonal" size="md" class="mt-6 w-full" onclick={() => (open = false)}>
+	<Button variant="tonal" size="md" class="pixel-panel mt-6 w-full" onclick={() => (open = false)}>
 		Got it
 	</Button>
 </Sheet>

@@ -12,8 +12,8 @@
 	}: {
 		/** Finishes per $10 bucket (lower edge in cents), as the server sends them. */
 		finishes: FinishBucket[];
-		/** The viewer's final balance. */
-		you: number;
+		/** The viewer's final balance, or null when they haven't finished. */
+		you: number | null;
 		/** Share of the other finishers the viewer beat (0–1), or null when they're alone. */
 		betterThan: number | null;
 		/** 'today' for today's chart, 'players' for a past day from the archive. */
@@ -35,7 +35,7 @@
 		const g = chart.groups[chart.mine];
 		if (g) {
 			parts.push(
-				`Your ${money(you)} is in the ${g.open ? `${money(g.from)} or more` : `${money(g.from)} to ${money(g.to)}`} bar, with ${g.count - 1} ${g.count === 2 ? 'other' : 'others'}.`
+				`Your ${money(you!)} is in the ${g.open ? `${money(g.from)} or more` : `${money(g.from)} to ${money(g.to)}`} bar, with ${g.count - 1} ${g.count === 2 ? 'other' : 'others'}.`
 			);
 		}
 		return parts.join(' ');
@@ -91,7 +91,7 @@
 		align-items: baseline;
 		flex-wrap: wrap;
 		gap: 0.25rem 0.75rem;
-		padding: 0 0.25rem 0.75rem;
+		padding-bottom: 0.75rem;
 	}
 	.pct {
 		font-size: 1.75rem;
@@ -154,7 +154,7 @@
 	}
 	/* Players who finished above you step back; the ones you beat stay lit. */
 	.bar.ahead {
-		opacity: 0.3;
+		opacity: 0.55;
 	}
 	.bar.mine {
 		background: var(--md-sys-color-primary);

@@ -45,6 +45,8 @@
 
 	/** Height of the ticker tape across the top of the chart. */
 	const TAPE_H = 32;
+	/** Radius of the right/wrong mark at the end of each stretch. */
+	const MARK_R = 4;
 
 	const frame: Frame = $derived({
 		width,
@@ -123,8 +125,11 @@
 	const contextPath = $derived(pathOf(pointsFor(logs, 0, contextEnd, drawEnd.current)) ?? '');
 	const fillPath = $derived(areaOf(pointsFor(logs, 0, lastIndex, drawEnd.current)) ?? '');
 
-	const segments = $derived(
-		results.slice(0, callsMade).map((r, k) => {
+	const segments = $derived.by(() => {
+		// Read up front: deriveds are lazy, and read inside the map it would first be counted
+		// after call 1 had already settled.
+		const settled = settledOnLoad;
+		return results.slice(0, callsMade).map((r, k) => {
 			const from = contextEnd + k * shape.stepBars;
 			const to = from + shape.stepBars;
 			const [x0, x1] = slotBounds(k + 1, shape, frame);
@@ -133,15 +138,18 @@
 				right: r.correct,
 				d: drawEnd.current > from ? (pathOf(pointsFor(logs, from, to, drawEnd.current)) ?? '') : '',
 				drawn: drawEnd.current >= to - 0.01,
-				move: values[to] / values[from] - 1,
-				fresh: r.step > settledOnLoad,
+				/** The server's move, so the chart says what the pips and the log say. */
+				move: r.move / 100,
+				/** The same stretch measured off the drawn values (may round differently). */
+				drawnMove: values[to] / values[from] - 1,
+				fresh: r.step > settled,
 				x0,
 				x1,
 				baseY: y(logs[from]),
 				endY: y(logs[to])
 			};
-		})
-	);
+		});
+	});
 
 	const head = $derived.by(() => {
 		const end = Math.min(drawEnd.current, lastIndex);
@@ -163,18 +171,33 @@
 				? 0
 				: Math.min(shape.calls, Math.ceil((head.end - contextEnd) / shape.stepBars - 0.001));
 		const base = k === 0 ? 0 : contextEnd + (k - 1) * shape.stepBars;
-		const move = Math.exp(head.log - logs[base]) - 1;
+		let move = Math.exp(head.log - logs[base]) - 1;
+		// Ease the ticking value onto the server's move, so it lands on what the pips say.
+		const seg = segments[k - 1];
+		if (seg) move += (seg.move - seg.drawnMove) * Math.min(1, (head.end - base) / shape.stepBars);
 		const text = labels
 			? fmtPrice(labels.closes[Math.round(head.end)])
 			: `${move >= 0 ? '▲' : '▼'} ${fmtMove(move)}`;
-		const w = text.length * 9 + 14;
+		const w = text.length * 8 + 14;
 		const top = frame.padTop - 4;
 		const bottom = height - frame.padBottom - 4;
+		const clamp = (v: number) => Math.min(Math.max(v, top + 10), bottom - 10);
+		// At the right edge the tag would sit on the last mark: step it off, away from the line.
+		let ty = head.y;
+		if (head.x > width - frame.padRight - w - MARK_R - 4) {
+			const off = 10 + MARK_R + 4;
+			const last = segments.at(-1);
+			const above = !last || last.move >= 0;
+			ty = head.y + (above ? -off : off);
+			if (clamp(ty) !== ty) ty = head.y + (above ? off : -off);
+		}
 		return {
+			// Before the first call the setup's move would read like today's gain.
+			show: labels != null || k > 0,
 			up: move >= 0,
 			text,
 			w,
-			y: Math.min(Math.max(head.y, top + 10), bottom - 10)
+			y: clamp(ty)
 		};
 	});
 
@@ -202,9 +225,12 @@
 
 	const nextStep = $derived(finished ? null : callsMade + 1);
 	const levelY = $derived(y(logs[lastIndex]));
+	/** The dashed level across the hidden future; not while a stretch draws (it would give it away). */
+	const showLevel = $derived(nextStep != null && !pending && !drawing);
 
+	/** A move as CallPips writes it. Rounded first, so 78.5% / 100 * 100 still reads +79%. */
 	function fmtMove(m: number) {
-		const pct = m * 100;
+		const pct = Number((m * 100).toFixed(6));
 		const abs = Math.abs(pct);
 		const body = abs >= 10 ? Math.round(abs).toString() : abs.toFixed(1);
 		return `${pct >= 0 ? '+' : '−'}${body}%`;
@@ -268,13 +294,7 @@
 	});
 </script>
 
-<div
-	class="chart {className}"
-	bind:clientWidth={width}
-	bind:clientHeight={height}
-	role="img"
-	aria-label={summary}
->
+<div class="chart {className}" bind:clientWidth={width} bind:clientHeight={height}>
 	<!-- Ticker tape: the story so far, scrolling like the board on a trading floor. -->
 	<div class="tape" style:height="{TAPE_H}px" style:--tape-s="{tape.length * 3.5}s">
 		<span class="tape-symbol" aria-hidden="true">
@@ -312,7 +332,7 @@
 	</div>
 
 	{#if width > 0 && height > 0}
-		<svg {width} {height} viewBox="0 0 {width} {height}" aria-hidden="true">
+		<svg {width} {height} viewBox="0 0 {width} {height}" role="img" aria-label={summary}>
 			<defs>
 				<!-- Lines never spill into the header while the range eases out to fit a spike. -->
 				<clipPath id="{uid}-plot">
@@ -347,15 +367,12 @@
 				top={frame.padTop - 4}
 				bottom={height - frame.padBottom + 4}
 			/>
-			{#if !labels}
-				<text class="watermark" x={width - frame.padRight - 4} y={height - frame.padBottom - 2}
-					>WOLF EXCHANGE</text
-				>
-			{/if}
-
 			{#each grid as g (g.text)}
 				<line class="grid" x1={frame.padLeft} x2={width - frame.padRight} y1={g.y} y2={g.y} />
-				<text class="grid-label" x={frame.padLeft + 2} y={g.y - 4}>{g.text}</text>
+				<!-- On a phone the label floats with nothing to read it against. -->
+				{#if width >= 640}
+					<text class="grid-label" x={frame.padLeft + 2} y={g.y - 4}>{g.text}</text>
+				{/if}
 			{/each}
 
 			<!-- The future: one rounded slot per call. -->
@@ -372,10 +389,16 @@
 				/>
 			{/each}
 
-			<!-- Not while a stretch draws: the level would show where the line lands before it does. -->
-			{#if nextStep && !pending && !drawing}
+			<!-- Today's level, ruled across the hidden future: above it is up, below is down. -->
+			{#if showLevel && nextStep}
 				{@const [sx0, sx1] = slotBounds(nextStep, shape, frame)}
-				<line class="level" x1={head.x} x2={sx1 - 4} y1={levelY} y2={levelY} />
+				<line
+					class="level"
+					x1={head.x}
+					x2={width - frame.padRight}
+					y1={Math.round(levelY)}
+					y2={Math.round(levelY)}
+				/>
 				{@const cx = (sx0 + sx1) / 2}
 				<path
 					class="slot-arrow"
@@ -420,22 +443,26 @@
 			{/if}
 
 			<!-- The last price, ruled across to its tag on the right edge. -->
-			<line class="last" x1={head.x} x2={width - frame.padRight} y1={head.y} y2={head.y} />
-			<g
-				class={['tag', tag.up ? 'up' : 'down']}
-				transform="translate({width - frame.padRight} {tag.y})"
-			>
-				<rect x={-tag.w} y="-10" width={tag.w} height="20" rx="0" />
-				<text x="-7" y="4" text-anchor="end">{tag.text}</text>
-			</g>
+			{#if tag.show}
+				{#if !showLevel}
+					<line class="last" x1={head.x} x2={width - frame.padRight} y1={head.y} y2={head.y} />
+				{/if}
+				<g
+					class={['tag', tag.up ? 'up' : 'down']}
+					transform="translate({width - frame.padRight} {Math.round(tag.y)})"
+				>
+					<rect x={-tag.w} y="-10" width={tag.w} height="20" rx="0" />
+					<text x="-7" y="4" text-anchor="end">{tag.text}</text>
+				</g>
+			{/if}
 
 			<!-- Right or wrong marks the end of each stretch, once it has fully drawn. -->
 			{#each segments.filter((x) => x.drawn) as seg (seg.step)}
 				{#if seg.fresh}
-					<!-- The stretch's slot flashes the colour of its move, then a burst and the move
-					     itself float off the end of the line. -->
+					<!-- The stretch's slot flashes green if the call was right, pink if not, then a
+					     burst and the move itself float off the end of the line. -->
 					<rect
-						class={['flash', seg.move >= 0 ? 'up' : 'down']}
+						class={['flash', seg.right ? 'right' : 'wrong']}
 						x={seg.x0}
 						y={frame.padTop - 4}
 						width={Math.max(0, seg.x1 - seg.x0)}
@@ -443,8 +470,8 @@
 					/>
 					<g transform="translate({seg.x1} {seg.endY})">
 						<circle class={['burst', seg.right ? 'right' : 'wrong']} r="6" />
-						<g class={['float', seg.move >= 0 ? 'up' : 'down']}>
-							<text y={seg.move >= 0 ? -14 : 24} text-anchor="middle"
+						<g class={['float', seg.right ? 'right' : 'wrong']}>
+							<text y={seg.move >= 0 ? -14 : 22} text-anchor="middle"
 								>{seg.move >= 0 ? '▲' : '▼'} {fmtMove(seg.move)}</text
 							>
 						</g>
@@ -456,7 +483,7 @@
 					class:wrong={!seg.right}
 					cx={seg.x1}
 					cy={seg.endY}
-					r="4"
+					r={MARK_R}
 				/>
 			{/each}
 
@@ -547,8 +574,9 @@
 	.level {
 		stroke: var(--chart-ink);
 		stroke-width: 2;
-		stroke-dasharray: 4 4;
-		opacity: 0.7;
+		stroke-dasharray: 6 4;
+		opacity: 0.85;
+		shape-rendering: crispEdges;
 	}
 	.slot-arrow {
 		fill: none;
@@ -613,13 +641,6 @@
 		stroke-width: 1;
 		opacity: 0.28;
 	}
-	.watermark {
-		font: 400 7px/1 var(--mono);
-		letter-spacing: 0.3em;
-		text-anchor: end;
-		fill: var(--chart-axis);
-		opacity: 0.35;
-	}
 	.last {
 		stroke: var(--chart-ink);
 		stroke-width: 1;
@@ -636,7 +657,7 @@
 		fill: var(--chart-down);
 	}
 	.tag text {
-		font: 400 9px/1 var(--mono);
+		font: 400 8px/1 var(--mono);
 		font-variant-numeric: tabular-nums;
 		fill: var(--pixel-ink, var(--md-sys-color-surface));
 	}
@@ -665,10 +686,10 @@
 		opacity: 0;
 		animation: flash 900ms ease-out;
 	}
-	.flash.up {
+	.flash.right {
 		fill: var(--chart-up);
 	}
-	.flash.down {
+	.flash.wrong {
 		fill: var(--chart-down);
 	}
 	@keyframes flash {
@@ -708,13 +729,13 @@
 		animation: float 1.8s ease-out;
 	}
 	.float text {
-		font: 400 10px/1 var(--mono);
+		font: 400 8px/1 var(--mono);
 		font-variant-numeric: tabular-nums;
 	}
-	.float.up text {
+	.float.right text {
 		fill: var(--chart-up);
 	}
-	.float.down text {
+	.float.wrong text {
 		fill: var(--chart-down);
 	}
 	@keyframes float {
@@ -750,12 +771,11 @@
 		z-index: 3; /* over the marker layer, so its buttons stay reachable while drawing */
 		display: flex;
 		align-items: stretch;
-		overflow: hidden;
 		border-radius: 0;
 		background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
-		font: 400 9px/1 var(--mono);
+		/* Press Start 2P sits on an 8px grid: 8px or 16px, never in between. */
+		font: 400 8px/1 var(--mono);
 		font-variant-numeric: tabular-nums;
-		letter-spacing: 0.04em;
 		white-space: nowrap;
 	}
 	.tape-symbol {
@@ -766,16 +786,13 @@
 		padding: 0 0.6rem;
 		background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
 		color: var(--md-sys-color-on-surface);
-		font-weight: 800;
 	}
 	.tape-state {
-		font-size: 7px;
-		opacity: 0.7;
+		color: var(--md-sys-color-on-surface-variant);
 	}
 	.live {
 		width: 6px;
 		height: 6px;
-		border-radius: 50%;
 		background: var(--chart-up);
 		animation: blink 1.2s steps(2, jump-none) infinite;
 	}
@@ -792,13 +809,17 @@
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
-		mask-image: linear-gradient(
-			90deg,
-			transparent,
-			#000 1.5rem,
-			#000 calc(100% - 1.5rem),
-			transparent
-		);
+		mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+	}
+	/* On a phone the tape is too short to read as a story (it shows the calls to come first), so
+	   it keeps just the symbol and the tools. */
+	@media (max-width: 767.98px) {
+		.tape-window {
+			display: none;
+		}
+		.tape-tools {
+			margin-left: auto;
+		}
 	}
 	.tape-track {
 		display: flex;
@@ -851,13 +872,17 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		svg,
-		.move,
+		.mark,
 		.ghost,
 		.ping,
 		.live,
 		.tape-item.fresh,
 		.tape-track {
 			animation: none;
+		}
+		.slot,
+		.tag rect {
+			transition: none;
 		}
 		.ping,
 		.flash,

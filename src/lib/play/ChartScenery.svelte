@@ -25,11 +25,11 @@
 		return v - Math.floor(v);
 	}
 
-	type Light = { x: number; y: number; tone: 'gold' | 'cyan' | 'pink'; blink: number | null };
+	type Light = { x: number; y: number; blink: number | null };
 
 	/**
 	 * Office windows for a building `w` art pixels wide, `h` tall: a column every 2 pixels, a floor
-	 * every 3. Most are lit; a few flick on and off (`blink` is their cycle in seconds).
+	 * every 3. Most are lit; a very few flick off now and then (`blink` is their cycle in seconds).
 	 * `widthAt(y)` narrows the floors for a stepped tower.
 	 */
 	function lights(
@@ -48,13 +48,7 @@
 				i++;
 				const r = rand(i, seed);
 				if (r < 0.35) continue; // dark office
-				const t = rand(i, seed + 1);
-				out.push({
-					x,
-					y,
-					tone: t < 0.75 ? 'gold' : t < 0.92 ? 'cyan' : 'pink',
-					blink: r > 0.88 ? 5 + rand(i, seed + 2) * 9 : null
-				});
+				out.push({ x, y, blink: r > 0.975 ? 9 + rand(i, seed + 2) * 9 : null });
 			}
 		}
 		return out;
@@ -104,41 +98,6 @@
 		twinkle: rand(i, 104) > 0.45 ? 1.8 + rand(i, 105) * 3.5 : null,
 		delay: rand(i, 106) * 4
 	}));
-
-	/** Shooting stars: where they start (shares), and their cycle. */
-	const METEORS = [
-		{ x: 0.42, y: 0.06, every: 9, delay: 2.5 },
-		{ x: 0.86, y: 0.16, every: 13, delay: 7.5 },
-		{ x: 0.24, y: 0.22, every: 17, delay: 12 }
-	];
-
-	/** A little prop plane flying right. 12 × 5. */
-	const PLANE = sprite([
-		'#...........',
-		'##.....##...',
-		'###########.',
-		'.###########',
-		'.......##...'
-	]);
-	const PLANE_PX = 2.5;
-
-	const SLOGANS = [
-		'BUY THE DIP',
-		'TO THE MOON',
-		'HODL',
-		'BUY LOW SELL HIGH',
-		'DIAMOND HANDS',
-		'BULLS VS BEARS',
-		'STONKS ONLY GO UP',
-		'SELL IN MAY?',
-		'BEARS BEWARE',
-		'PAPER HANDS BEWARE'
-	];
-
-	/** The header's pixel moon. 15 × 15. */
-	const MOON =
-		'M5 0h5v1h2v1h1v2h1v1h1v5h-1v1h-1v2h-1v1h-2v1H5v-1H3v-1H2v-2H1v-1H0V5h1V4h1V2h1V1h2z';
-	const MOON_CRATERS = 'M4 4h2v2H4zM9 8h3v2H9zM5 10h1v1H5z';
 </script>
 
 <script lang="ts">
@@ -155,49 +114,23 @@
 
 	const w = $derived(Math.max(1, x1 - x0));
 	const h = $derived(Math.max(1, bottom - top));
-	/** One art pixel: the tower stands about 85% of the plot tall. */
-	const p = $derived(Math.max(1, (h * 0.85) / TOWER_H));
-	const at = (share: number) => x0 + w * share;
-	const star = $derived(Math.max(1.5, Math.round(p * 0.45)));
+	/**
+	 * One art pixel, in whole CSS pixels so the city stays crisp. Capped at the header's density:
+	 * on a tall chart the tower just stands shorter.
+	 */
+	const p = $derived(Math.min(4, Math.max(2, Math.floor((h * 0.85) / TOWER_H))));
+	const at = (share: number) => Math.round(x0 + w * share);
+	const base = $derived(Math.round(bottom));
+	const star = $derived(Math.max(1, Math.floor(p / 2)));
 
 	/** Where the tower stands, as a share of the plot width (its centre). */
 	const TOWER_AT = 0.62;
-
-	/**
-	 * A big moon, as wide as half the plot height (whole art pixels, so it stays crisp), centred
-	 * behind the tower so its mast and setbacks stand out against it.
-	 */
-	const moon = $derived.by(() => {
-		const size = Math.max(15, Math.round((h * 0.5) / 15) * 15);
-		return { size, x: at(TOWER_AT) - size / 2, y: top + h * 0.06 };
-	});
-
-	// Two planes take turns crossing the sky, each towing the next slogan when it comes round.
-	let banners = $state([0, 1]);
-	const planes = $derived(
-		[
-			{ alt: 0.1, every: 26, delay: 1.5 },
-			{ alt: 0.24, every: 26, delay: 14.5 }
-		].map((plane, k) => {
-			const text = SLOGANS[banners[k] % SLOGANS.length];
-			const bw = text.length * 8 + 14;
-			return { ...plane, k, text, bw, fly: w + bw + 80 };
-		})
-	);
-	function nextBanner(k: number, e: AnimationEvent) {
-		if (e.target !== e.currentTarget) return; // the bob inside, not the crossing
-		banners[k] += 2;
-	}
 </script>
 
 <defs>
 	<clipPath id="{uid}-scene">
 		<rect x={x0} y={top} width={w} height={h} />
 	</clipPath>
-	<linearGradient id="{uid}-tail" x1="0" y1="1" x2="1" y2="0">
-		<stop offset="0" stop-color="#fff2c4" stop-opacity="0.95" />
-		<stop offset="1" stop-color="#fff2c4" stop-opacity="0" />
-	</linearGradient>
 </defs>
 
 <g class="scene" clip-path="url(#{uid}-scene)" shape-rendering="crispEdges">
@@ -206,59 +139,21 @@
 			class={['star', s.twinkle && 'twinkle']}
 			style:--every="{s.twinkle ?? 0}s"
 			style:--delay="{s.delay}s"
-			x={Math.round(at(s.x))}
+			x={at(s.x)}
 			y={Math.round(top + s.y * h)}
 			width={s.big ? star * 2 : star}
 			height={s.big ? star * 2 : star}
 		/>
 	{/each}
 
-	<g class="moon" transform="translate({moon.x} {moon.y}) scale({moon.size / 15})">
-		<path class="moon-face" d={MOON} />
-		<path class="moon-craters" d={MOON_CRATERS} />
-	</g>
-
-	{#each METEORS as m, i (i)}
-		{@const len = Math.max(40, w * 0.12)}
-		<g
-			class="meteor"
-			style:--every="{m.every}s"
-			style:--delay="{m.delay}s"
-			style:--dx="{-len * 1.6}px"
-			style:--dy="{len * 0.8}px"
-			transform="translate({at(m.x)} {top + m.y * h})"
-		>
-			<path d="M0 0 L{len * 0.9} {-len * 0.45}" stroke="url(#{uid}-tail)" />
-			<rect x="-1.5" y="-1.5" width="3" height="3" />
-		</g>
-	{/each}
-
-	{#each planes as plane (plane.k)}
-		<g
-			class="plane"
-			style:--every="{plane.every}s"
-			style:--delay="{plane.delay}s"
-			style:--fly="{plane.fly}px"
-			transform="translate({x0 - 40} {Math.round(top + plane.alt * h)})"
-			onanimationiteration={(e) => nextBanner(plane.k, e)}
-		>
-			<g class="bob">
-				<rect class="banner" x={-12 - plane.bw} y="-1" width={plane.bw} height="14" />
-				<text class="banner-text" x={-12 - plane.bw / 2} y="9" text-anchor="middle"
-					>{plane.text}</text
-				>
-				<line class="rope" x1="-12" y1="6" x2="0" y2="6" />
-				<path class="plane-body" d={PLANE} transform="scale({PLANE_PX})" />
-				<rect class="nav-light" x={9 * PLANE_PX} y={1 * PLANE_PX} width="2" height="2" />
-			</g>
-		</g>
-	{/each}
-
-	<g transform="translate({at(TOWER_AT) - (TOWER_W * p) / 2} {bottom - TOWER_H * p}) scale({p})">
+	<g
+		transform="translate({at(TOWER_AT) - Math.round((TOWER_W * p) / 2)} {base -
+			TOWER_H * p}) scale({p})"
+	>
 		<path class="building" d={TOWER} />
 		{#each TOWER_LIGHTS as l, i (i)}
 			<rect
-				class={['window', l.tone, l.blink && 'blink']}
+				class={['window', l.blink && 'blink']}
 				style:--every="{l.blink ?? 0}s"
 				x={l.x}
 				y={l.y}
@@ -271,11 +166,11 @@
 	</g>
 
 	{#each BLOCKS as b (b.share)}
-		<g transform="translate({at(b.share)} {bottom - b.h * p}) scale({p})">
+		<g transform="translate({at(b.share)} {base - b.h * p}) scale({p})">
 			<rect class="building" width={b.w} height={b.h} />
 			{#each b.lights as l, i (i)}
 				<rect
-					class={['window', l.tone, l.blink && 'blink']}
+					class={['window', l.blink && 'blink']}
 					style:--every="{l.blink ?? 0}s"
 					x={l.x}
 					y={l.y}
@@ -288,6 +183,7 @@
 </g>
 
 <style>
+	/* Backdrop only: everything here stays dimmer than the price line. */
 	.scene {
 		pointer-events: none;
 	}
@@ -295,7 +191,7 @@
 	/* Sky. */
 	.star {
 		fill: #fff2c4;
-		opacity: 0.55;
+		opacity: 0.4;
 	}
 	.star.twinkle {
 		animation: twinkle var(--every) ease-in-out var(--delay) infinite;
@@ -305,133 +201,39 @@
 			opacity: 0.08;
 		}
 	}
-	.moon {
-		opacity: 0.22;
-		filter: drop-shadow(0 0 1.5px rgb(255 242 196 / 0.6));
-	}
-	.moon-face {
-		fill: #fff2c4;
-	}
-	.moon-craters {
-		fill: #f0dc96;
-	}
-	.meteor {
-		opacity: 0;
-		animation: meteor var(--every) linear var(--delay) infinite;
-	}
-	.meteor path {
-		fill: none;
-		stroke-width: 2;
-	}
-	.meteor rect {
-		fill: #fff2c4;
-	}
-	@keyframes meteor {
-		0% {
-			opacity: 0;
-			translate: 0 0;
-		}
-		1% {
-			opacity: 1;
-		}
-		7% {
-			opacity: 0;
-			translate: var(--dx) var(--dy);
-		}
-		100% {
-			opacity: 0;
-			translate: var(--dx) var(--dy);
-		}
-	}
-
-	/* Planes towing banners: across the sky in the first 60% of each cycle, then a quiet gap. */
-	.plane {
-		opacity: 0.85;
-		translate: -200vw 0;
-		animation: fly var(--every) linear var(--delay) infinite;
-	}
-	@keyframes fly {
-		0% {
-			translate: 0 0;
-		}
-		60%,
-		100% {
-			translate: var(--fly) 0;
-		}
-	}
-	.bob {
-		animation: bob 2.4s ease-in-out infinite;
-	}
-	@keyframes bob {
-		50% {
-			translate: 0 2px;
-		}
-	}
-	.banner {
-		fill: #fff2c4;
-	}
-	.banner-text {
-		font: 400 8px/1 var(--md-ref-typeface-pixel, monospace);
-		fill: var(--pixel-ink, #050a14);
-	}
-	.rope {
-		stroke: #fff2c4;
-		stroke-width: 1;
-		opacity: 0.6;
-	}
-	.plane-body {
-		fill: var(--md-sys-color-on-surface-variant);
-	}
-	.nav-light {
-		fill: var(--down);
-		animation: blink-light 1s steps(1) infinite;
-	}
 
 	/* City. */
 	.building {
 		fill: color-mix(in srgb, var(--md-sys-color-on-surface) 7%, var(--md-sys-color-surface));
 	}
 	.window {
-		opacity: 0.55;
-	}
-	.window.gold {
 		fill: var(--md-sys-color-tertiary);
-	}
-	.window.cyan {
-		fill: var(--md-sys-color-primary);
-	}
-	.window.pink {
-		fill: var(--down);
+		opacity: 0.32;
 	}
 	.window.blink {
 		animation: office var(--every) steps(1) infinite;
 	}
 	@keyframes office {
-		60% {
-			opacity: 0.05;
+		70% {
+			opacity: 0.08;
 		}
 	}
 	.beacon {
-		fill: var(--down);
-		animation: blink-light 1.6s steps(1) infinite;
+		fill: var(--md-sys-color-tertiary);
+		opacity: 0.8;
+		animation: beacon 2.4s steps(1) infinite;
 	}
-	@keyframes blink-light {
+	@keyframes beacon {
 		50% {
-			opacity: 0.15;
+			opacity: 0.2;
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.star,
-		.window,
-		.beacon,
-		.nav-light,
-		.bob {
+		.star.twinkle,
+		.window.blink,
+		.beacon {
 			animation: none;
-		}
-		.meteor,
-		.plane {
-			display: none;
 		}
 	}
 </style>

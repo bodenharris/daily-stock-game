@@ -260,6 +260,12 @@
 	--md-sys-shape-corner-extra-extra-large: 0px;
 	--md-sys-shape-corner-full: 0px;
 
+	/* Header heights: --scene-h is the home page's WolfScene, --scene-h-compact the one on the
+	   other pages. Layouts may size against them (100dvh minus the header); the queries below
+	   set the other breakpoints. */
+	--scene-h: 192px;
+	--scene-h-compact: 120px;
+
 	/* Typefaces: VT323 for brand and plain alike (one pixel voice); Press Start 2P for the wordmark.
 	   VT323 has a single weight, so the emphasized styles differ by size only (no faux bold:
 	   font-synthesis is off in the base layer). ROND below is a no-op kept for the token shape. */
@@ -425,6 +431,26 @@
 	--md-sys-typescale-emphasized-label-small-size: 0.6875rem;
 	--md-sys-typescale-emphasized-label-small-line-height: 1rem;
 	--md-sys-typescale-emphasized-label-small-tracking: 0.03125rem;
+}
+/* Short phones: the game needs the height more than the sky does. */
+@media (max-height: 700px) and (max-width: 767px) {
+	:root {
+		--scene-h: 164px;
+		--scene-h-compact: 104px;
+	}
+}
+@media (min-width: 768px) {
+	:root {
+		--scene-h: 224px;
+		--scene-h-compact: 136px;
+	}
+}
+/* Laptops: the whole game, chart to call buttons, fits a 900px-tall window. */
+@media (min-width: 1024px) and (max-height: 960px) {
+	:root {
+		--scene-h: 176px;
+		--scene-h-compact: 120px;
+	}
 }
 
 /* ==========================================================================
@@ -1289,6 +1315,16 @@
 	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
 }
 
+/* Page gutters that clear the notch and home indicator: --gutter at least (1rem unless a page
+   sets it per breakpoint), more where the device's safe area needs it. */
+@utility px-safe {
+	padding-left: max(var(--gutter, 1rem), env(safe-area-inset-left));
+	padding-right: max(var(--gutter, 1rem), env(safe-area-inset-right));
+}
+@utility pb-safe {
+	padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
 /* Money and scores: tabular lining figures, so digits don't jiggle while counting. Pair it with a
    type-* style (every style is already VT323, whose digits are fixed-width). It sets no family on
    purpose: utility order in the stylesheet is not class order, so two families would fight. */
@@ -1315,6 +1351,7 @@
 		-webkit-font-smoothing: none;
 		-moz-osx-font-smoothing: grayscale;
 		-webkit-tap-highlight-color: transparent;
+		scrollbar-color: var(--md-sys-color-outline) var(--md-sys-color-surface-container-lowest);
 	}
 	body {
 		@apply min-h-dvh type-body-lg text-on-surface;
@@ -1325,19 +1362,6 @@
 				var(--md-sys-color-surface-container-lowest) 900px
 			)
 			no-repeat var(--md-sys-color-surface-container-lowest);
-	}
-	/* CRT scanlines over everything; purely decorative, never catches a tap. */
-	body::after {
-		content: '';
-		position: fixed;
-		inset: 0;
-		z-index: 100;
-		pointer-events: none;
-		background: repeating-linear-gradient(
-			180deg,
-			transparent 0 2px,
-			color-mix(in srgb, var(--pixel-ink) 22%, transparent) 2px 3px
-		);
 	}
 	img,
 	svg.pixel-art {
@@ -1362,8 +1386,9 @@
 /* ==========================================================================
    6. COMPONENT HELPERS
    ========================================================================== */
-/* State layer + ripple overlay created by `ripple()` / `stateLayer()` (src/lib/m3/ripple.svelte.ts).
-   Values: material-web md-ripple (motion.md §4.2) + current m3 opacities (color.md §3.1). */
+/* State layer created by `stateLayer()` / `ripple()` (src/lib/m3/ripple.svelte.ts): a flat tint
+   on hover, focus and press, switched instantly. There is no radial ripple in the arcade: framed
+   controls sink into their drop instead (section 7), and `ripple()` renders as a flat layer too. */
 [data-m3-ripple] {
 	position: absolute;
 	inset: 0;
@@ -1373,18 +1398,13 @@
 	color: var(--m3-ripple-color, currentColor);
 	-webkit-tap-highlight-color: transparent;
 }
-[data-m3-ripple]::before,
-[data-m3-ripple]::after {
+[data-m3-ripple]::before {
 	content: '';
 	position: absolute;
+	inset: 0;
 	opacity: 0;
 	pointer-events: none;
-}
-/* hover / focus layer */
-[data-m3-ripple]::before {
-	inset: 0;
 	background-color: currentColor;
-	transition: opacity 15ms linear;
 }
 [data-m3-ripple][data-hovered]::before {
 	opacity: var(--md-sys-state-hover-opacity);
@@ -1392,25 +1412,7 @@
 [data-m3-ripple][data-focused]::before {
 	opacity: var(--md-sys-state-focus-opacity);
 }
-/* pressed ripple (geometry + grow animation are driven from JS via the Web Animations API) */
-[data-m3-ripple]::after {
-	background: radial-gradient(
-		closest-side,
-		currentColor max(calc(100% - 70px), 65%),
-		transparent 100%
-	);
-	transform-origin: center center;
-	transition: opacity 375ms linear;
-}
-[data-m3-ripple][data-pressed]::after {
-	opacity: var(--md-sys-state-pressed-opacity);
-	transition-duration: 105ms;
-}
-/* stateLayer(): no ripple, the pressed state is a flat layer */
-[data-m3-ripple][data-no-ripple]::after {
-	display: none;
-}
-[data-m3-ripple][data-no-ripple][data-pressed]::before {
+[data-m3-ripple][data-pressed]::before {
 	opacity: var(--md-sys-state-pressed-opacity);
 }
 :is([disabled], [aria-disabled='true'], [data-disabled]:not([data-disabled='false']))
@@ -1425,26 +1427,53 @@
    Box-shadows sit outside the box, so give framed things ~6px of room. `--frame` recolors it. */
 .pixel-frame {
 	--frame: var(--md-sys-color-primary);
+	--drop: 6px;
 	box-shadow:
 		0 0 0 3px var(--pixel-ink),
 		0 0 0 6px var(--frame),
-		0 6px 0 6px color-mix(in srgb, var(--frame) 25%, var(--pixel-ink)),
+		0 var(--drop) 0 6px color-mix(in srgb, var(--frame) 25%, var(--pixel-ink)),
 		0 0 26px 0 color-mix(in srgb, var(--frame) 30%, transparent);
 }
-/* The quieter panel frame for cards and secondary buttons. */
+/* The quieter panel frame for cards and secondary buttons. `--panel-edge` recolors the border. */
 .pixel-panel {
+	--drop: 4px;
 	box-shadow:
 		0 0 0 2px var(--pixel-ink),
-		0 0 0 4px var(--md-sys-color-outline-variant),
-		0 4px 0 4px var(--md-sys-color-shadow);
+		0 0 0 4px var(--panel-edge, var(--md-sys-color-outline-variant)),
+		0 var(--drop) 0 4px var(--md-sys-color-shadow);
+}
+/* Press: a framed control sinks into its drop at once, like a cabinet button; the bottom edge
+   of the drop stays put. No easing either way. */
+:is(a, button, label, summary).pixel-frame:active:not(:disabled, [aria-disabled='true']) {
+	--drop: 2px;
+	translate: 0 4px;
+	transition: none;
+}
+:is(a, button, label, summary).pixel-panel:active:not(:disabled, [aria-disabled='true']) {
+	--drop: 1px;
+	translate: 0 3px;
+	transition: none;
+}
+/* CRT scanlines, one dark line every 3px (one scene pixel). Paints over the element's own
+   content, never catches a tap; the element needs a position (relative, absolute …). */
+.crt::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(
+		180deg,
+		transparent 0 2px,
+		color-mix(in srgb, var(--pixel-ink) 12%, transparent) 2px 3px
+	);
 }
 /* Glitch title: the pink and cyan halves of the chromatic split, plus a hard ink drop. */
 .glitch-text {
 	color: var(--md-sys-color-on-surface);
 	text-shadow:
-		-3px 0 0 var(--md-ext-color-down),
-		3px 0 0 var(--md-sys-color-primary),
-		0 5px 0 var(--pixel-ink);
+		calc(var(--glitch-split, 3px) * -1) 0 0 var(--md-ext-color-down),
+		var(--glitch-split, 3px) 0 0 var(--md-sys-color-primary),
+		0 var(--glitch-drop, 5px) 0 var(--pixel-ink);
 }
 /* Neon label: cyan, letterspaced, glowing (krillion-style taglines and eyebrows). */
 .neon-text {

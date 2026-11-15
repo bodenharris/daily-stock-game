@@ -11,17 +11,18 @@
 	import WolfScene from '#lib/brand/WolfScene.svelte';
 
 	const view = $derived(await getGame());
-	/** The day's date, newspaper style ("Sat, Nov 14, 2026"). Fixed locale and zone, so the
-	 * server and the browser print the same thing. */
-	const issueDate = $derived(
-		new Date(view.date + 'T12:00:00Z').toLocaleDateString('en-US', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			timeZone: 'UTC'
-		})
-	);
+	/** The day's date, newspaper style ("Sat, Nov 14, 2026"), in parts so narrow phones can drop
+	 * the weekday and year. Fixed locale and zone, so the server and the browser agree. */
+	const issueDate = $derived.by(() => {
+		const d = new Date(view.date + 'T12:00:00Z');
+		const part = (o: Intl.DateTimeFormatOptions) =>
+			d.toLocaleDateString('en-US', { ...o, timeZone: 'UTC' });
+		return {
+			weekday: part({ weekday: 'short' }),
+			day: part({ month: 'short', day: 'numeric' }),
+			year: part({ year: 'numeric' })
+		};
+	});
 	let helpOpen = $state(false);
 	let accountOpen = $state(false);
 
@@ -63,29 +64,42 @@
 
 <div class="flex min-h-dvh flex-col">
 	<WolfScene>
-		<h1 class="glitch-text font-pixel text-[1.375rem] leading-none uppercase md:text-[2.5rem]">
+		<h1
+			class="glitch-text font-pixel text-2xl leading-none uppercase [--glitch-drop:3px] md:text-[2.5rem] md:[--glitch-drop:5px]"
+		>
 			{GAME_NAME}
 		</h1>
-		<p class="neon-text mt-2 type-title-md md:type-title-lg">The daily hunt</p>
-		<p class="type-label-lg tracking-[0.12em] text-on-surface-variant uppercase type-numeric">
-			Issue #{view.number}&ensp;·&ensp;<time datetime={view.date}>{issueDate}</time
-			>{#if view.streak > 1}<span title="Daily streak">&ensp;·&ensp;{view.streak} day streak</span
-				>{/if}
+		<p class="neon-text mt-2 type-title-md md:mt-3 md:type-title-lg">The daily hunt</p>
+		<p
+			class="mt-0.5 type-label-lg tracking-[0.12em] whitespace-nowrap text-on-surface-variant uppercase type-numeric"
+		>
+			Issue #{view.number}&ensp;·&ensp;<time datetime={view.date}
+				><span class="max-[374px]:hidden">{`${issueDate.weekday}, `}</span>{issueDate.day}<span
+					class="max-[374px]:hidden">{`, ${issueDate.year}`}</span
+				></time
+			>
 		</p>
+		{#if view.streak > 1}
+			<p
+				class="text-m3-tertiary type-label-lg tracking-[0.12em] whitespace-nowrap uppercase type-numeric"
+			>
+				{view.streak} day streak
+			</p>
+		{/if}
 		{#snippet actions()}
 			<IconButton
 				class="pixel-panel"
 				variant="tonal"
-				size="xs"
+				size="sm"
 				aria-label="How to play"
 				onclick={openHelp}
 			>
 				<CircleHelp />
 			</IconButton>
 			<IconButton
-				class="pixel-panel hidden sm:inline-flex"
+				class="pixel-panel"
 				variant="tonal"
-				size="xs"
+				size="sm"
 				href="/archive"
 				aria-label="Past charts"
 			>
@@ -94,7 +108,7 @@
 			<IconButton
 				class="pixel-panel"
 				variant="tonal"
-				size="xs"
+				size="sm"
 				href="/stats"
 				aria-label="Live stats"
 			>
@@ -103,7 +117,7 @@
 			<IconButton
 				class="pixel-panel"
 				variant="tonal"
-				size="xs"
+				size="sm"
 				aria-label={view.signedIn ? 'Your account' : 'Save your streak'}
 				onclick={openAccount}
 			>
@@ -112,7 +126,7 @@
 		{/snippet}
 	</WolfScene>
 	<main
-		class="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-4 pb-[env(safe-area-inset-bottom)] md:max-w-2xl md:px-6 lg:max-w-7xl lg:px-8"
+		class="mx-auto flex w-full max-w-md flex-1 flex-col pt-4 px-safe pb-safe md:max-w-2xl md:[--gutter:1.5rem] lg:max-w-7xl lg:[--gutter:2rem]"
 	>
 		<Game {view} />
 	</main>

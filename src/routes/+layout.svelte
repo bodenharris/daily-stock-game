@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import favicon from '#lib/assets/favicon.svg';
 	import { GAME_NAME } from '#lib/game/config.ts';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -41,7 +42,7 @@
 			<p class="text-center type-body-md text-on-surface-variant">
 				{(error as { message?: string })?.message ?? 'Please try again.'}
 			</p>
-			<button class="type-label-lg text-m3-primary underline" onclick={reset}>Try again</button>
+			<Button variant="tonal" size="md" class="pixel-panel mt-4" onclick={reset}>Try again</Button>
 		</main>
 	{/snippet}
 </svelte:boundary>

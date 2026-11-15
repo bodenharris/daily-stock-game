@@ -1,23 +1,34 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import Wolf from '#lib/brand/Wolf.svelte';
 	import { GAME_NAME } from '#lib/game/config.ts';
+
+	const notFound = $derived(page.status === 404);
+	// Our own errors carry a message worth showing; a crash only says "Internal Error".
+	const detail = $derived(
+		page.error?.message && page.error.message !== 'Internal Error'
+			? page.error.message
+			: 'Try again in a moment.'
+	);
 </script>
 
 <svelte:head>
-	<title>{page.status === 404 ? 'Not found' : 'Something went wrong'} · {GAME_NAME}</title>
+	<title>{notFound ? 'Not found' : 'Something went wrong'} · {GAME_NAME}</title>
 </svelte:head>
 
-<main class="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-3 px-6">
-	<p class="type-label-lg text-on-surface-variant type-numeric">{page.status}</p>
-	<h1 class="type-headline-sm-emphasized text-on-surface">
-		{page.status === 404 ? 'Nothing here' : 'Something went wrong'}
+<main
+	class="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center py-12 px-safe text-center"
+>
+	<Wolf />
+	<h1 class="mt-8 type-headline-sm-emphasized text-balance text-on-surface">
+		{notFound ? 'This page got delisted.' : 'Something went sideways.'}
 	</h1>
-	<p class="type-body-lg text-on-surface-variant">
-		{page.error?.message ?? 'Try again in a moment.'}
-	</p>
-	<div class="mt-3 flex gap-2">
-		<Button href="/" variant="filled" size="sm">Today's chart</Button>
-		<Button href="/archive" variant="text" size="sm">Past charts</Button>
+	{#if !notFound}
+		<p class="mt-2 type-body-lg text-balance text-on-surface-variant">{detail}</p>
+	{/if}
+	<div class="mt-10 grid w-full max-w-sm grid-cols-1 gap-6 px-1.5 min-[360px]:grid-cols-2">
+		<Button href="/" variant="filled" size="md" class="pixel-frame">Today's chart</Button>
+		<Button href="/archive" variant="tonal" size="md" class="pixel-panel">Past charts</Button>
 	</div>
 </main>

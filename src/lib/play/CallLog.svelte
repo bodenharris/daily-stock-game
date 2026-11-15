@@ -27,7 +27,7 @@
 		{@const next = i === results.length}
 		<li
 			class={[
-				'row grid min-h-11 grid-cols-[1.75rem_1fr_auto] items-center gap-3 rounded-m3-lg px-3',
+				'row grid grid-cols-[1.75rem_1fr_auto] items-center gap-3 rounded-none px-3',
 				r ? 'bg-surface-container' : next ? 'next' : ''
 			]}
 		>
@@ -39,8 +39,8 @@
 							? 'bg-up text-on-up'
 							: 'bg-down text-on-down'
 						: next
-							? 'bg-surface-container-highest ring-2 ring-outline ring-inset'
-							: 'bg-surface-container-high'
+							? 'bg-surface-container-highest'
+							: 'ring-2 ring-outline ring-inset'
 				]}
 				aria-hidden="true"
 			>
@@ -50,7 +50,12 @@
 							strokeWidth={3}
 						/>{/if}
 				{:else}
-					<span class="type-label-md text-on-surface-variant type-numeric">{i + 1}</span>
+					<span
+						class={[
+							'type-label-lg type-numeric',
+							next ? 'text-on-surface' : 'text-on-surface-variant'
+						]}>{i + 1}</span
+					>
 				{/if}
 			</span>
 			{#if r}
@@ -58,7 +63,7 @@
 					class="flex min-w-0 items-baseline gap-2"
 					in:fly={{ x: -8, duration: 300, easing: cubicOut }}
 				>
-					<span class="flex items-center gap-1 type-label-lg text-on-surface">
+					<span class="flex items-center gap-1 type-title-md text-on-surface">
 						{#if r.direction === 'up'}<ArrowUp class="size-4" strokeWidth={2.5} />{:else}<ArrowDown
 								class="size-4"
 								strokeWidth={2.5}
@@ -66,20 +71,16 @@
 						<span class="sr-only">Call {r.step}: you called</span>
 						{r.direction === 'up' ? 'Up' : 'Down'}
 					</span>
-					<span class="truncate type-body-sm text-on-surface-variant type-numeric">
+					<span class="truncate type-body-md text-on-surface-variant type-numeric">
 						{dollars(r.stakeCents)} bet · price {fmtMove(r.move)}
 					</span>
 				</span>
-				<span
-					class={['type-label-lg type-numeric', r.correct ? 'text-up' : 'text-on-surface-variant']}
-				>
+				<span class={['type-title-md type-numeric', r.correct ? 'text-up' : 'text-down']}>
 					<span class="sr-only">{r.correct ? 'right,' : 'wrong,'}</span>
 					{dollars(r.deltaCents, { sign: true })}
 				</span>
 			{:else}
-				<span
-					class={['type-body-md', next ? 'text-on-surface' : 'text-on-surface-variant opacity-60']}
-				>
+				<span class={['type-body-lg', next ? 'text-on-surface' : 'text-on-surface-variant']}>
 					{next ? 'Your call' : `Call ${i + 1}`}
 				</span>
 				<span></span>
@@ -89,8 +90,17 @@
 </ol>
 
 <style>
+	.row {
+		min-height: 3rem;
+	}
+	@media (max-height: 840px) {
+		.row {
+			min-height: 2.5rem;
+		}
+	}
+	/* The call you're about to make. */
 	.next {
-		outline: 1px dashed var(--md-sys-color-outline-variant);
-		outline-offset: -1px;
+		outline: 2px solid var(--md-sys-color-primary);
+		outline-offset: -2px;
 	}
 </style>

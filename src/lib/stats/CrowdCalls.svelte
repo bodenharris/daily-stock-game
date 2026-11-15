@@ -43,12 +43,10 @@
 				<div class="mt-1.5 flex h-3 gap-0.5">
 					<!-- Green is the side that was right, whichever direction that was. -->
 					<div
-						class={['bar rounded-l-full', upWon ? 'bg-up' : 'bg-surface-container-highest']}
+						class={['bar', upWon ? 'bg-up' : 'bg-surface-container-highest']}
 						style:width="{up}%"
 					></div>
-					<div
-						class={['bar flex-1 rounded-r-full', upWon ? 'bg-surface-container-highest' : 'bg-up']}
-					></div>
+					<div class={['bar flex-1', upWon ? 'bg-surface-container-highest' : 'bg-up']}></div>
 				</div>
 			</div>
 		</li>

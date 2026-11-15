@@ -6,10 +6,10 @@
 	import { getDrawerContext } from './context.js';
 
 	/**
-	 * Sheet surface (navigation-containment.md §8): surface-container-low, level1, 28dp top corners
-	 * (extra-large-top), max width 640dp centered (side margins 56dp on windows > 640dp), 72dp top
-	 * margin (56dp on windows > 640dp). Drag handle 32 × 4dp, on-surface-variant at 40%, with 22dp
-	 * above and below (48dp touch area).
+	 * Sheet surface, as a pixel panel: surface-container-low with a hard 2px outline edge on top
+	 * over an ink keyline, square corners, max width 640px centered, 72px top margin (56px on
+	 * windows > 640px). Drag handle: a square-cornered 32 × 8px block, with 18px above and below
+	 * (48px touch area).
 	 * Motion: show / settle on default-spatial, hide on fast-effects (vaul's own easing is replaced).
 	 */
 	let {
@@ -46,7 +46,7 @@
 		data-slot="drawer-content"
 		data-modal={ctx.modal || undefined}
 		class={cn(
-			'inset-x-0 bottom-0 mx-auto flex w-full max-w-[640px] flex-col rounded-t-m3-xl bg-surface-container-low text-on-surface shadow-m3-1 outline-none',
+			'inset-x-0 bottom-0 mx-auto flex w-full max-w-[640px] flex-col border-t-2 border-outline bg-surface-container-low text-on-surface shadow-[0_-2px_0_0_var(--pixel-ink)] outline-none',
 			// the expressive spring overshoots a little: extend the surface below the bottom edge
 			"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-[200%] after:bg-inherit after:content-['']",
 			// width is relative to the containing block (viewport, `container`, or a transformed frame
@@ -76,7 +76,7 @@
 		{#if showHandle}
 			<DrawerPrimitive.Handle
 				data-slot="drawer-handle"
-				class="my-[22px]! h-1! w-8! shrink-0 rounded-m3-full! bg-on-surface-variant! opacity-40! [&>[data-vaul-handle-hitarea]]:h-12! [&>[data-vaul-handle-hitarea]]:w-12!"
+				class="my-[18px]! h-2! w-8! shrink-0 rounded-none! bg-outline! opacity-100! [&>[data-vaul-handle-hitarea]]:h-12! [&>[data-vaul-handle-hitarea]]:w-12!"
 			/>
 		{/if}
 		{@render children?.()}

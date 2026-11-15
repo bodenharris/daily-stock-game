@@ -85,63 +85,88 @@
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import { IconButton } from '#lib/components/ui/icon-button/index.js';
 	import Wolf from './Wolf.svelte';
 
-	/** `children`: the title block. `actions`: buttons pinned top right. */
-	let { children, actions }: { children: Snippet; actions?: Snippet } = $props();
+	/**
+	 * The home page's title screen: `children` is the title block, `actions` the buttons pinned
+	 * top right. With `title` it is the compact strip for the inner pages instead: a back button
+	 * (`back`), the page `title` with `children` as the line under it, and a smaller wolf;
+	 * `maxWidth` lines it up with a page column wider than 42rem.
+	 * Heights come from --scene-h / --scene-h-compact in layout.css, which other layouts size
+	 * against.
+	 */
+	let {
+		children,
+		actions,
+		title,
+		back,
+		maxWidth
+	}: {
+		children: Snippet;
+		actions?: Snippet;
+		title?: string;
+		back?: { href: string; label: string };
+		maxWidth?: string;
+	} = $props();
+
+	const compact = $derived(title != null);
 </script>
 
-<header class="scene">
-	<svg
-		class="backdrop pixel-art"
-		viewBox="0 0 {W} {H}"
-		width={W * PX}
-		height={H * PX}
-		shape-rendering="crispEdges"
-		aria-hidden="true"
-	>
-		{#each SKY as fill, i (fill)}
-			<rect x="0" y={i * band} width={W} height={band} {fill} />
-		{/each}
-		{#each stars as s, i (i)}
-			<rect class={['star', s.bright && 'bright']} x={s.x} y={s.y} width="1" height="1" />
-		{/each}
-		<g class="clouds">
-			{#each clouds as c, i (i)}
-				{#each c.rows as [off, w], r (r)}
-					<rect x={c.x + off} y={c.y + r} width={w} height="1" fill="#4a2f7a" />
+<header class={['scene', compact && 'compact']} style:--scene-max={maxWidth}>
+	<div class="sky crt">
+		<svg
+			class="backdrop pixel-art"
+			viewBox="0 0 {W} {H}"
+			width={W * PX}
+			height={H * PX}
+			shape-rendering="crispEdges"
+			aria-hidden="true"
+		>
+			{#each SKY as fill, i (fill)}
+				<rect x="0" y={i * band} width={W} height={band} {fill} />
+			{/each}
+			{#each stars as s, i (i)}
+				<rect class={['star', s.bright && 'bright']} x={s.x} y={s.y} width="1" height="1" />
+			{/each}
+			<g class="clouds">
+				{#each clouds as c, i (i)}
+					{#each c.rows as [off, w], r (r)}
+						<rect x={c.x + off} y={c.y + r} width={w} height="1" fill="#4a2f7a" />
+					{/each}
+					<rect
+						x={c.x + 1}
+						y={c.y + c.rows.length}
+						width={c.rows[2][1] - 2}
+						height="1"
+						fill="#2f2160"
+					/>
 				{/each}
-				<rect
-					x={c.x + 1}
-					y={c.y + c.rows.length}
-					width={c.rows[2][1] - 2}
-					height="1"
-					fill="#2f2160"
-				/>
+			</g>
+			{#each buildings as b, i (i)}
+				<rect x={b.x} y={H - b.h} width={b.w} height={b.h} fill={b.tone} />
+				<rect x={b.x} y={H - b.h} width={b.w} height="1" fill="#1d2a55" />
+				{#if b.spire}
+					<rect x={b.x + Math.floor(b.w / 2)} y={H - b.h - 5} width="1" height="5" fill="#1d2a55" />
+					<rect class="beacon" x={b.x + Math.floor(b.w / 2)} y={H - b.h - 6} width="1" height="1" />
+				{/if}
+				{#each b.windows as w, j (j)}
+					<rect
+						x={w.x}
+						y={w.y}
+						width="1"
+						height="1"
+						fill={j % 5 === 0 ? '#4de3ff' : '#ffd23f'}
+						opacity={j % 3 === 0 ? 0.55 : 0.9}
+					/>
+				{/each}
 			{/each}
-		</g>
-		{#each buildings as b, i (i)}
-			<rect x={b.x} y={H - b.h} width={b.w} height={b.h} fill={b.tone} />
-			<rect x={b.x} y={H - b.h} width={b.w} height="1" fill="#1d2a55" />
-			{#if b.spire}
-				<rect x={b.x + Math.floor(b.w / 2)} y={H - b.h - 5} width="1" height="5" fill="#1d2a55" />
-				<rect class="beacon" x={b.x + Math.floor(b.w / 2)} y={H - b.h - 6} width="1" height="1" />
-			{/if}
-			{#each b.windows as w, j (j)}
-				<rect
-					x={w.x}
-					y={w.y}
-					width="1"
-					height="1"
-					fill={j % 5 === 0 ? '#4de3ff' : '#ffd23f'}
-					opacity={j % 3 === 0 ? 0.55 : 0.9}
-				/>
+			{#each front as f, i (i)}
+				<rect x={f.x} y={H - f.h} width={f.w} height={f.h} fill="#070d1f" />
 			{/each}
-		{/each}
-		{#each front as f, i (i)}
-			<rect x={f.x} y={H - f.h} width={f.w} height={f.h} fill="#070d1f" />
-		{/each}
-	</svg>
+		</svg>
+	</div>
 
 	<div class="inner">
 		<div class="hero">
@@ -157,11 +182,29 @@
 				/>
 				<path fill="#f0dc96" d="M4 4h2v2H4zM9 8h3v2H9zM5 10h1v1H5z" />
 			</svg>
-			<Wolf scale={PX} class="wolf" />
+			<Wolf scale={compact ? 2 : PX} class="wolf" />
 		</div>
-		<div class="title">
-			{@render children()}
-		</div>
+		{#if compact}
+			<div class="bar">
+				{#if back}
+					<IconButton
+						class="pixel-panel"
+						variant="tonal"
+						size="sm"
+						href={back.href}
+						aria-label={back.label}
+					>
+						<ArrowLeft />
+					</IconButton>
+				{/if}
+				<div class="title">
+					<h1 class="page-title glitch-text font-pixel">{title}</h1>
+					<p class="sub type-label-lg type-numeric">{@render children()}</p>
+				</div>
+			</div>
+		{:else}
+			<div class="title">{@render children()}</div>
+		{/if}
 		{#if actions}
 			<div class="actions">{@render actions()}</div>
 		{/if}
@@ -171,7 +214,7 @@
 <style>
 	.scene {
 		position: relative;
-		height: 192px;
+		height: var(--scene-h);
 		overflow: hidden;
 		background: #0b1430;
 		/* the street line where the sky meets the game */
@@ -179,6 +222,14 @@
 		box-shadow:
 			0 3px 0 0 color-mix(in srgb, var(--md-sys-color-primary) 70%, transparent),
 			0 6px 18px 0 color-mix(in srgb, var(--md-sys-color-primary) 25%, transparent);
+	}
+	.scene.compact {
+		height: var(--scene-h-compact);
+	}
+	.sky {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
 	}
 	.backdrop {
 		position: absolute;
@@ -227,56 +278,69 @@
 		margin-inline: auto;
 		width: 100%;
 		max-width: 28rem;
-		padding-inline: 1rem;
 		padding-top: env(safe-area-inset-top);
 	}
 	.hero {
 		position: absolute;
 		bottom: 0;
-		left: 0.75rem;
-	}
-	.moon {
-		position: absolute;
-		/* up and to the right of his ears: the moon he would howl at, if he weren't at work */
-		width: 45px;
-		height: 45px;
-		left: calc(100% + 6px);
-		top: -36px;
-		filter: drop-shadow(0 0 14px rgb(255 242 196 / 0.45));
+		left: max(0.75rem, env(safe-area-inset-left));
 	}
 	.hero :global(.wolf) {
 		position: relative;
 		filter: drop-shadow(3px 0 0 var(--pixel-ink)) drop-shadow(-3px 0 0 var(--pixel-ink));
 	}
-	.title {
+	.moon {
 		position: absolute;
-		inset: 3rem 0.5rem auto 6.5rem;
+		width: 45px;
+		height: 45px;
+		filter: drop-shadow(0 0 14px rgb(255 242 196 / 0.45));
+		/* phones: high over his head, clear of the title (117px is his height) */
+		left: 2.25rem;
+		top: calc(117px + max(0.625rem, env(safe-area-inset-top)) - var(--scene-h));
+	}
+	.title {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		text-align: center;
-		gap: 0.25rem;
+	}
+	/* Phones: the title sits right of the wolf and below the buttons, so neither covers it. */
+	.inner > .title {
+		position: absolute;
+		top: calc(4rem + env(safe-area-inset-top));
+		left: 6rem;
+		right: max(0.5rem, env(safe-area-inset-right));
 	}
 	.actions {
 		position: absolute;
 		top: calc(0.5rem + env(safe-area-inset-top));
-		right: 0.75rem;
+		right: max(0.75rem, env(safe-area-inset-right));
 		display: flex;
+		/* 40px buttons 8px apart: their 48px touch targets meet but never overlap */
 		gap: 0.5rem;
 	}
-	@media (min-width: 768px) {
-		.scene {
-			height: 224px;
+	@media (max-height: 700px) and (max-width: 767px) {
+		.inner > .title {
+			top: calc(3.75rem + env(safe-area-inset-top));
 		}
+	}
+	@media (min-width: 768px) {
 		.inner {
 			max-width: 42rem;
 			padding-inline: 1.5rem;
 		}
-		.title {
-			inset: 3.5rem 0 auto 0;
-		}
 		.hero {
 			left: 1.5rem;
+		}
+		/* up and to the right of his ears: the moon he would howl at, if he weren't at work */
+		.moon {
+			left: calc(100% + 6px);
+			top: -36px;
+		}
+		.inner > .title {
+			top: 3.5rem;
+			left: 0;
+			right: 0;
 		}
 	}
 	@media (min-width: 1024px) {
@@ -288,13 +352,94 @@
 			left: 4rem;
 		}
 	}
-	/* Short phones: the game needs the height more than the sky does. */
-	@media (max-height: 700px) and (max-width: 767px) {
-		.scene {
-			height: 164px;
+	@media (min-width: 1024px) and (max-height: 960px) {
+		.inner > .title {
+			top: 1.75rem;
 		}
-		.title {
-			top: 2.75rem;
+	}
+
+	/* Compact: a back button and the page title on the left, a smaller wolf on the right. The
+	   title row ends above his ears, so it may run over him on the narrowest phones. */
+	.compact .hero {
+		left: auto;
+		right: max(1.25rem, env(safe-area-inset-right));
+	}
+	.compact .moon {
+		display: none;
+		width: 30px;
+		height: 30px;
+		left: -42px;
+		top: -10px;
+	}
+	.compact .bar {
+		position: absolute;
+		top: calc(1rem + env(safe-area-inset-top));
+		left: max(1rem, env(safe-area-inset-left));
+		right: max(1rem, env(safe-area-inset-right));
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+	.compact .title {
+		align-items: flex-start;
+		min-width: 0;
+		text-align: start;
+	}
+	/* Press Start 2P on its 8px grid: 16px, so the 2px split and drop are one font pixel */
+	.page-title {
+		--glitch-split: 2px;
+		--glitch-drop: 2px;
+		font-size: 1rem;
+		line-height: 1;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+	.sub {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+		color: var(--md-sys-color-on-surface-variant);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		white-space: nowrap;
+		text-shadow: 0 2px 0 var(--pixel-ink);
+	}
+	/* the narrowest phones: a little more room between the title and his ears */
+	@media (max-width: 359px) {
+		.compact .bar {
+			gap: 0.75rem;
+		}
+		.compact .hero {
+			right: max(0.5rem, env(safe-area-inset-right));
+		}
+	}
+	@media (min-width: 768px) {
+		.compact .bar {
+			top: 1.75rem;
+			left: 1.5rem;
+		}
+		.compact .hero {
+			right: 2.5rem;
+		}
+		.compact .moon {
+			display: block;
+		}
+		.page-title {
+			--glitch-split: 3px;
+			--glitch-drop: 3px;
+			font-size: 1.5rem;
+		}
+	}
+	@media (min-width: 1024px) {
+		.compact .inner {
+			max-width: var(--scene-max, 42rem);
+		}
+		.compact .bar {
+			left: 2rem;
+		}
+		.compact .hero {
+			right: 4rem;
 		}
 	}
 </style>
