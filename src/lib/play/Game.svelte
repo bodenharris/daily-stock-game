@@ -14,11 +14,23 @@
 	import CallLog from './CallLog.svelte';
 	import Reveal from './Reveal.svelte';
 	import NameIt from './NameIt.svelte';
+	import MarkerLayer from './MarkerLayer.svelte';
+	import { Marker } from './marker.svelte.ts';
+	import { IconButton } from '#lib/components/ui/icon-button/index.js';
+	import Highlighter from '@lucide/svelte/icons/highlighter';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import Eraser from '@lucide/svelte/icons/eraser';
 	import { dollars, percent } from './money.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
 
 	/** `archive`: a past day played from the archive, not today's chart. */
 	let { view, archive = false }: { view: GameView; archive?: boolean } = $props();
+
+	/** The red marker: the player's own notes on today's chart, kept in this browser. */
+	const marker = new Marker();
+	$effect(() => {
+		marker.load(`thewolf:marks:${view.number}`);
+	});
 
 	/** How long the chart takes to draw a new stretch. Everything else waits for it. */
 	const DRAW_MS = 900;
@@ -261,7 +273,28 @@
 					? { dates: view.reveal.dates, closes: view.reveal.closes }
 					: null}
 				ticker={showReveal ? (view.reveal?.ticker ?? null) : null}
-			/>
+			>
+				{#snippet tools()}
+					<IconButton
+						size="xs"
+						toggle
+						bind:pressed={marker.active}
+						aria-label={marker.active ? 'Stop drawing' : 'Draw on the chart with a red marker'}
+						title="Red marker"
+					>
+						<Highlighter />
+					</IconButton>
+					{#if marker.strokes.length > 0}
+						<IconButton size="xs" aria-label="Undo the last mark" onclick={() => marker.undo()}>
+							<Undo2 />
+						</IconButton>
+						<IconButton size="xs" aria-label="Clear all marks" onclick={() => marker.clear()}>
+							<Eraser />
+						</IconButton>
+					{/if}
+				{/snippet}
+			</PriceChart>
+			<MarkerLayer {marker} />
 		</div>
 	</div>
 

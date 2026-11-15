@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { area, curveLinear, line } from 'd3-shape';
 	import { Spring, Tween, prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
@@ -21,6 +21,8 @@
 		labels?: { dates: string[]; closes: number[] } | null;
 		/** The real ticker, once unmasked. Until then the tape shows "???". */
 		ticker?: string | null;
+		/** Buttons for the right end of the ticker tape (the marker's). */
+		tools?: Snippet;
 		class?: string;
 	}
 
@@ -32,6 +34,7 @@
 		pending = null,
 		labels = null,
 		ticker = null,
+		tools,
 		class: className = ''
 	}: Props = $props();
 
@@ -41,7 +44,7 @@
 	const finished = $derived(callsMade >= shape.calls);
 
 	/** Height of the ticker tape across the top of the chart. */
-	const TAPE_H = 26;
+	const TAPE_H = 32;
 
 	const frame: Frame = $derived({
 		width,
@@ -273,18 +276,13 @@
 	aria-label={summary}
 >
 	<!-- Ticker tape: the story so far, scrolling like the board on a trading floor. -->
-	<div
-		class="tape"
-		style:height="{TAPE_H}px"
-		style:--tape-s="{tape.length * 3.5}s"
-		aria-hidden="true"
-	>
-		<span class="tape-symbol">
+	<div class="tape" style:height="{TAPE_H}px" style:--tape-s="{tape.length * 3.5}s">
+		<span class="tape-symbol" aria-hidden="true">
 			<span class={['live', finished && 'closed']}></span>
 			{ticker ?? '???'}
 			<span class="tape-state">{finished ? 'CLOSED' : 'LIVE'}</span>
 		</span>
-		<div class="tape-window">
+		<div class="tape-window" aria-hidden="true">
 			<div class="tape-track">
 				{#each [0, 1] as copy (copy)}
 					<div class="tape-copy">
@@ -308,6 +306,9 @@
 				{/each}
 			</div>
 		</div>
+		{#if tools}
+			<div class="tape-tools">{@render tools()}</div>
+		{/if}
 	</div>
 
 	{#if width > 0 && height > 0}
@@ -735,10 +736,18 @@
 	}
 
 	/* The tape. */
+	.tape-tools {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: 2px;
+		padding: 0 2px;
+		background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+	}
 	.tape {
 		position: absolute;
 		inset: 0 0 auto;
-		z-index: 1;
+		z-index: 3; /* over the marker layer, so its buttons stay reachable while drawing */
 		display: flex;
 		align-items: stretch;
 		overflow: hidden;
