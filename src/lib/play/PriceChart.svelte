@@ -150,12 +150,6 @@
 	/** True while a stretch is drawing itself in. */
 	const drawing = $derived(drawEnd.current < lastIndex - 0.01);
 
-	/** The last day closed down, and the line has finished drawing it: the wolf howls. */
-	const howl = $derived.by(() => {
-		const last = segments.find((s) => s.step === shape.calls);
-		return !!last && last.drawn && last.move < 0;
-	});
-
 	/**
 	 * The last-price tag on the right edge, like a trading terminal. It shows the move of the
 	 * stretch the line is in, ticking as the line draws (or the real price once unmasked).
@@ -351,7 +345,6 @@
 				x1={width - frame.padRight}
 				top={frame.padTop - 4}
 				bottom={height - frame.padBottom + 4}
-				{howl}
 			/>
 			{#if !labels}
 				<text class="watermark" x={width - frame.padRight - 4} y={height - frame.padBottom - 2}
