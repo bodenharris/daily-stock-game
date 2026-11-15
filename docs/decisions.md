@@ -153,6 +153,7 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 - **Nothing identifying is sent before the guess.** The view withholds the reveal (ticker, company, dates, story, prices) until the guess or skip is stored on the game. Options are sent as headlines only, and the guess is sent back as an index. If the options can't be built, the reveal goes out anyway rather than blocking the ending.
 - **Existing games count as skipped.** The new column was added with '' (skipped) for existing rows, then its default was dropped, so nobody who already saw today's reveal gets asked. The migration only adds.
 - **Accepted:** decoys are other catalog headlines, so the options hint at moments that may come up on later days. They never show which day, or the chart.
+- **Name it says how much time the chart covers** ("3 months of daily prices, then 5 calls of a week each"). A playtester couldn't tell the timeframe: the call prompt that named each call's length is gone by then, and the calls share the chart's width equally, so a day and a month look the same. Lengths are no secret; dates still wait for the reveal.
 
 ## Past charts instead of the bonus round
 - **The Real or Random bonus round is gone.** It was a second game bolted onto the ending, and it competed with the share button. Its code is deleted. Its columns on `games` stay, unused, because migrations only add.

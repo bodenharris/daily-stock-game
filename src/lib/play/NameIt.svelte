@@ -14,11 +14,14 @@
 	let {
 		number,
 		nameIt,
+		timeframe,
 		archive = false,
 		onAnswered
 	}: {
 		number: number;
 		nameIt: NameIt;
+		/** What the chart covers, e.g. "3 months of daily prices, then 5 calls of a week each." */
+		timeframe: string;
 		archive?: boolean;
 		onAnswered: (named: boolean) => void;
 	} = $props();
@@ -68,6 +71,11 @@
 	>
 		<h2 class="type-title-lg-emphasized text-on-surface">Name the moment</h2>
 		<p class="type-body-md text-on-surface-variant">Which one was it? Just for bragging rights.</p>
+		<!-- The calls share the chart's width equally, so the chart alone can't show how long they were. -->
+		<p class="mt-2 type-body-sm text-on-surface-variant">
+			<span class="font-medium text-on-surface">The chart:</span>
+			{timeframe}
+		</p>
 	</div>
 
 	<div class="flex flex-col gap-2" role="group" aria-label="Which moment was this?">
