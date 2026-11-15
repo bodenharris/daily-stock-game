@@ -21,6 +21,18 @@ export interface Frame {
 	contextShare: number;
 }
 
+/**
+ * A point in the chart's own terms: a (fractional) bar index and a log price. Pinned to the
+ * data, it stays put on the line however the chart is sized or scaled.
+ */
+export type ChartPoint = [bar: number, logPrice: number];
+
+/** A chart's live scale, for layers drawn over it. */
+export interface ChartProjection {
+	toPx(p: ChartPoint): [x: number, y: number];
+	fromPx(px: [x: number, y: number]): ChartPoint;
+}
+
 export function plotWidth(f: Frame) {
 	return Math.max(1, f.width - f.padLeft - f.padRight);
 }
@@ -33,6 +45,17 @@ export function xFor(i: number, shape: ChartShape, f: Frame): number {
 	const last = shape.contextBars - 1;
 	if (i <= last) return f.padLeft + (last === 0 ? contextW : (i / last) * contextW);
 	return f.padLeft + contextW + ((i - last) / shape.stepBars) * slotW;
+}
+
+/** The (fractional) bar index at x: the inverse of `xFor`, carried on past both ends. */
+export function barFor(x: number, shape: ChartShape, f: Frame): number {
+	const w = plotWidth(f);
+	const contextW = w * f.contextShare;
+	const slotW = (w - contextW) / shape.calls;
+	const last = shape.contextBars - 1;
+	const dx = x - f.padLeft;
+	if (dx <= contextW && last > 0) return (dx / contextW) * last;
+	return last + ((dx - contextW) / slotW) * shape.stepBars;
 }
 
 /** Left and right x of call slot `step` (1-based). */

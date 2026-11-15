@@ -306,8 +306,10 @@
 						</IconButton>
 					{/if}
 				{/snippet}
+				{#snippet overlay(projection)}
+					<MarkerLayer {marker} {projection} />
+				{/snippet}
 			</PriceChart>
-			<MarkerLayer {marker} />
 		</div>
 	</div>
 
