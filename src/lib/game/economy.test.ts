@@ -202,7 +202,7 @@ describe('settleCall', () => {
 	});
 
 	it('rounds the bonus down to whole dollars', () => {
-		// stake $33; bonus 33 x 0.55 x 40% = $7.26 -> $7
+		// stake $33; bonus $133 x 25% x 0.55 x 40% = $7.315 -> $7
 		const s = settleCall({
 			balanceCents: 13_300,
 			stakePercent: 25,

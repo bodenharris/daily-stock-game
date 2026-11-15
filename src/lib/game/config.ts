@@ -22,8 +22,9 @@ export interface StakeOption {
 	readonly percent: number;
 	/**
 	 * Share of the crowd bonus (multiplier - 1) this chip earns on a right call, in percent.
-	 * A right call always wins the stake as profit; on top it wins
-	 * stake x (multiplier - 1) x payoutPercent / 100. So a right call never pays below 1.00x.
+	 * A right call always wins the stake as profit; on top it wins balance x percent / 100 x
+	 * (multiplier - 1) x payoutPercent / 100, rounded down to whole dollars (worked out before the
+	 * stake is rounded, so it's the same on every chip). So a right call never pays below 1.00x.
 	 */
 	readonly payoutPercent: number;
 }
