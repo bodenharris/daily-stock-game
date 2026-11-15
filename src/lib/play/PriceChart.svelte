@@ -4,7 +4,16 @@
 	import { Spring, Tween, prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 	import type { CallResult, Direction } from './types.ts';
-	import { domainFor, pointsFor, slotBounds, xFor, type ChartShape, type Frame } from './layout.ts';
+	import {
+		barFor,
+		domainFor,
+		pointsFor,
+		slotBounds,
+		xFor,
+		type ChartProjection,
+		type ChartShape,
+		type Frame
+	} from './layout.ts';
 	import ChartScenery from './ChartScenery.svelte';
 
 	interface Props {
@@ -23,6 +32,11 @@
 		ticker?: string | null;
 		/** Buttons for the right end of the ticker tape (the marker's). */
 		tools?: Snippet;
+		/**
+		 * Drawn over the plot (the marker's layer), given the chart's live scale so whatever it
+		 * draws stays pinned to the prices as the range grows.
+		 */
+		overlay?: Snippet<[ChartProjection]>;
 		class?: string;
 	}
 
@@ -35,6 +49,7 @@
 		labels = null,
 		ticker = null,
 		tools,
+		overlay,
 		class: className = ''
 	}: Props = $props();
 
@@ -106,6 +121,19 @@
 	const y = (logValue: number) => {
 		const h = Math.max(1, height - frame.padTop - frame.padBottom);
 		return frame.padTop + (1 - (logValue - lo.current) / (hi.current - lo.current || 1)) * h;
+	};
+
+	/**
+	 * The chart's scale for overlays: chart points to pixels and back. It reads the live range,
+	 * so anything drawn through it eases along with the line when the range grows.
+	 */
+	const projection: ChartProjection = {
+		toPx: ([bar, logValue]) => [x(bar), y(logValue)],
+		fromPx: ([px, py]) => {
+			const h = Math.max(1, height - frame.padTop - frame.padBottom);
+			const span = hi.current - lo.current || 1;
+			return [barFor(px, shape, frame), lo.current + (1 - (py - frame.padTop) / h) * span];
+		}
 	};
 
 	const pathOf = line<[number, number]>()
@@ -539,6 +567,7 @@
 			{/if}
 		</svg>
 	{/if}
+	{@render overlay?.(projection)}
 </div>
 
 <style>

@@ -1,34 +1,44 @@
 <script lang="ts">
 	import { curveCatmullRom, line } from 'd3-shape';
+	import type { ChartPoint, ChartProjection } from './layout.ts';
 	import type { Marker } from './marker.svelte.ts';
 
-	let { marker }: { marker: Marker } = $props();
+	/** `projection`: the chart's live scale, which the strokes are pinned to. */
+	let { marker, projection }: { marker: Marker; projection: ChartProjection } = $props();
 
 	let width = $state(0);
 	let height = $state(0);
 	let drawing = false;
 	let lastPx: [number, number] | null = null;
 
-	const toPath = $derived(
-		line<[number, number]>()
-			.x((p) => p[0] * width)
-			.y((p) => p[1] * height)
-			.curve(curveCatmullRom.alpha(0.5))
-	);
+	const toPath = line().curve(curveCatmullRom.alpha(0.5));
+	// Mapped through the live scale, so when a call widens the chart's range the strokes ease
+	// along with the line instead of staying where they were on screen.
 	const paths = $derived(
-		marker.strokes.map((s) =>
-			// A tap leaves a dot: a zero-length segment that the round cap turns into one.
-			s.length === 1 ? `M${s[0][0] * width} ${s[0][1] * height}h0.01` : (toPath(s) ?? '')
-		)
+		width > 0 && height > 0
+			? marker.strokes.map((s) => {
+					const px = s.map(projection.toPx);
+					// A tap leaves a dot: a zero-length segment that the round cap turns into one.
+					return px.length === 1 ? `M${px[0][0]} ${px[0][1]}h0.01` : (toPath(px) ?? '');
+				})
+			: []
 	);
 
-	const clamp = (v: number) => Math.min(1, Math.max(0, v));
-	/** A pointer position as rounded shares of the layer (small to store, still smooth). */
-	function at(e: PointerEvent, el: HTMLElement): { p: [number, number]; px: [number, number] } {
+	// Marks saved before they were pinned to the chart: pin them where they show now.
+	$effect(() => {
+		if (!marker.boxStrokes || width === 0 || height === 0) return;
+		marker.adopt(([sx, sy]) => projection.fromPx([sx * width, sy * height]));
+	});
+
+	const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
+	/** A pointer position on the layer, in pixels and as a point on the chart. */
+	function at(e: PointerEvent, el: HTMLElement): { p: ChartPoint; px: [number, number] } {
 		const r = el.getBoundingClientRect();
-		const px: [number, number] = [e.clientX - r.left, e.clientY - r.top];
-		const round = (v: number) => Math.round(clamp(v) * 10_000) / 10_000;
-		return { p: [round(px[0] / r.width), round(px[1] / r.height)], px };
+		const px: [number, number] = [
+			clamp(e.clientX - r.left, r.width),
+			clamp(e.clientY - r.top, r.height)
+		];
+		return { p: projection.fromPx(px), px };
 	}
 
 	function down(e: PointerEvent & { currentTarget: HTMLDivElement }) {
