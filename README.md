@@ -6,8 +6,8 @@ One famous market chart a day, hidden. Five up-or-down calls with real stakes. T
 
 - **[Svelte](https://svelte.dev)** (Svelte 5) - frontend framework
 - **[SvelteKit](https://svelte.dev/docs/kit)** (SvelteKit 3, `adapter-node`, remote functions) - full-stack framework
-- **[Tailwind CSS](https://tailwindcss.com)** (Tailwind 4) - styling, with Material 3 Expressive tokens in `src/routes/layout.css`
-- **[shadcn-svelte](https://shadcn-svelte.com)** - UI components (built on **[bits-ui](https://bits-ui.com)**), restyled as M3 Expressive
+- **[Tailwind CSS](https://tailwindcss.com)** (Tailwind 4) - styling, with the arcade pixel theme (M3 token names, hand-tuned values) in `src/routes/layout.css`
+- **[shadcn-svelte](https://shadcn-svelte.com)** - UI components (built on **[bits-ui](https://bits-ui.com)**), restyled to the pixel theme
 - **[Tiger Data](https://www.tigerdata.com)** (PostgreSQL + TimescaleDB + Toolkit) - the only database: hypertables, columnstore compression, continuous aggregates
 - **[Drizzle ORM](https://orm.drizzle.team)** - schema and migrations (`generate` + `migrate`, never `push`)
 - **[Better Auth](https://www.better-auth.com)** - email and password, plus the anonymous plugin

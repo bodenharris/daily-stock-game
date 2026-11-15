@@ -4,8 +4,8 @@
 	"description": "One famous stock chart a day, name hidden. Five up-or-down calls on what it did next.",
 	"start_url": "/",
 	"display": "standalone",
-	"background_color": "#f7fbf2",
-	"theme_color": "#36693e",
+	"background_color": "#0a1428",
+	"theme_color": "#0b1430",
 	"icons": [
 		{
 			"src": "/icon-192.png",

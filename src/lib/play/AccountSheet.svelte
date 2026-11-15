@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { TextField } from '#lib/components/ui/text-field/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
 	import { authClient } from '#lib/auth-client.ts';
 	import { getGame } from '#lib/remote/game.remote.ts';
 	import Sheet from './Sheet.svelte';
@@ -74,28 +75,31 @@
 		</Button>
 	{:else}
 		<form class="flex flex-col gap-4" onsubmit={submit}>
-			<TextField
-				class="w-full"
-				label="Email"
-				type="email"
-				autocomplete="email"
-				required
-				bind:value={email}
-			/>
-			<TextField
-				class="w-full"
-				label="Password"
-				type="password"
-				autocomplete={mode === 'signup' ? 'new-password' : 'current-password'}
-				minlength={8}
-				required
-				supportingText={mode === 'signup' ? 'At least 8 characters' : undefined}
-				bind:value={password}
-			/>
+			<div class="flex flex-col gap-1.5">
+				<Label for="account-email">Email</Label>
+				<Input id="account-email" type="email" autocomplete="email" required bind:value={email} />
+			</div>
+			<div class="flex flex-col gap-1.5">
+				<Label for="account-password">Password</Label>
+				<Input
+					id="account-password"
+					type="password"
+					autocomplete={mode === 'signup' ? 'new-password' : 'current-password'}
+					minlength={8}
+					required
+					aria-describedby={mode === 'signup' ? 'account-password-hint' : undefined}
+					bind:value={password}
+				/>
+				{#if mode === 'signup'}
+					<p id="account-password-hint" class="type-body-sm text-on-surface-variant">
+						At least 8 characters
+					</p>
+				{/if}
+			</div>
 			{#if error}
 				<p class="type-body-sm text-error" role="alert">{error}</p>
 			{/if}
-			<Button type="submit" variant="filled" size="md" disabled={busy}>
+			<Button type="submit" variant="filled" size="md" class="pixel-frame mt-2" disabled={busy}>
 				{mode === 'signup' ? 'Create account' : 'Sign in'}
 			</Button>
 			<Button

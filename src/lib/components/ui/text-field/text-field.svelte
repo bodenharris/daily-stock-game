@@ -64,7 +64,7 @@
 <script lang="ts">
 	import { cn } from '#lib/utils.js';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
-	import { ripple } from '#lib/m3/ripple.svelte.js';
+	import { stateLayer } from '#lib/m3/ripple.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -259,7 +259,7 @@
 			aria-label={aria}
 			{disabled}
 			{onclick}
-			{@attach ripple()}
+			{@attach stateLayer()}
 		>
 			<IconCmp class="size-6" aria-hidden="true" />
 		</button>

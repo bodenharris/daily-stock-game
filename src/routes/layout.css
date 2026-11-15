@@ -1,330 +1,150 @@
 /*
- * Design tokens: M3 Expressive, one fixed green scheme, light + dark from the system setting.
+ * Design tokens: The Wolf's arcade look (pixel type, square corners, hard-edged frames on night
+ * navy) laid over the M3 token structure, so every component keeps its role names.
  * Ported from material-expressive-svelte (docs/foundation.md there), minus the runtime theming.
  * Section references such as "color.md §3" point to docs/research/*.md in that repo.
  *
  * Layers:
- *   1. --md-sys-* / --md-ref-* custom properties (material-web naming). The color block is generated
- *      by src/lib/m3/generate-scheme.ts (seed #2E6B3A, TonalSpot) and must not be edited by hand.
+ *   1. --md-sys-* / --md-ref-* custom properties (material-web naming). The color block is one
+ *      hand-tuned dark palette (section 1).
  *   2. Game roles (--up, --down, --chart-*) and the shadcn bridge (--background, --primary, ...),
  *      all aliases of M3 roles.
  *   3. @theme inline: Tailwind utilities (bg-primary-container, bg-up, text-down, type-title-md,
  *      rounded-m3-xl, shadow-m3-2, ease-spring-fast-spatial, duration-spring-fast-spatial, ...).
  *
- * Dark mode follows `prefers-color-scheme` only (no toggle, no JS, no flash). `.dark` / `.light`
- * force a scheme on a subtree (used by /dev/design to show both side by side).
+ * Always dark, like an arcade cabinet: there is no light scheme. Shape tokens are all 0 and the
+ * elevation tokens are hard pixel frames, so rounded-m3-* and shadow-m3-* turn pixel on their own.
  */
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn-svelte/tailwind.css';
 
-/* `dark:` = system dark (unless inside `.light`) or inside a forced `.dark` subtree. */
-@custom-variant dark {
-	@media (prefers-color-scheme: dark) {
-		&:not(:where(.light, .light *)) {
-			@slot;
-		}
-	}
-	&:where(.dark, .dark *) {
-		@slot;
-	}
-}
+/* `dark:` always applies: the site has one (dark) scheme. */
+@custom-variant dark (&:where(:root, :root *));
 
 /* ==========================================================================
    0. FONTS (self-hosted in static/fonts, preloaded from src/app.html)
-   Fontsource v5.3 subsets. Google Sans Flex "rond" file = wght 1–1000 + ROND 0–100;
-   Roboto Flex "opsz" file = wght 100–1000 + opsz 8–144. Latin + Latin Extended only (~250 KB total).
+   Fontsource v5.3 subsets, both SIL OFL. VT323 (terminal pixel type) for everything; it runs
+   small, so `size-adjust` brings it up to the optical size of a normal UI sans. Press Start 2P
+   (chunky 8-bit capitals) only for the wordmark and big moments: `font-pixel`.
    ========================================================================== */
 @font-face {
-	font-family: 'Google Sans Flex Variable';
+	font-family: 'VT323';
 	font-style: normal;
 	font-display: swap;
-	font-weight: 1 1000;
-	src: url('/fonts/google-sans-flex-latin-rond-normal.woff2') format('woff2-variations');
+	font-weight: 400;
+	size-adjust: 125%;
+	src: url('/fonts/vt323-latin-400-normal.woff2') format('woff2');
 	unicode-range:
 		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
 		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-	font-family: 'Google Sans Flex Variable';
+	font-family: 'VT323';
 	font-style: normal;
 	font-display: swap;
-	font-weight: 1 1000;
-	src: url('/fonts/google-sans-flex-latin-ext-rond-normal.woff2') format('woff2-variations');
-	unicode-range:
-		U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
-		U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
-		U+A720-A7FF;
-}
-@font-face {
-	font-family: 'Roboto Flex Variable';
-	font-style: normal;
-	font-display: swap;
-	font-weight: 100 1000;
-	src: url('/fonts/roboto-flex-latin-opsz-normal.woff2') format('woff2-variations');
-	unicode-range:
-		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-	font-family: 'Roboto Flex Variable';
-	font-style: normal;
-	font-display: swap;
-	font-weight: 100 1000;
-	src: url('/fonts/roboto-flex-latin-ext-opsz-normal.woff2') format('woff2-variations');
+	font-weight: 400;
+	size-adjust: 125%;
+	src: url('/fonts/vt323-latin-ext-400-normal.woff2') format('woff2');
 	unicode-range:
 		U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
 		U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
 		U+A720-A7FF;
 }
+@font-face {
+	font-family: 'Press Start 2P';
+	font-style: normal;
+	font-display: swap;
+	font-weight: 400;
+	src: url('/fonts/press-start-2p-latin-400-normal.woff2') format('woff2');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 /* ==========================================================================
    1. COLOR: 49 M3 roles + the custom "down" color, light / dark
    ========================================================================== */
-/* @generated:scheme:start */
-/* @generated by src/lib/m3/generate-scheme.ts: seed #2E6B3A, SchemeTonalSpot, spec 2021, contrast 0; down = #E8505B harmonized. Do not edit by hand. */
-
-:root {
-	--md-sys-color-primary: #36693e;
-	--md-sys-color-on-primary: #ffffff;
-	--md-sys-color-primary-container: #b7f1ba;
-	--md-sys-color-on-primary-container: #1d5128;
-	--md-sys-color-primary-fixed: #b7f1ba;
-	--md-sys-color-primary-fixed-dim: #9cd49f;
-	--md-sys-color-on-primary-fixed: #002108;
-	--md-sys-color-on-primary-fixed-variant: #1d5128;
-	--md-sys-color-inverse-primary: #9cd49f;
-	--md-sys-color-secondary: #516351;
-	--md-sys-color-on-secondary: #ffffff;
-	--md-sys-color-secondary-container: #d4e8d1;
-	--md-sys-color-on-secondary-container: #3a4b3a;
-	--md-sys-color-secondary-fixed: #d4e8d1;
-	--md-sys-color-secondary-fixed-dim: #b8ccb6;
-	--md-sys-color-on-secondary-fixed: #0f1f11;
-	--md-sys-color-on-secondary-fixed-variant: #3a4b3a;
-	--md-sys-color-tertiary: #39656c;
-	--md-sys-color-on-tertiary: #ffffff;
-	--md-sys-color-tertiary-container: #bdeaf3;
-	--md-sys-color-on-tertiary-container: #1f4d54;
-	--md-sys-color-tertiary-fixed: #bdeaf3;
-	--md-sys-color-tertiary-fixed-dim: #a1ced7;
-	--md-sys-color-on-tertiary-fixed: #001f24;
-	--md-sys-color-on-tertiary-fixed-variant: #1f4d54;
-	--md-sys-color-error: #ba1a1a;
-	--md-sys-color-on-error: #ffffff;
-	--md-sys-color-error-container: #ffdad6;
-	--md-sys-color-on-error-container: #93000a;
-	--md-sys-color-surface: #f7fbf2;
-	--md-sys-color-surface-dim: #d7dbd3;
-	--md-sys-color-surface-bright: #f7fbf2;
-	--md-sys-color-surface-container-lowest: #ffffff;
-	--md-sys-color-surface-container-low: #f1f5ec;
-	--md-sys-color-surface-container: #ebefe7;
-	--md-sys-color-surface-container-high: #e5e9e1;
-	--md-sys-color-surface-container-highest: #e0e4db;
-	--md-sys-color-on-surface: #181d18;
-	--md-sys-color-surface-variant: #dde5d9;
-	--md-sys-color-on-surface-variant: #424940;
-	--md-sys-color-outline: #727970;
-	--md-sys-color-outline-variant: #c1c9be;
-	--md-sys-color-inverse-surface: #2d322c;
-	--md-sys-color-inverse-on-surface: #eef2e9;
-	--md-sys-color-scrim: #000000;
-	--md-sys-color-shadow: #000000;
-	--md-sys-color-surface-tint: #36693e;
-	--md-sys-color-background: #f7fbf2;
-	--md-sys-color-on-background: #181d18;
-	/* custom color: down (harmonized coral) */
-	--md-ext-color-down: #a33d23;
-	--md-ext-color-on-down: #ffffff;
-	--md-ext-color-down-container: #ffdbd2;
-	--md-ext-color-on-down-container: #83260e;
-}
-
-@media (prefers-color-scheme: dark) {
-	:root {
-		--md-sys-color-primary: #9cd49f;
-		--md-sys-color-on-primary: #003914;
-		--md-sys-color-primary-container: #1d5128;
-		--md-sys-color-on-primary-container: #b7f1ba;
-		--md-sys-color-primary-fixed: #b7f1ba;
-		--md-sys-color-primary-fixed-dim: #9cd49f;
-		--md-sys-color-on-primary-fixed: #002108;
-		--md-sys-color-on-primary-fixed-variant: #1d5128;
-		--md-sys-color-inverse-primary: #36693e;
-		--md-sys-color-secondary: #b8ccb6;
-		--md-sys-color-on-secondary: #243425;
-		--md-sys-color-secondary-container: #3a4b3a;
-		--md-sys-color-on-secondary-container: #d4e8d1;
-		--md-sys-color-secondary-fixed: #d4e8d1;
-		--md-sys-color-secondary-fixed-dim: #b8ccb6;
-		--md-sys-color-on-secondary-fixed: #0f1f11;
-		--md-sys-color-on-secondary-fixed-variant: #3a4b3a;
-		--md-sys-color-tertiary: #a1ced7;
-		--md-sys-color-on-tertiary: #00363d;
-		--md-sys-color-tertiary-container: #1f4d54;
-		--md-sys-color-on-tertiary-container: #bdeaf3;
-		--md-sys-color-tertiary-fixed: #bdeaf3;
-		--md-sys-color-tertiary-fixed-dim: #a1ced7;
-		--md-sys-color-on-tertiary-fixed: #001f24;
-		--md-sys-color-on-tertiary-fixed-variant: #1f4d54;
-		--md-sys-color-error: #ffb4ab;
-		--md-sys-color-on-error: #690005;
-		--md-sys-color-error-container: #93000a;
-		--md-sys-color-on-error-container: #ffdad6;
-		--md-sys-color-surface: #101510;
-		--md-sys-color-surface-dim: #101510;
-		--md-sys-color-surface-bright: #363a35;
-		--md-sys-color-surface-container-lowest: #0b0f0b;
-		--md-sys-color-surface-container-low: #181d18;
-		--md-sys-color-surface-container: #1c211c;
-		--md-sys-color-surface-container-high: #272b26;
-		--md-sys-color-surface-container-highest: #313630;
-		--md-sys-color-on-surface: #e0e4db;
-		--md-sys-color-surface-variant: #424940;
-		--md-sys-color-on-surface-variant: #c1c9be;
-		--md-sys-color-outline: #8b9389;
-		--md-sys-color-outline-variant: #424940;
-		--md-sys-color-inverse-surface: #e0e4db;
-		--md-sys-color-inverse-on-surface: #2d322c;
-		--md-sys-color-scrim: #000000;
-		--md-sys-color-shadow: #000000;
-		--md-sys-color-surface-tint: #9cd49f;
-		--md-sys-color-background: #101510;
-		--md-sys-color-on-background: #e0e4db;
-		/* custom color: down (harmonized coral) */
-		--md-ext-color-down: #ffb4a2;
-		--md-ext-color-on-down: #611200;
-		--md-ext-color-down-container: #83260e;
-		--md-ext-color-on-down-container: #ffdbd2;
-	}
-}
-
-.dark {
-	--md-sys-color-primary: #9cd49f;
-	--md-sys-color-on-primary: #003914;
-	--md-sys-color-primary-container: #1d5128;
-	--md-sys-color-on-primary-container: #b7f1ba;
-	--md-sys-color-primary-fixed: #b7f1ba;
-	--md-sys-color-primary-fixed-dim: #9cd49f;
-	--md-sys-color-on-primary-fixed: #002108;
-	--md-sys-color-on-primary-fixed-variant: #1d5128;
-	--md-sys-color-inverse-primary: #36693e;
-	--md-sys-color-secondary: #b8ccb6;
-	--md-sys-color-on-secondary: #243425;
-	--md-sys-color-secondary-container: #3a4b3a;
-	--md-sys-color-on-secondary-container: #d4e8d1;
-	--md-sys-color-secondary-fixed: #d4e8d1;
-	--md-sys-color-secondary-fixed-dim: #b8ccb6;
-	--md-sys-color-on-secondary-fixed: #0f1f11;
-	--md-sys-color-on-secondary-fixed-variant: #3a4b3a;
-	--md-sys-color-tertiary: #a1ced7;
-	--md-sys-color-on-tertiary: #00363d;
-	--md-sys-color-tertiary-container: #1f4d54;
-	--md-sys-color-on-tertiary-container: #bdeaf3;
-	--md-sys-color-tertiary-fixed: #bdeaf3;
-	--md-sys-color-tertiary-fixed-dim: #a1ced7;
-	--md-sys-color-on-tertiary-fixed: #001f24;
-	--md-sys-color-on-tertiary-fixed-variant: #1f4d54;
-	--md-sys-color-error: #ffb4ab;
-	--md-sys-color-on-error: #690005;
-	--md-sys-color-error-container: #93000a;
-	--md-sys-color-on-error-container: #ffdad6;
-	--md-sys-color-surface: #101510;
-	--md-sys-color-surface-dim: #101510;
-	--md-sys-color-surface-bright: #363a35;
-	--md-sys-color-surface-container-lowest: #0b0f0b;
-	--md-sys-color-surface-container-low: #181d18;
-	--md-sys-color-surface-container: #1c211c;
-	--md-sys-color-surface-container-high: #272b26;
-	--md-sys-color-surface-container-highest: #313630;
-	--md-sys-color-on-surface: #e0e4db;
-	--md-sys-color-surface-variant: #424940;
-	--md-sys-color-on-surface-variant: #c1c9be;
-	--md-sys-color-outline: #8b9389;
-	--md-sys-color-outline-variant: #424940;
-	--md-sys-color-inverse-surface: #e0e4db;
-	--md-sys-color-inverse-on-surface: #2d322c;
-	--md-sys-color-scrim: #000000;
-	--md-sys-color-shadow: #000000;
-	--md-sys-color-surface-tint: #9cd49f;
-	--md-sys-color-background: #101510;
-	--md-sys-color-on-background: #e0e4db;
-	/* custom color: down (harmonized coral) */
-	--md-ext-color-down: #ffb4a2;
-	--md-ext-color-on-down: #611200;
-	--md-ext-color-down-container: #83260e;
-	--md-ext-color-on-down-container: #ffdbd2;
-}
-
+/* The Wolf arcade palette: one dark scheme, hand-tuned (no generator). Night-market navy panels,
+   a cyan signal color, neon green for up, hot pink for down, and the wolf's yellow eyes as the
+   reveal accent. `.dark` / `.light` keep working as hooks but resolve to the same palette. */
+:root,
+.dark,
 .light {
-	--md-sys-color-primary: #36693e;
-	--md-sys-color-on-primary: #ffffff;
-	--md-sys-color-primary-container: #b7f1ba;
-	--md-sys-color-on-primary-container: #1d5128;
-	--md-sys-color-primary-fixed: #b7f1ba;
-	--md-sys-color-primary-fixed-dim: #9cd49f;
-	--md-sys-color-on-primary-fixed: #002108;
-	--md-sys-color-on-primary-fixed-variant: #1d5128;
-	--md-sys-color-inverse-primary: #9cd49f;
-	--md-sys-color-secondary: #516351;
-	--md-sys-color-on-secondary: #ffffff;
-	--md-sys-color-secondary-container: #d4e8d1;
-	--md-sys-color-on-secondary-container: #3a4b3a;
-	--md-sys-color-secondary-fixed: #d4e8d1;
-	--md-sys-color-secondary-fixed-dim: #b8ccb6;
-	--md-sys-color-on-secondary-fixed: #0f1f11;
-	--md-sys-color-on-secondary-fixed-variant: #3a4b3a;
-	--md-sys-color-tertiary: #39656c;
-	--md-sys-color-on-tertiary: #ffffff;
-	--md-sys-color-tertiary-container: #bdeaf3;
-	--md-sys-color-on-tertiary-container: #1f4d54;
-	--md-sys-color-tertiary-fixed: #bdeaf3;
-	--md-sys-color-tertiary-fixed-dim: #a1ced7;
-	--md-sys-color-on-tertiary-fixed: #001f24;
-	--md-sys-color-on-tertiary-fixed-variant: #1f4d54;
-	--md-sys-color-error: #ba1a1a;
-	--md-sys-color-on-error: #ffffff;
-	--md-sys-color-error-container: #ffdad6;
-	--md-sys-color-on-error-container: #93000a;
-	--md-sys-color-surface: #f7fbf2;
-	--md-sys-color-surface-dim: #d7dbd3;
-	--md-sys-color-surface-bright: #f7fbf2;
-	--md-sys-color-surface-container-lowest: #ffffff;
-	--md-sys-color-surface-container-low: #f1f5ec;
-	--md-sys-color-surface-container: #ebefe7;
-	--md-sys-color-surface-container-high: #e5e9e1;
-	--md-sys-color-surface-container-highest: #e0e4db;
-	--md-sys-color-on-surface: #181d18;
-	--md-sys-color-surface-variant: #dde5d9;
-	--md-sys-color-on-surface-variant: #424940;
-	--md-sys-color-outline: #727970;
-	--md-sys-color-outline-variant: #c1c9be;
-	--md-sys-color-inverse-surface: #2d322c;
-	--md-sys-color-inverse-on-surface: #eef2e9;
+	--md-sys-color-primary: #4de3ff;
+	--md-sys-color-on-primary: #051222;
+	--md-sys-color-primary-container: #123a52;
+	--md-sys-color-on-primary-container: #c4f6ff;
+	--md-sys-color-primary-fixed: #c4f6ff;
+	--md-sys-color-primary-fixed-dim: #4de3ff;
+	--md-sys-color-on-primary-fixed: #051222;
+	--md-sys-color-on-primary-fixed-variant: #123a52;
+	--md-sys-color-inverse-primary: #0a6f86;
+	--md-sys-color-secondary: #9fb2d3;
+	--md-sys-color-on-secondary: #0b1528;
+	--md-sys-color-secondary-container: #1b3050;
+	--md-sys-color-on-secondary-container: #d6e2f5;
+	--md-sys-color-secondary-fixed: #d6e2f5;
+	--md-sys-color-secondary-fixed-dim: #9fb2d3;
+	--md-sys-color-on-secondary-fixed: #0b1528;
+	--md-sys-color-on-secondary-fixed-variant: #1b3050;
+	--md-sys-color-tertiary: #ffd23f;
+	--md-sys-color-on-tertiary: #2a1f00;
+	--md-sys-color-tertiary-container: #40340c;
+	--md-sys-color-on-tertiary-container: #ffeaa3;
+	--md-sys-color-tertiary-fixed: #ffeaa3;
+	--md-sys-color-tertiary-fixed-dim: #ffd23f;
+	--md-sys-color-on-tertiary-fixed: #2a1f00;
+	--md-sys-color-on-tertiary-fixed-variant: #40340c;
+	--md-sys-color-error: #ff7a7a;
+	--md-sys-color-on-error: #2a0505;
+	--md-sys-color-error-container: #4a1418;
+	--md-sys-color-on-error-container: #ffd6d6;
+	--md-sys-color-surface: #0a1428;
+	--md-sys-color-surface-dim: #070e1c;
+	--md-sys-color-surface-bright: #1f3254;
+	--md-sys-color-surface-container-lowest: #050a14;
+	--md-sys-color-surface-container-low: #0d1830;
+	--md-sys-color-surface-container: #101d33;
+	--md-sys-color-surface-container-high: #16263f;
+	--md-sys-color-surface-container-highest: #1b3050;
+	--md-sys-color-on-surface: #e8f1ff;
+	--md-sys-color-surface-variant: #1b3050;
+	--md-sys-color-on-surface-variant: #9fb2d3;
+	--md-sys-color-outline: #4a6491;
+	--md-sys-color-outline-variant: #1f3557;
+	--md-sys-color-inverse-surface: #e8f1ff;
+	--md-sys-color-inverse-on-surface: #101d33;
 	--md-sys-color-scrim: #000000;
-	--md-sys-color-shadow: #000000;
-	--md-sys-color-surface-tint: #36693e;
-	--md-sys-color-background: #f7fbf2;
-	--md-sys-color-on-background: #181d18;
-	/* custom color: down (harmonized coral) */
-	--md-ext-color-down: #a33d23;
-	--md-ext-color-on-down: #ffffff;
-	--md-ext-color-down-container: #ffdbd2;
-	--md-ext-color-on-down-container: #83260e;
+	--md-sys-color-shadow: #02050b;
+	--md-sys-color-surface-tint: #4de3ff;
+	--md-sys-color-background: #0a1428;
+	--md-sys-color-on-background: #e8f1ff;
+	/* custom color: down (hot pink, the other half of the title's glitch) */
+	--md-ext-color-down: #ff5d8f;
+	--md-ext-color-on-down: #2b0614;
+	--md-ext-color-down-container: #4a1530;
+	--md-ext-color-on-down-container: #ffd0e0;
+	/* custom color: up (neon green) */
+	--md-ext-color-up: #5cf29a;
+	--md-ext-color-on-up: #04210f;
+	--md-ext-color-up-container: #0f3a28;
+	--md-ext-color-on-up-container: #b6ffd6;
+	/* pixel frame pieces (see .pixel-frame / .pixel-panel below) */
+	--pixel-ink: #050a14;
+	--pixel-glow: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent);
 }
-/* @generated:scheme:end */
 
 /* Game roles + shadcn bridge: aliases only, re-declared on every scheme scope so a forced
    `.dark` / `.light` subtree re-resolves them. */
 :root,
 .dark,
 .light {
-	/* Up = the primary family. Down = harmonized coral (custom color). Both pass AA on their pairs. */
-	--up: var(--md-sys-color-primary);
-	--on-up: var(--md-sys-color-on-primary);
-	--up-container: var(--md-sys-color-primary-container);
-	--on-up-container: var(--md-sys-color-on-primary-container);
+	/* Up = neon green, down = hot pink (custom colors). Both pass AA on their pairs. */
+	--up: var(--md-ext-color-up);
+	--on-up: var(--md-ext-color-on-up);
+	--up-container: var(--md-ext-color-up-container);
+	--on-up-container: var(--md-ext-color-on-up-container);
 	--down: var(--md-ext-color-down);
 	--on-down: var(--md-ext-color-on-down);
 	--down-container: var(--md-ext-color-down-container);
@@ -409,39 +229,49 @@
 	--md-sys-state-disabled-content-opacity: 0.38; /* on-surface @ 38% */
 	--md-sys-scrim-opacity: 0.32;
 
-	/* Elevation (color.md §4.2): key shadow @30% + ambient shadow @15% of --md-sys-color-shadow */
-	--md-shadow-key: color-mix(in srgb, var(--md-sys-color-shadow) 30%, transparent);
-	--md-shadow-ambient: color-mix(in srgb, var(--md-sys-color-shadow) 15%, transparent);
+	/* Elevation as pixel frames: an ink keyline, a 2px border, then a hard drop that grows with the
+	   level (no blur). Levels 4-5 add the cyan glow of an active cabinet. */
+	--md-shadow-key: var(--md-sys-color-shadow);
+	--md-shadow-ambient: var(--pixel-glow);
 	--md-sys-elevation-level0: 0 0 0 0 transparent;
 	--md-sys-elevation-level1:
-		0 1px 2px 0 var(--md-shadow-key), 0 1px 3px 1px var(--md-shadow-ambient);
+		0 0 0 2px var(--md-sys-color-outline-variant), 0 4px 0 2px var(--md-sys-color-shadow);
 	--md-sys-elevation-level2:
-		0 1px 2px 0 var(--md-shadow-key), 0 2px 6px 2px var(--md-shadow-ambient);
+		0 0 0 2px var(--md-sys-color-outline-variant), 0 6px 0 2px var(--md-sys-color-shadow);
 	--md-sys-elevation-level3:
-		0 1px 3px 0 var(--md-shadow-key), 0 4px 8px 3px var(--md-shadow-ambient);
+		0 0 0 2px var(--md-sys-color-outline), 0 8px 0 2px var(--md-sys-color-shadow);
 	--md-sys-elevation-level4:
-		0 2px 3px 0 var(--md-shadow-key), 0 6px 10px 4px var(--md-shadow-ambient);
+		0 0 0 2px var(--md-sys-color-outline), 0 8px 0 2px var(--md-sys-color-shadow),
+		0 0 24px 0 var(--pixel-glow);
 	--md-sys-elevation-level5:
-		0 4px 4px 0 var(--md-shadow-key), 0 8px 12px 6px var(--md-shadow-ambient);
+		0 0 0 2px var(--md-sys-color-primary), 0 10px 0 2px var(--md-sys-color-shadow),
+		0 0 32px 0 var(--pixel-glow);
 
 	/* Shape: md.sys.shape.corner.* (typography-shape.md §3.1, Expressive 10-step scale) */
+	/* Pixel art has no curves: every corner is square. Kept as tokens so components stay unchanged. */
 	--md-sys-shape-corner-none: 0px;
-	--md-sys-shape-corner-extra-small: 4px;
-	--md-sys-shape-corner-small: 8px;
-	--md-sys-shape-corner-medium: 12px;
-	--md-sys-shape-corner-large: 16px;
-	--md-sys-shape-corner-large-increased: 20px;
-	--md-sys-shape-corner-extra-large: 28px;
-	--md-sys-shape-corner-extra-large-increased: 32px;
-	--md-sys-shape-corner-extra-extra-large: 48px;
-	--md-sys-shape-corner-full: 9999px; /* when ANIMATING to/from full use height/2 instead (§4.3) */
+	--md-sys-shape-corner-extra-small: 0px;
+	--md-sys-shape-corner-small: 0px;
+	--md-sys-shape-corner-medium: 0px;
+	--md-sys-shape-corner-large: 0px;
+	--md-sys-shape-corner-large-increased: 0px;
+	--md-sys-shape-corner-extra-large: 0px;
+	--md-sys-shape-corner-extra-large-increased: 0px;
+	--md-sys-shape-corner-extra-extra-large: 0px;
+	--md-sys-shape-corner-full: 0px;
 
-	/* Typefaces: brand (display, headline, title-large) = Google Sans Flex; plain = Roboto Flex.
-	   Emphasized styles get ROND 100 (Google Sans Flex "1P" Expressive look, §1.4); Roboto Flex ignores ROND. */
-	--md-ref-typeface-brand:
-		'Google Sans Flex Variable', 'Roboto Flex Variable', Roboto, 'Noto Sans', system-ui, sans-serif;
-	--md-ref-typeface-plain:
-		'Roboto Flex Variable', 'Roboto Flex', Roboto, 'Noto Sans', system-ui, sans-serif;
+	/* Header heights: --scene-h is the home page's WolfScene, --scene-h-compact the one on the
+	   other pages. Layouts may size against them (100dvh minus the header); the queries below
+	   set the other breakpoints. */
+	--scene-h: 192px;
+	--scene-h-compact: 120px;
+
+	/* Typefaces: VT323 for brand and plain alike (one pixel voice); Press Start 2P for the wordmark.
+	   VT323 has a single weight, so the emphasized styles differ by size only (no faux bold:
+	   font-synthesis is off in the base layer). ROND below is a no-op kept for the token shape. */
+	--md-ref-typeface-brand: 'VT323', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+	--md-ref-typeface-plain: 'VT323', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+	--md-ref-typeface-pixel: 'Press Start 2P', 'VT323', ui-monospace, monospace;
 	--md-ref-typeface-weight-regular: 400;
 	--md-ref-typeface-weight-medium: 500;
 	--md-ref-typeface-weight-semibold: 600;
@@ -601,6 +431,33 @@
 	--md-sys-typescale-emphasized-label-small-size: 0.6875rem;
 	--md-sys-typescale-emphasized-label-small-line-height: 1rem;
 	--md-sys-typescale-emphasized-label-small-tracking: 0.03125rem;
+}
+/* Short phones: the game needs the height more than the sky does. */
+@media (max-height: 700px) and (max-width: 767px) {
+	:root {
+		--scene-h: 164px;
+		--scene-h-compact: 104px;
+	}
+}
+/* Very short phones (iPhone SE with the toolbars up): a strip, so Up and Down make the fold. */
+@media (max-height: 620px) and (max-width: 767px) {
+	:root {
+		--scene-h: 120px;
+		--scene-h-compact: 96px;
+	}
+}
+@media (min-width: 768px) {
+	:root {
+		--scene-h: 224px;
+		--scene-h-compact: 136px;
+	}
+}
+/* Laptops: the whole game, chart to call buttons, fits a 900px-tall window. */
+@media (min-width: 1024px) and (max-height: 960px) {
+	:root {
+		--scene-h: 176px;
+		--scene-h-compact: 120px;
+	}
 }
 
 /* ==========================================================================
@@ -854,6 +711,7 @@
 	--font-sans: var(--md-ref-typeface-plain);
 	--font-plain: var(--md-ref-typeface-plain);
 	--font-brand: var(--md-ref-typeface-brand);
+	--font-pixel: var(--md-ref-typeface-pixel);
 
 	/* shadcn semantic colors (bg-background, text-muted-foreground, bg-primary, …) */
 	--color-background: var(--background);
@@ -1237,7 +1095,7 @@
 }
 
 /* Full type styles incl. family: type-display-lg … type-label-sm, type-*-emphasized
-   (typography-shape.md §9.3). Emphasized also sets ROND 100 (rounded Google Sans Flex). */
+   (typography-shape.md §9.3). Emphasized also sets ROND 100 (a no-op on VT323). */
 @utility type-display-lg {
 	font-family: var(--md-sys-typescale-display-large-font);
 	font-size: var(--md-sys-typescale-display-large-size);
@@ -1464,8 +1322,18 @@
 	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
 }
 
+/* Page gutters that clear the notch and home indicator: --gutter at least (1rem unless a page
+   sets it per breakpoint), more where the device's safe area needs it. */
+@utility px-safe {
+	padding-left: max(var(--gutter, 1rem), env(safe-area-inset-left));
+	padding-right: max(var(--gutter, 1rem), env(safe-area-inset-right));
+}
+@utility pb-safe {
+	padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
 /* Money and scores: tabular lining figures, so digits don't jiggle while counting. Pair it with a
-   type-* style (display/headline/title-lg are already Google Sans Flex). It sets no family on
+   type-* style (every style is already VT323, whose digits are fixed-width). It sets no family on
    purpose: utility order in the stylesheet is not class order, so two families would fight. */
 @utility type-numeric {
 	font-variant-numeric: tabular-nums lining-nums;
@@ -1479,34 +1347,41 @@
 		@apply border-border;
 	}
 	:root {
-		color-scheme: light dark;
+		color-scheme: dark;
 		-webkit-text-size-adjust: 100%;
 		text-size-adjust: 100%;
 	}
-	.light {
-		color-scheme: light;
-	}
-	.dark {
-		color-scheme: dark;
-	}
 	html {
-		@apply bg-surface font-sans;
-		-webkit-font-smoothing: antialiased;
+		@apply bg-surface-container-lowest font-sans;
+		/* one weight only: never smear a pixel font into a fake bold or italic */
+		font-synthesis: none;
+		-webkit-font-smoothing: none;
 		-moz-osx-font-smoothing: grayscale;
-		text-rendering: optimizeLegibility;
 		-webkit-tap-highlight-color: transparent;
+		scrollbar-color: var(--md-sys-color-outline) var(--md-sys-color-surface-container-lowest);
 	}
 	body {
-		@apply min-h-dvh bg-surface type-body-lg text-on-surface;
+		@apply min-h-dvh type-body-lg text-on-surface;
+		/* the deep: lighter navy under the header fading to near black */
+		background: linear-gradient(
+				180deg,
+				var(--md-sys-color-surface) 0,
+				var(--md-sys-color-surface-container-lowest) 900px
+			)
+			no-repeat var(--md-sys-color-surface-container-lowest);
+	}
+	img,
+	svg.pixel-art {
+		image-rendering: pixelated;
 	}
 	/* Host of `ripple()` / `stateLayer()`: static hosts become the overlay's containing block. Kept in
 	   the base layer so any positioning utility (absolute, fixed, sticky …) on the host still wins. */
 	[data-m3-ripple-host] {
 		position: relative;
 	}
-	/* M3 focus indicator: 3px secondary outline, 2px outward offset. Components may override. */
+	/* Focus: a 3px cyan pixel outline, 2px outward offset. Components may override. */
 	:focus-visible {
-		outline: 3px solid var(--md-sys-color-secondary);
+		outline: 3px solid var(--md-sys-color-primary);
 		outline-offset: 2px;
 	}
 	::selection {
@@ -1518,8 +1393,9 @@
 /* ==========================================================================
    6. COMPONENT HELPERS
    ========================================================================== */
-/* State layer + ripple overlay created by `ripple()` / `stateLayer()` (src/lib/m3/ripple.svelte.ts).
-   Values: material-web md-ripple (motion.md §4.2) + current m3 opacities (color.md §3.1). */
+/* State layer created by `stateLayer()` / `ripple()` (src/lib/m3/ripple.svelte.ts): a flat tint
+   on hover, focus and press, switched instantly. There is no radial ripple in the arcade: framed
+   controls sink into their drop instead (section 7), and `ripple()` renders as a flat layer too. */
 [data-m3-ripple] {
 	position: absolute;
 	inset: 0;
@@ -1529,47 +1405,104 @@
 	color: var(--m3-ripple-color, currentColor);
 	-webkit-tap-highlight-color: transparent;
 }
-[data-m3-ripple]::before,
-[data-m3-ripple]::after {
+[data-m3-ripple]::before {
 	content: '';
 	position: absolute;
+	inset: 0;
 	opacity: 0;
 	pointer-events: none;
-}
-/* hover / focus layer */
-[data-m3-ripple]::before {
-	inset: 0;
 	background-color: currentColor;
-	transition: opacity 15ms linear;
 }
-[data-m3-ripple][data-hovered]::before {
-	opacity: var(--md-sys-state-hover-opacity);
+/* Hover only where there is a pointer that hovers, so a tapped control never stays lit. */
+@media (hover: hover) {
+	[data-m3-ripple][data-hovered]::before {
+		opacity: var(--md-sys-state-hover-opacity);
+	}
 }
 [data-m3-ripple][data-focused]::before {
 	opacity: var(--md-sys-state-focus-opacity);
 }
-/* pressed ripple (geometry + grow animation are driven from JS via the Web Animations API) */
-[data-m3-ripple]::after {
-	background: radial-gradient(
-		closest-side,
-		currentColor max(calc(100% - 70px), 65%),
-		transparent 100%
-	);
-	transform-origin: center center;
-	transition: opacity 375ms linear;
-}
-[data-m3-ripple][data-pressed]::after {
-	opacity: var(--md-sys-state-pressed-opacity);
-	transition-duration: 105ms;
-}
-/* stateLayer(): no ripple, the pressed state is a flat layer */
-[data-m3-ripple][data-no-ripple]::after {
-	display: none;
-}
-[data-m3-ripple][data-no-ripple][data-pressed]::before {
+[data-m3-ripple][data-pressed]::before {
 	opacity: var(--md-sys-state-pressed-opacity);
 }
 :is([disabled], [aria-disabled='true'], [data-disabled]:not([data-disabled='false']))
 	> [data-m3-ripple] {
 	display: none;
+}
+
+/* ==========================================================================
+   7. ARCADE HELPERS
+   ========================================================================== */
+/* Pixel frames, two tiers with one geometry: a 3px ink keyline, a 3px coloured edge and a 6px
+   hard drop (two scene pixels each), so a primary and a secondary button side by side line up
+   top and bottom. Hierarchy comes from colour alone: the cabinet frame (primary actions) is
+   coloured `--frame` (cyan unless recoloured) and glows; the panel (cards, secondary buttons)
+   has a quiet `--panel-edge`. Box-shadows sit outside the box: give framed things 6px of room
+   (12px below). */
+.pixel-frame,
+.pixel-panel {
+	--drop: 6px;
+	box-shadow:
+		0 0 0 3px var(--pixel-ink),
+		0 0 0 6px var(--frame-edge),
+		0 var(--drop) 0 6px var(--frame-base),
+		0 0 26px 0 var(--frame-glow, transparent);
+}
+.pixel-frame {
+	--frame: var(--md-sys-color-primary);
+	--frame-edge: var(--frame);
+	--frame-base: color-mix(in srgb, var(--frame) 25%, var(--pixel-ink));
+	--frame-glow: color-mix(in srgb, var(--frame) 30%, transparent);
+}
+.pixel-panel {
+	--frame-edge: var(--panel-edge, var(--md-sys-color-outline-variant));
+	--frame-base: var(--md-sys-color-shadow);
+	--frame-glow: transparent;
+}
+/* Press: a framed control sinks into its drop at once, like a cabinet button; the bottom edge
+   of the drop stays put. No easing either way. */
+:is(a, button, label, summary):is(.pixel-frame, .pixel-panel):active:not(
+		:disabled,
+		[aria-disabled='true']
+	) {
+	--drop: 2px;
+	translate: 0 4px;
+	transition: none;
+}
+/* Focus on a framed control: the cyan ring would vanish into the frame, so a light one sits
+   past the frame instead (3px of gap, then 3px of ring). */
+.pixel-frame:focus-visible,
+.pixel-panel:focus-visible {
+	outline: 3px solid var(--md-sys-color-on-surface);
+	outline-offset: 9px;
+}
+/* CRT scanlines, one dark line every 3px (one scene pixel). Paints over the element's own
+   content, never catches a tap; the element needs a position (relative, absolute …). */
+.crt::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(
+		180deg,
+		transparent 0 2px,
+		color-mix(in srgb, var(--pixel-ink) 12%, transparent) 2px 3px
+	);
+}
+/* Glitch title: the pink and cyan halves of the chromatic split, plus a hard ink drop. */
+.glitch-text {
+	color: var(--md-sys-color-on-surface);
+	text-shadow:
+		calc(var(--glitch-split, 3px) * -1) 0 0 var(--md-ext-color-down),
+		var(--glitch-split, 3px) 0 0 var(--md-sys-color-primary),
+		0 var(--glitch-drop, 5px) 0 var(--pixel-ink);
+}
+/* Neon label: cyan, letterspaced, glowing (krillion-style taglines and eyebrows). */
+.neon-text {
+	color: var(--md-sys-color-primary);
+	text-transform: uppercase;
+	letter-spacing: 0.3em;
+	text-shadow:
+		0 2px 0 color-mix(in srgb, var(--pixel-ink) 40%, transparent),
+		0 0 12px color-mix(in srgb, var(--md-sys-color-primary) 50%, transparent);
 }

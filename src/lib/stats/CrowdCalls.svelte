@@ -7,7 +7,7 @@
 	const upShare = (c: CallSplit) => (c.calls > 0 ? Math.round((c.ups / c.calls) * 100) : 50);
 </script>
 
-<ol class="flex flex-col gap-4">
+<ol class="flex flex-col gap-5">
 	{#each calls as call (call.step)}
 		{@const up = upShare(call)}
 		{@const upWon = call.answer === 'up'}
@@ -17,25 +17,17 @@
 				{#if call.you}You called {call.you}.{/if}
 			</p>
 			<div aria-hidden="true">
-				<div class="grid grid-cols-[1fr_auto_1fr] items-baseline gap-2 type-label-lg type-numeric">
-					<span
-						class={[
-							'flex items-center gap-1 justify-self-start',
-							upWon ? 'text-up' : 'text-on-surface-variant'
-						]}
-					>
+				<!-- Which call, and yours: green if you were right, pink if not. -->
+				<p class="type-label-md text-on-surface-variant">
+					Call {call.step}{#if call.you}&ensp;·&ensp;you:
+						<span class={call.you === call.answer ? 'text-up' : 'text-down'}>{call.you}</span>{/if}
+				</p>
+				<div class="mt-0.5 flex items-baseline justify-between gap-2 type-label-lg type-numeric">
+					<span class={['flex items-center gap-1', upWon ? 'text-up' : 'text-on-surface-variant']}>
 						{#if upWon}<Check class="size-4" strokeWidth={3} />{/if}
 						{up}% up
 					</span>
-					<span class="type-label-md text-on-surface-variant">
-						Call {call.step}{#if call.you}&nbsp;· you: {call.you}{/if}
-					</span>
-					<span
-						class={[
-							'flex items-center gap-1 justify-self-end',
-							upWon ? 'text-on-surface-variant' : 'text-up'
-						]}
-					>
+					<span class={['flex items-center gap-1', upWon ? 'text-on-surface-variant' : 'text-up']}>
 						{100 - up}% down
 						{#if !upWon}<Check class="size-4" strokeWidth={3} />{/if}
 					</span>
@@ -43,12 +35,10 @@
 				<div class="mt-1.5 flex h-3 gap-0.5">
 					<!-- Green is the side that was right, whichever direction that was. -->
 					<div
-						class={['bar rounded-l-full', upWon ? 'bg-up' : 'bg-surface-container-highest']}
+						class={['bar', upWon ? 'bg-up' : 'bg-surface-container-highest']}
 						style:width="{up}%"
 					></div>
-					<div
-						class={['bar flex-1 rounded-r-full', upWon ? 'bg-surface-container-highest' : 'bg-up']}
-					></div>
+					<div class={['bar flex-1', upWon ? 'bg-surface-container-highest' : 'bg-up']}></div>
 				</div>
 			</div>
 		</li>

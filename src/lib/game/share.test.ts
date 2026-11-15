@@ -7,7 +7,7 @@ import { flipDirections, playGame, randomGames, type CallSpec } from './testing.
 
 const W = true;
 const L = false;
-const HUNTER = { key: 'hunter', label: 'Hunter' } as const;
+const HUNTER = { key: 'hunter', label: 'Hunter', line: 'Beat 45–79% of the pack.' } as const;
 
 const CONTRARIAN_GAME: CallSpec[] = [
 	[10, W, 0.5],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exactStanding, standingText } from '../play/standing.ts';
-import { PACK_EMOJI, PACK_RANKS, packRank } from './rank.ts';
+import { ALPHA, PACK_EMOJI, PACK_RANKS, packRank } from './rank.ts';
 
 const at = (betterThan: number, finished = 500) => packRank({ betterThan, finished })?.label;
 
@@ -58,6 +58,18 @@ describe('packRank', () => {
 
 	it('never mentions direction', () => {
 		const directionWords = /[↑↓📈📉]|\b(up|down|bull|bear|long|short)\b/iu;
-		for (const r of PACK_RANKS) expect(`${PACK_EMOJI} ${r.label}`).not.toMatch(directionWords);
+		for (const r of [...PACK_RANKS, ALPHA]) {
+			expect(`${PACK_EMOJI} ${r.label} ${r.line}`).not.toMatch(directionWords);
+		}
+	});
+
+	it('describes each band with the same cutoffs it uses', () => {
+		for (const [i, r] of PACK_RANKS.entries()) {
+			const next = PACK_RANKS[i + 1];
+			if (i === 0) expect(r.line).toBe(`Beat under ${next.from}% of the pack.`);
+			else if (!next) expect(r.line).toBe(`Beat ${r.from}% or more of the pack.`);
+			else expect(r.line).toBe(`Beat ${r.from}–${next.from - 1}% of the pack.`);
+			expect(at(r.from / 100)).toBe(r.label);
+		}
 	});
 });

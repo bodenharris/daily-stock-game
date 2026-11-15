@@ -40,7 +40,7 @@
 	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
 	import DialogOverlay from './dialog-overlay.svelte';
 	import DialogPortal from './dialog-portal.svelte';
-	import { ripple } from '#lib/m3/ripple.svelte.js';
+	import { stateLayer } from '#lib/m3/ripple.svelte.js';
 	import { DIALOG_ICON_BUTTON, DialogLayout, setDialogLayout } from './context.svelte.js';
 	import type { Component, ComponentProps, Snippet } from 'svelte';
 
@@ -98,7 +98,7 @@
 						type="button"
 						class={cn(DIALOG_ICON_BUTTON, 'absolute! end-2 top-2')}
 						aria-label={closeLabel}
-						{@attach ripple()}
+						{@attach stateLayer()}
 					>
 						<XIcon class="size-6" aria-hidden="true" />
 					</button>

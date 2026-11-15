@@ -21,18 +21,20 @@ export type PackRankKey = 'pup' | 'scout' | 'sentinel' | 'hunter' | 'elder' | 'a
 export interface PackRank {
 	readonly key: PackRankKey;
 	readonly label: string;
+	/** What the rank means, under it on the end card. Short enough for one line on a phone. */
+	readonly line: string;
 }
 
 /** Lowest first. `from` is the smallest whole "beat X%" that earns the rank. */
 export const PACK_RANKS: readonly (PackRank & { readonly from: number })[] = [
-	{ key: 'pup', label: 'Pup', from: 0 },
-	{ key: 'scout', label: 'Scout', from: 10 },
-	{ key: 'sentinel', label: 'Sentinel', from: 25 },
-	{ key: 'hunter', label: 'Hunter', from: 45 },
-	{ key: 'elder', label: 'Elder', from: 80 }
+	{ key: 'pup', label: 'Pup', line: 'Beat under 10% of the pack.', from: 0 },
+	{ key: 'scout', label: 'Scout', line: 'Beat 10–24% of the pack.', from: 10 },
+	{ key: 'sentinel', label: 'Sentinel', line: 'Beat 25–44% of the pack.', from: 25 },
+	{ key: 'hunter', label: 'Hunter', line: 'Beat 45–79% of the pack.', from: 45 },
+	{ key: 'elder', label: 'Elder', line: 'Beat 80% or more of the pack.', from: 80 }
 ];
 
-export const ALPHA: PackRank = { key: 'alpha', label: 'Alpha' };
+export const ALPHA: PackRank = { key: 'alpha', label: 'Alpha', line: 'Top of the pack.' };
 
 /** Shown before the rank in the share text: one emoji every platform has had for years. */
 export const PACK_EMOJI = '🐺';
@@ -54,5 +56,5 @@ export function packRank(
 	const percent = Math.round(Math.max(0, betterThan) * 100);
 	let rank: PackRank = PACK_RANKS[0];
 	for (const r of PACK_RANKS) if (percent >= r.from) rank = r;
-	return { key: rank.key, label: rank.label };
+	return { key: rank.key, label: rank.label, line: rank.line };
 }

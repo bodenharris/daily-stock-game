@@ -194,15 +194,17 @@
 			inset: auto;
 			color: var(--md-sys-color-inverse-on-surface);
 		}
-		/* State layers: hover 8%, focus / pressed 10% of the content color. */
-		[data-m3-toaster]
-			[data-sonner-toast][data-styled='true']
-			:is([data-button], [data-close-button]):hover:not(#\#) {
-			background: color-mix(
-				in srgb,
-				currentColor calc(var(--md-sys-state-hover-opacity) * 100%),
-				transparent
-			);
+		/* State layers: hover 8% (pointers that hover only), focus / pressed 10% of the content color. */
+		@media (hover: hover) {
+			[data-m3-toaster]
+				[data-sonner-toast][data-styled='true']
+				:is([data-button], [data-close-button]):hover:not(#\#) {
+				background: color-mix(
+					in srgb,
+					currentColor calc(var(--md-sys-state-hover-opacity) * 100%),
+					transparent
+				);
+			}
 		}
 		[data-m3-toaster]
 			[data-sonner-toast][data-styled='true']

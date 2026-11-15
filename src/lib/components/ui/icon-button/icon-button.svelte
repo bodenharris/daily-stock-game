@@ -18,11 +18,11 @@
 		base: [
 			'group/icon-button relative inline-flex shrink-0 cursor-pointer items-center justify-center align-middle select-none',
 			'h-(--btn-h) w-(--btn-w) p-0',
-			'[--btn-r-full:calc(var(--btn-h)/2)] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
+			'[--btn-r-full:0px] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
 			'[border-start-start-radius:var(--btn-r-ss,var(--btn-r))] [border-start-end-radius:var(--btn-r-se,var(--btn-r))] [border-end-start-radius:var(--btn-r-es,var(--btn-r))] [border-end-end-radius:var(--btn-r-ee,var(--btn-r))]',
-			// press morph: default-effects (no bounce); toggle shape change: fast-spatial
 			'[--btn-shape-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)] [--btn-color-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)]',
-			'[transition:border-radius_var(--btn-shape-t),border-start-start-radius_var(--btn-shape-t),border-start-end-radius_var(--btn-shape-t),border-end-start-radius_var(--btn-shape-t),border-end-end-radius_var(--btn-shape-t),background-color_var(--btn-color-t),color_var(--btn-color-t),box-shadow_var(--btn-color-t)]',
+			// colors ease; the press (translate, a framed button's drop) is instant
+			'[transition:background-color_var(--btn-color-t),color_var(--btn-color-t)]',
 			'[&_svg]:pointer-events-none [&_svg]:size-(--btn-icon) [&_svg]:shrink-0',
 			'disabled:pointer-events-none disabled:cursor-default aria-disabled:pointer-events-none aria-disabled:cursor-default',
 			'disabled:text-on-surface/38 aria-disabled:text-on-surface/38'
@@ -120,7 +120,7 @@
 </script>
 
 <script lang="ts">
-	import { ripple } from '#lib/m3/ripple.svelte.js';
+	import { stateLayer } from '#lib/m3/ripple.svelte.js';
 
 	let {
 		class: className,
@@ -169,7 +169,7 @@
 		tabindex={disabled ? -1 : undefined}
 		onclick={onclick as HTMLAnchorAttributes['onclick']}
 		{...restProps}
-		{@attach ripple()}
+		{@attach stateLayer()}
 	>
 		{@render children?.()}
 	</a>
@@ -188,7 +188,7 @@
 		{disabled}
 		onclick={handleClick}
 		{...restProps}
-		{@attach ripple()}
+		{@attach stateLayer()}
 	>
 		{@render children?.()}
 	</button>
