@@ -27,6 +27,14 @@
 	const records = $derived(toRecords(view.results));
 	const rank = $derived(packRank(view.standing));
 	const standing = $derived(standingText(view.standing, archive ? 'players' : 'today'));
+	// How far this finish trails the day's best one. Nothing to show for the leader (the rank
+	// already says so) or when nobody else has finished.
+	const behindLeader = $derived.by(() => {
+		const f = view.finishes;
+		if (!f || f.finished < 2) return null;
+		const gap = f.leaderCents - view.balanceCents;
+		return gap > 0 ? { leader: f.leaderCents, gap } : null;
+	});
 	const n = $derived(view.nameIt);
 	const named = $derived(!!n && n.guess != null && n.guess === n.answer);
 	const wrongGuess = $derived(
@@ -150,6 +158,14 @@
 			</div>
 			{#if rank}
 				<p class="mt-2 type-body-md opacity-80">{rank.line}</p>
+			{/if}
+			{#if behindLeader}
+				{@const { gap, leader } = behindLeader}
+				<p class="mt-1 type-label-lg text-pretty type-numeric opacity-80">
+					{dollars(gap, { cents: false })} behind the pack leader's {dollars(leader, {
+						cents: false
+					})}
+				</p>
 			{/if}
 		</div>
 	</div>
