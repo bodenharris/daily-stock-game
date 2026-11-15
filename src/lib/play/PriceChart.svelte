@@ -28,6 +28,8 @@
 		pending?: Direction | null;
 		/** Show dates and prices (after the unmasking). */
 		labels?: { dates: string[]; closes: number[] } | null;
+		/** First and last dates alone, for the axis before the unmasking (no prices). */
+		span?: [string, string] | null;
 		/** The real ticker, once unmasked. Until then the tape shows "???". */
 		ticker?: string | null;
 		/** Buttons for the right end of the ticker tape (the marker's). */
@@ -47,6 +49,7 @@
 		results,
 		pending = null,
 		labels = null,
+		span = null,
 		ticker = null,
 		tools,
 		overlay,
@@ -69,7 +72,7 @@
 		padLeft: 4,
 		padRight: 4,
 		padTop: TAPE_H + (labels ? 26 : 14),
-		padBottom: labels ? 30 : 14,
+		padBottom: labels || span ? 30 : 14,
 		contextShare: 0.5
 	});
 
@@ -297,7 +300,11 @@
 
 	/** The axis dates, first and last, along the bottom edge. */
 	const dates = $derived(
-		labels ? [fmtDate(labels.dates[0]), fmtDate(labels.dates[labels.dates.length - 1])] : null
+		labels
+			? [fmtDate(labels.dates[0]), fmtDate(labels.dates[labels.dates.length - 1])]
+			: span
+				? [fmtDate(span[0]), fmtDate(span[1])]
+				: null
 	);
 
 	/** The high and low prices, above and below their points. */
@@ -556,13 +563,15 @@
 				<circle class="dot" r="3.5" />
 			</g>
 
-			{#if labels && priceLabels}
+			{#if priceLabels}
 				{#each priceLabels as pl (pl.key)}
 					<text class="price" x={pl.x} y={pl.y} text-anchor="middle">{pl.text}</text>
 				{/each}
-				<text class="date" x={frame.padLeft} y={height - 6}>{dates?.[0]}</text>
+			{/if}
+			{#if dates}
+				<text class="date" x={frame.padLeft} y={height - 6}>{dates[0]}</text>
 				<text class="date" x={width - frame.padRight} y={height - 6} text-anchor="end"
-					>{dates?.[1]}</text
+					>{dates[1]}</text
 				>
 			{/if}
 		</svg>

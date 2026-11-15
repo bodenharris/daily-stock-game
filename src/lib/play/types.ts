@@ -48,6 +48,11 @@ export interface NameIt {
 	guess: number | null;
 	/** Index of the right moment, only once answered. */
 	answer: number | null;
+	/**
+	 * ISO dates of the chart's first and last bars, shown on its axis while the player names
+	 * the moment. Nothing else identifying (ticker, prices, headline) goes out before the reveal.
+	 */
+	span: [string, string];
 }
 
 export interface GameView {
