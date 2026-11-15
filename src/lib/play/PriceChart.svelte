@@ -76,8 +76,8 @@
 	// svelte-ignore state_referenced_locally
 	let range = { first: values[0], length: values.length, lo: lo.target, hi: hi.target };
 	/**
-	 * Stretches already settled when this game was loaded. Their flash, burst and floating
-	 * move are skipped, so a reload doesn't replay every call at once.
+	 * Stretches already settled when this game was loaded. Their flash and burst are
+	 * skipped, so a reload doesn't replay every call at once.
 	 */
 	const firstValue = $derived(values[0]);
 	const settledOnLoad = $derived.by(() => {
@@ -175,46 +175,64 @@
 		// Ease the ticking value onto the server's move, so it lands on what the pips say.
 		const seg = segments[k - 1];
 		if (seg) move += (seg.move - seg.drawnMove) * Math.min(1, (head.end - base) / shape.stepBars);
-		const text = labels
-			? fmtPrice(labels.closes[Math.round(head.end)])
-			: `${move >= 0 ? '▲' : '▼'} ${fmtMove(move)}`;
-		const w = text.length * 8 + 14;
+		const price = labels ? fmtPrice(labels.closes[Math.round(head.end)]) : null;
+		const text = price ?? fmtPixelMove(move);
+		// Press Start advances 8px a glyph; a move also carries a 9px arrow and a 4px gap.
+		const w = text.length * 8 + (price ? 0 : 13) + 14;
 		const top = frame.padTop - 4;
 		const bottom = height - frame.padBottom - 4;
 		const clamp = (v: number) => Math.min(Math.max(v, top + 10), bottom - 10);
-		// At the right edge the tag would sit on the last mark: step it off, away from the line.
+		// At the right edge the tag would sit on the line and the last mark: step it off, to the
+		// side the line isn't on under the tag.
 		let ty = head.y;
-		if (head.x > width - frame.padRight - w - MARK_R - 4) {
-			const off = 10 + MARK_R + 4;
+		const left = width - frame.padRight - w;
+		if (head.x > left - MARK_R - 4) {
+			const off = 20;
+			let sum = 0;
+			let n = 0;
+			for (let i = Math.floor(head.end); i >= 0 && x(i) >= left - 8; i--) {
+				sum += y(logs[i]);
+				n++;
+			}
 			const last = segments.at(-1);
-			const above = !last || last.move >= 0;
+			const above = n > 0 && sum / n !== head.y ? sum / n > head.y : !last || last.move >= 0;
 			ty = head.y + (above ? -off : off);
 			if (clamp(ty) !== ty) ty = head.y + (above ? off : -off);
 		}
 		return {
-			// Before the first call the setup's move would read like today's gain.
-			show: labels != null || k > 0,
+			// Before the first call the setup's move would read like today's gain; after the last,
+			// the stretch's move would read like the player's result. The real price is fine.
+			show: labels != null || (k > 0 && (!finished || drawing)),
 			up: move >= 0,
+			arrow: price == null,
 			text,
 			w,
 			y: clamp(ty)
 		};
 	});
 
-	/** The ticker tape: the setup, every settled call, and the calls still to come. */
+	/**
+	 * The ticker tape: the setup, then every settled call. Listed newest first: the tape lays
+	 * them out right to left, so when they run long the oldest drop out whole.
+	 */
 	const tape = $derived.by(() => {
-		const items: { key: string; label: string; move: number | null; fresh: boolean }[] = [
+		const items: { key: string; label: string; move: number; fresh: boolean }[] = [
 			{ key: 'setup', label: 'SETUP', move: values[contextEnd] / values[0] - 1, fresh: false }
 		];
-		const drawn = segments.filter((s) => s.drawn);
-		for (const s of drawn) {
-			items.push({ key: `c${s.step}`, label: `CALL ${s.step}`, move: s.move, fresh: s.fresh });
+		for (const s of segments) {
+			if (s.drawn) {
+				items.push({ key: `c${s.step}`, label: `CALL ${s.step}`, move: s.move, fresh: s.fresh });
+			}
 		}
-		for (let k = drawn.length + 1; k <= shape.calls; k++) {
-			items.push({ key: `c${k}`, label: `CALL ${k}`, move: null, fresh: false });
-		}
-		return items;
+		return items.reverse();
 	});
+
+	/**
+	 * 9×5 pixel arrows: Press Start's ▲▼ fall back to a small system glyph. Five rows sit exactly
+	 * centred on its seven-row digits.
+	 */
+	const ARROW_UP = 'M4 0h1v1h1v1h1v1h1v1h1v1h-9v-1h1v-1h1v-1h1v-1h1z';
+	const ARROW_DOWN = 'M0 0h9v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1v-1h-1z';
 
 	const slots = $derived(
 		Array.from({ length: shape.calls }, (_, k) => {
@@ -235,6 +253,8 @@
 		const body = abs >= 10 ? Math.round(abs).toString() : abs.toFixed(1);
 		return `${pct >= 0 ? '+' : '−'}${body}%`;
 	}
+	/** The same, for Press Start: it has no −, but its hyphen is a full-width pixel minus. */
+	const fmtPixelMove = (m: number) => fmtMove(m).replace('−', '-');
 	const fmtDate = (iso: string) =>
 		new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', {
 			month: 'short',
@@ -244,23 +264,45 @@
 	const fmtPrice = (n: number) =>
 		n >= 100 ? `$${Math.round(n)}` : n >= 10 ? `$${n.toFixed(1)}` : `$${n.toFixed(2)}`;
 
+	/** Rough width of a VT323 label at 14px (size-adjusted 125%: about 8.75px a glyph). */
+	const labelW = (text: string) => text.length * 8.75;
+
+	/** The axis dates, first and last, along the bottom edge. */
+	const dates = $derived(
+		labels ? [fmtDate(labels.dates[0]), fmtDate(labels.dates[labels.dates.length - 1])] : null
+	);
+
+	/** The high and low prices, above and below their points. */
 	const priceLabels = $derived.by(() => {
-		if (!labels) return null;
+		if (!labels || !dates) return null;
 		let iMax = 0;
 		let iMin = 0;
 		values.forEach((v, i) => {
 			if (v > values[iMax]) iMax = i;
 			if (v < values[iMin]) iMin = i;
 		});
+		const at = (i: number, text: string, above: boolean) => {
+			const lx = Math.min(Math.max(x(i), 28), width - 28);
+			const py = y(logs[i]);
+			let ly = py + (above ? -9 : 20);
+			// A low near a corner would print over the date there: put it above its point instead.
+			const half = labelW(text) / 2;
+			const onDate =
+				lx - half < frame.padLeft + labelW(dates[0]) + 6 ||
+				lx + half > width - frame.padRight - labelW(dates[1]) - 6;
+			if (!above && onDate && ly > height - 6 - 14 - 4) ly = py - 9;
+			return { key: above ? 'high' : 'low', text, x: lx, y: ly };
+		};
 		return [
-			{ i: iMax, text: fmtPrice(labels.closes[iMax]), above: true },
-			{ i: iMin, text: fmtPrice(labels.closes[iMin]), above: false }
+			at(iMax, fmtPrice(labels.closes[iMax]), true),
+			at(iMin, fmtPrice(labels.closes[iMin]), false)
 		];
 	});
 
 	/**
 	 * Faint gridlines at round % moves from today's level, so a big move has a sense of scale
-	 * without giving away the price (hidden once the real prices are shown).
+	 * without giving away the price (hidden once the real prices are shown). Unlabelled: a
+	 * "−50%" on the chart reads like a loss.
 	 */
 	const grid = $derived.by(() => {
 		if (labels) return [];
@@ -269,13 +311,10 @@
 		const down = 1 - Math.exp(lo.current - base);
 		const span = Math.max(up, down);
 		const step = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].find((s) => span / s <= 1.6) ?? 20;
-		const lines: { y: number; text: string }[] = [];
+		const lines: { key: string; y: number }[] = [];
 		// One line each way at most: enough for scale, never a busy axis.
-		if (step <= up)
-			lines.push({ y: y(base + Math.log(1 + step)), text: `+${Math.round(step * 100)}%` });
-		if (step < down && step < 1) {
-			lines.push({ y: y(base + Math.log(1 - step)), text: `−${Math.round(step * 100)}%` });
-		}
+		if (step <= up) lines.push({ key: 'up', y: y(base + Math.log(1 + step)) });
+		if (step < down && step < 1) lines.push({ key: 'down', y: y(base + Math.log(1 - step)) });
 		return lines;
 	});
 
@@ -295,36 +334,23 @@
 </script>
 
 <div class="chart {className}" bind:clientWidth={width} bind:clientHeight={height}>
-	<!-- Ticker tape: the story so far, scrolling like the board on a trading floor. -->
-	<div class="tape" style:height="{TAPE_H}px" style:--tape-s="{tape.length * 3.5}s">
+	<!-- Ticker tape: the story so far, like the board on a trading floor. -->
+	<div class="tape" style:height="{TAPE_H}px">
 		<span class="tape-symbol" aria-hidden="true">
 			<span class={['live', finished && 'closed']}></span>
 			{ticker ?? '???'}
 			<span class="tape-state">{finished ? 'CLOSED' : 'LIVE'}</span>
 		</span>
 		<div class="tape-window" aria-hidden="true">
-			<div class="tape-track">
-				{#each [0, 1] as copy (copy)}
-					<div class="tape-copy">
-						{#each tape as item (item.key)}
-							<span
-								class={[
-									'tape-item',
-									item.move == null ? 'tbd' : item.move >= 0 ? 'up' : 'down',
-									item.fresh && 'fresh'
-								]}
-							>
-								<span class="tape-label">{item.label}</span>
-								{#if item.move == null}
-									···
-								{:else}
-									{item.move >= 0 ? '▲' : '▼'} {fmtMove(item.move)}
-								{/if}
-							</span>
-						{/each}
-					</div>
-				{/each}
-			</div>
+			{#each tape as item (item.key)}
+				<span class={['tape-item', item.move >= 0 ? 'up' : 'down', item.fresh && 'fresh']}>
+					<span class="tape-label">{item.label}</span>
+					<svg class="arrow" width="9" height="5" viewBox="0 0 9 5">
+						<path d={item.move >= 0 ? ARROW_UP : ARROW_DOWN} />
+					</svg>
+					{fmtPixelMove(item.move)}
+				</span>
+			{/each}
 		</div>
 		{#if tools}
 			<div class="tape-tools">{@render tools()}</div>
@@ -332,7 +358,14 @@
 	</div>
 
 	{#if width > 0 && height > 0}
-		<svg {width} {height} viewBox="0 0 {width} {height}" role="img" aria-label={summary}>
+		<svg
+			class="plot"
+			{width}
+			{height}
+			viewBox="0 0 {width} {height}"
+			role="img"
+			aria-label={summary}
+		>
 			<defs>
 				<!-- Lines never spill into the header while the range eases out to fit a spike. -->
 				<clipPath id="{uid}-plot">
@@ -367,31 +400,28 @@
 				top={frame.padTop - 4}
 				bottom={height - frame.padBottom + 4}
 			/>
-			{#each grid as g (g.text)}
+			{#each grid as g (g.key)}
 				<line class="grid" x1={frame.padLeft} x2={width - frame.padRight} y1={g.y} y2={g.y} />
-				<!-- On a phone the label floats with nothing to read it against. -->
-				{#if width >= 640}
-					<text class="grid-label" x={frame.padLeft + 2} y={g.y - 4}>{g.text}</text>
-				{/if}
 			{/each}
 
-			<!-- The future: one rounded slot per call. -->
+			<!-- The next call's slot, lit up. -->
 			{#each slots as s (s.step)}
 				<rect
 					class="slot"
 					class:next={s.step === nextStep}
-					class:done={s.step <= callsMade}
 					x={s.x0 + 1.5}
 					y={frame.padTop - 4}
 					width={Math.max(0, s.x1 - s.x0 - 3)}
 					height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
-					rx="0"
 				/>
 			{/each}
 
 			<!-- Today's level, ruled across the hidden future: above it is up, below is down. -->
 			{#if showLevel && nextStep}
 				{@const [sx0, sx1] = slotBounds(nextStep, shape, frame)}
+				{@const cx = (sx0 + sx1) / 2}
+				{@const upY = frame.padTop + 6}
+				{@const downY = height - frame.padBottom - 2}
 				<line
 					class="level"
 					x1={head.x}
@@ -399,16 +429,13 @@
 					y1={Math.round(levelY)}
 					y2={Math.round(levelY)}
 				/>
-				{@const cx = (sx0 + sx1) / 2}
-				<path
-					class="slot-arrow"
-					d="M{cx - 5} {frame.padTop + 12} L{cx} {frame.padTop + 6} L{cx + 5} {frame.padTop + 12}"
-				/>
-				<path
-					class="slot-arrow"
-					d="M{cx - 5} {height - frame.padBottom - 8} L{cx} {height - frame.padBottom - 2} L{cx +
-						5} {height - frame.padBottom - 8}"
-				/>
+				<!-- A chevron that would sit on the level just muddles it. -->
+				{#if levelY - (upY + 6) > 12}
+					<path class="slot-arrow" d="M{cx - 5} {upY + 6} L{cx} {upY} L{cx + 5} {upY + 6}" />
+				{/if}
+				{#if downY - 6 - levelY > 12}
+					<path class="slot-arrow" d="M{cx - 5} {downY - 6} L{cx} {downY} L{cx + 5} {downY - 6}" />
+				{/if}
 			{/if}
 
 			{#if pending && nextStep}
@@ -451,16 +478,24 @@
 					class={['tag', tag.up ? 'up' : 'down']}
 					transform="translate({width - frame.padRight} {Math.round(tag.y)})"
 				>
-					<rect x={-tag.w} y="-10" width={tag.w} height="20" rx="0" />
-					<text x="-7" y="4" text-anchor="end">{tag.text}</text>
+					<rect x={-tag.w} y="-10" width={tag.w} height="20" />
+					{#if tag.arrow}
+						<path
+							class="arrow"
+							transform="translate({-tag.w + 7} -2)"
+							d={tag.up ? ARROW_UP : ARROW_DOWN}
+						/>
+					{/if}
+					<!-- Set from the left, so the glyphs land on whole pixels. -->
+					<text x={-tag.w + (tag.arrow ? 20 : 7)} y="4">{tag.text}</text>
 				</g>
 			{/if}
 
 			<!-- Right or wrong marks the end of each stretch, once it has fully drawn. -->
 			{#each segments.filter((x) => x.drawn) as seg (seg.step)}
 				{#if seg.fresh}
-					<!-- The stretch's slot flashes green if the call was right, pink if not, then a
-					     burst and the move itself float off the end of the line. -->
+					<!-- The stretch's slot flashes green if the call was right, pink if not, and a
+					     burst rings the end of the line. -->
 					<rect
 						class={['flash', seg.right ? 'right' : 'wrong']}
 						x={seg.x0}
@@ -468,14 +503,12 @@
 						width={Math.max(0, seg.x1 - seg.x0)}
 						height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
 					/>
-					<g transform="translate({seg.x1} {seg.endY})">
-						<circle class={['burst', seg.right ? 'right' : 'wrong']} r="6" />
-						<g class={['float', seg.right ? 'right' : 'wrong']}>
-							<text y={seg.move >= 0 ? -14 : 22} text-anchor="middle"
-								>{seg.move >= 0 ? '▲' : '▼'} {fmtMove(seg.move)}</text
-							>
-						</g>
-					</g>
+					<circle
+						class={['burst', seg.right ? 'right' : 'wrong']}
+						cx={seg.x1}
+						cy={seg.endY}
+						r="6"
+					/>
 				{/if}
 				<circle
 					class="mark"
@@ -496,17 +529,12 @@
 			</g>
 
 			{#if labels && priceLabels}
-				{#each priceLabels as pl (pl.above)}
-					<text
-						class="price"
-						x={Math.min(Math.max(x(pl.i), 24), width - 24)}
-						y={y(logs[pl.i]) + (pl.above ? -9 : 17)}
-						text-anchor="middle">{pl.text}</text
-					>
+				{#each priceLabels as pl (pl.key)}
+					<text class="price" x={pl.x} y={pl.y} text-anchor="middle">{pl.text}</text>
 				{/each}
-				<text class="date" x={frame.padLeft} y={height - 6}>{fmtDate(labels.dates[0])}</text>
+				<text class="date" x={frame.padLeft} y={height - 6}>{dates?.[0]}</text>
 				<text class="date" x={width - frame.padRight} y={height - 6} text-anchor="end"
-					>{fmtDate(labels.dates[labels.dates.length - 1])}</text
+					>{dates?.[1]}</text
 				>
 			{/if}
 		</svg>
@@ -520,7 +548,7 @@
 		height: 100%;
 		color: var(--chart-ink);
 	}
-	svg {
+	.plot {
 		position: absolute;
 		inset: 0;
 		display: block;
@@ -550,20 +578,11 @@
 		stroke-width: 3;
 	}
 	.slot {
-		fill: none;
-		stroke: var(--md-sys-color-outline-variant);
-		stroke-width: 1;
-		stroke-dasharray: 2 4;
-		transition:
-			opacity 300ms ease,
-			fill 250ms ease;
+		fill: transparent;
+		transition: fill 250ms ease;
 	}
 	.slot.next {
 		fill: color-mix(in srgb, var(--md-sys-color-primary-container) 55%, transparent);
-		stroke: none;
-	}
-	.slot.done {
-		opacity: 0;
 	}
 	.base {
 		stroke: var(--chart-baseline);
@@ -602,12 +621,6 @@
 		stroke-width: 1;
 		opacity: 0.6;
 	}
-	.grid-label {
-		font: 400 12px/1 var(--md-ref-typeface-plain, monospace);
-		font-variant-numeric: tabular-nums;
-		fill: var(--chart-axis);
-		opacity: 0.8;
-	}
 	.ghost path,
 	.ghost circle {
 		fill: var(--md-sys-color-primary);
@@ -622,14 +635,15 @@
 	.dot {
 		fill: var(--chart-ink);
 	}
+	/* VT323 at the type scale's label size (it has one weight: no faux bold). */
 	.price,
 	.date {
-		font: 500 11px/1 var(--md-ref-typeface-plain, sans-serif);
+		font: 400 14px/1 var(--md-ref-typeface-plain, monospace);
 		font-variant-numeric: tabular-nums;
 		fill: var(--chart-axis);
 	}
 	.price {
-		font-weight: 600;
+		fill: var(--md-sys-color-on-surface);
 	}
 	/* ── Trading-floor dressing ─────────────────────────────────────────────── */
 	.chart {
@@ -656,10 +670,14 @@
 	.tag.down rect {
 		fill: var(--chart-down);
 	}
-	.tag text {
+	.tag text,
+	.tag .arrow {
 		font: 400 8px/1 var(--mono);
 		font-variant-numeric: tabular-nums;
 		fill: var(--pixel-ink, var(--md-sys-color-surface));
+	}
+	.arrow {
+		shape-rendering: crispEdges;
 	}
 	.scan {
 		pointer-events: none;
@@ -724,38 +742,6 @@
 			opacity: 0;
 		}
 	}
-	.float {
-		opacity: 0;
-		animation: float 1.8s ease-out;
-	}
-	.float text {
-		font: 400 8px/1 var(--mono);
-		font-variant-numeric: tabular-nums;
-	}
-	.float.right text {
-		fill: var(--chart-up);
-	}
-	.float.wrong text {
-		fill: var(--chart-down);
-	}
-	@keyframes float {
-		0% {
-			opacity: 0;
-			transform: translateY(6px) scale(0.8);
-		}
-		15% {
-			opacity: 1;
-			transform: translateY(0) scale(1.1);
-		}
-		70% {
-			opacity: 1;
-		}
-		100% {
-			opacity: 0;
-			transform: translateY(-18px) scale(1);
-		}
-	}
-
 	/* The tape. */
 	.tape-tools {
 		display: flex;
@@ -771,7 +757,6 @@
 		z-index: 3; /* over the marker layer, so its buttons stay reachable while drawing */
 		display: flex;
 		align-items: stretch;
-		border-radius: 0;
 		background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
 		/* Press Start 2P sits on an 8px grid: 8px or 16px, never in between. */
 		font: 400 8px/1 var(--mono);
@@ -805,15 +790,23 @@
 			opacity: 0.2;
 		}
 	}
+	/* Static, starting from the setup. Laid out from the newest call leftwards (the list is
+	   newest first) and packed left; what doesn't fit wraps onto a hidden second line, so the
+	   oldest calls drop out whole rather than being cut mid-glyph. */
 	.tape-window {
+		display: flex;
 		flex: 1;
+		flex-flow: row-reverse wrap;
+		justify-content: flex-end;
 		min-width: 0;
 		overflow: hidden;
-		mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
 	}
-	/* On a phone the tape is too short to read as a story (it shows the calls to come first), so
-	   it keeps just the symbol and the tools. */
+	/* On a phone the tape is too short to read as a story, so it keeps just the symbol and the
+	   tools, sitting as two small chips on the chart's top edge. */
 	@media (max-width: 767.98px) {
+		.tape {
+			background: transparent;
+		}
 		.tape-window {
 			display: none;
 		}
@@ -821,32 +814,18 @@
 			margin-left: auto;
 		}
 	}
-	.tape-track {
-		display: flex;
-		width: max-content;
-		height: 100%;
-		animation: tape var(--tape-s, 20s) linear infinite;
-	}
-	.tape-copy {
-		display: flex;
-		align-items: center;
-		flex: none;
-		min-width: 100%;
-	}
-	@keyframes tape {
-		to {
-			transform: translateX(-50%);
-		}
-	}
 	.tape-item {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0 0.9rem;
+		gap: 6px;
+		height: 100%;
+		padding: 0 14px;
 		color: var(--chart-axis);
 	}
+	/* A short rule between items (the list runs newest first, so it goes on the right). */
 	.tape-item + .tape-item {
-		border-left: 1px solid color-mix(in srgb, var(--chart-axis) 25%, transparent);
+		background: linear-gradient(var(--tape-rule), var(--tape-rule)) right center / 1px 8px no-repeat;
+		--tape-rule: color-mix(in srgb, var(--chart-axis) 25%, transparent);
 	}
 	.tape-label {
 		color: var(--md-sys-color-on-surface);
@@ -857,27 +836,33 @@
 	.tape-item.down {
 		color: var(--chart-down);
 	}
+	/* Digits fill the top seven of the line's eight pixel rows: lift the arrow half a row (as
+	   a whole pixel) to centre it on them. */
+	.tape-item .arrow {
+		flex: none;
+		margin: -1px -2px 0 0;
+		fill: currentColor;
+	}
 	.tape-item.fresh {
 		animation: tape-in 1.2s ease-out;
 	}
 	@keyframes tape-in {
 		0%,
 		40% {
-			background: color-mix(in srgb, currentColor 30%, transparent);
+			background-color: color-mix(in srgb, currentColor 30%, transparent);
 		}
 		100% {
-			background: transparent;
+			background-color: transparent;
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		svg,
+		.plot,
 		.mark,
 		.ghost,
 		.ping,
 		.live,
-		.tape-item.fresh,
-		.tape-track {
+		.tape-item.fresh {
 			animation: none;
 		}
 		.slot,
@@ -887,7 +872,6 @@
 		.ping,
 		.flash,
 		.burst,
-		.float,
 		.scan {
 			display: none;
 		}

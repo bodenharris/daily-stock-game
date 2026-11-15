@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Tween, prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
@@ -116,12 +117,13 @@
 		if (!latest) return null;
 		const total = latest.crowd.up + latest.crowd.down;
 		const same = latest.direction === 'up' ? latest.crowd.up : latest.crowd.down;
+		// Short enough to sit on one line of a phone, crowd bonus aside.
 		const crowd =
 			total <= 1
 				? `You're the first to call this one.`
 				: total <= 20
-					? `${same} of ${total} players called ${latest.direction}.`
-					: `${percent(same / total)} of players called ${latest.direction} too.`;
+					? `${same} of ${total} called ${latest.direction}.`
+					: `${percent(same / total)} called ${latest.direction} too.`;
 		// A right call returns the stake, plus a crowd bonus when most players called it wrong.
 		const bonus = latest.correct ? latest.deltaCents - latest.stakeCents : 0;
 		return {
@@ -195,6 +197,21 @@
 
 	const busy = $derived(!!pending || revealing || view.finished);
 
+	/**
+	 * Phones: the quiz and the unmasking land below the chart. Scroll the balance to the top so
+	 * the balance, the chart and what comes next share one screen. Short phones go straight to
+	 * the new part instead.
+	 */
+	function bringIntoView(node: HTMLElement) {
+		if (!untrack(() => fresh) || !matchMedia('(max-width: 1023px)').matches) return;
+		const balance = node.closest('.game')?.querySelector('.balance-row');
+		const target = innerHeight < 680 || !balance ? (node.querySelector('h2') ?? node) : balance;
+		scrollTo({
+			top: target.getBoundingClientRect().top + scrollY - 16,
+			behavior: prefersReducedMotion.current ? 'instant' : 'smooth'
+		});
+	}
+
 	/** Keyboard play: ↑ / ↓ make the call, 1 / 2 / 3 pick the bet. Never while typing or in a sheet. */
 	function onKey(e: KeyboardEvent) {
 		if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || busy) return;
@@ -224,7 +241,7 @@
 
 <!-- Past days have a shorter header than the skyline, so the game can stand taller. -->
 <div
-	class="game min-h-0 flex-1"
+	class={['game min-h-0 flex-1', view.finished && 'done']}
 	style:--scene-h={archive ? 'var(--scene-h-compact, 3.5rem)' : undefined}
 >
 	<!-- Balance: the one number that matters. -->
@@ -246,18 +263,6 @@
 			>
 				{change >= 0 ? '+' : '−'}{Math.round((Math.abs(change) / START_BALANCE_CENTS) * 100)}%
 			</span>
-		{:else if latest}
-			{#key latest.step}
-				<span
-					class="mb-1.5 rounded-none px-3 py-1 type-title-lg-emphasized type-numeric
-					{latest.correct
-						? 'bg-up-container text-on-up-container'
-						: 'bg-down-container text-on-down-container'}"
-					in:pop
-				>
-					{dollars(latest.deltaCents, { sign: true })}
-				</span>
-			{/key}
 		{/if}
 	</div>
 
@@ -311,14 +316,17 @@
 		{/if}
 
 		{#if showReveal}
-			<Reveal {view} {fresh} {archive} />
+			<div {@attach bringIntoView}>
+				<Reveal {view} {fresh} {archive} />
+			</div>
 		{:else if naming && view.nameIt}
-			<div class="naming flex flex-col">
+			<div class="naming flex flex-col" {@attach bringIntoView}>
 				<NameIt number={view.number} nameIt={view.nameIt} {archive} onAnswered={answered} />
 			</div>
 		{:else}
 			<div class="controls flex flex-col pb-4">
-				<div class="flex min-h-6 items-center justify-center text-center">
+				<!-- The last result, then the next question: the ask never leaves the screen. -->
+				<div class="prompt flex flex-col gap-1 text-center lg:text-left">
 					{#if result}
 						{#key latest?.step}
 							<p
@@ -330,13 +338,16 @@
 								{result.crowd}
 							</p>
 						{/key}
-					{:else}
-						<p class="type-title-md text-balance text-on-surface">Up or down over {stretch}?</p>
+					{/if}
+					{#if !view.finished}
+						<p class="ask type-title-md text-balance text-on-surface lg:type-body-lg">
+							Bet on {stretch}: up or down?
+						</p>
 					{/if}
 				</div>
 
 				{#if !view.finished}
-					<div class="mt-4">
+					<div class="stakes mt-4">
 						<StakePicker bind:value={stakePercent} options={stakeOptions} disabled={busy} />
 					</div>
 
@@ -363,7 +374,7 @@
 					</div>
 				{:else}
 					<p
-						class="unmasking mt-6 text-center type-title-md text-on-surface-variant"
+						class="unmasking mt-6 text-center type-title-md text-on-surface-variant lg:text-left"
 						tabindex="-1"
 						{@attach (node) => {
 							// The Up/Down buttons just went away; keep keyboard focus on the game.
@@ -402,7 +413,9 @@
 	.pips {
 		margin-top: 1rem;
 	}
-	.controls,
+	.controls {
+		padding-top: 1rem;
+	}
 	.naming {
 		padding-top: 1.5rem;
 	}
@@ -425,7 +438,13 @@
 			grid-template-areas: 'chart balance' 'chart panel';
 			column-gap: 2.5rem;
 		}
+		/* The chart keeps its play-time size when the reveal makes the rail long, and stays in
+		   view while the rail scrolls. */
 		.chart-area {
+			align-self: start;
+			position: sticky;
+			top: 1rem;
+			height: clamp(440px, calc(100dvh - var(--scene-h, 224px) - 4rem), 700px);
 			margin-top: 0;
 			padding: 1.5rem 1.25rem 1rem;
 			border-radius: 0;
@@ -444,13 +463,26 @@
 		.hide-wide {
 			display: none;
 		}
+		/* The log's rows take up the rail's slack, so no dead gap opens above the question. */
 		.log {
-			display: block;
+			display: flex;
+			flex: 1 1 auto;
+			flex-direction: column;
+			max-height: 22.5rem; /* five 4rem rows and their gaps; past that, the gap is fine */
 			margin-top: 1.5rem;
+		}
+		.log > :global(ol) {
+			flex: 1 1 auto;
 		}
 		.controls {
 			margin-top: auto;
+			padding-top: 1.5rem;
 			padding-bottom: 0;
+		}
+	}
+	@media (min-width: 1280px) {
+		.game {
+			grid-template-columns: minmax(0, 1fr) 26rem;
 		}
 	}
 	/* Short laptops: smaller call buttons, and below ~740px the rail swaps the log for the pips,
@@ -488,7 +520,7 @@
 	/* The score readout: chunky 8-bit digits. */
 	.balance {
 		font-family: var(--md-ref-typeface-pixel);
-		font-size: 1.75rem;
+		font-size: 2rem;
 		line-height: 2.75rem;
 		letter-spacing: 0;
 		text-shadow: 0 3px 0 var(--pixel-ink);
@@ -506,8 +538,11 @@
 	.calls :global(.call.down) {
 		--frame: var(--down);
 	}
-	.calls :global(.call:hover) {
-		background: var(--md-sys-color-surface-container-highest);
+	/* Mouse only: on touch a tapped button would keep the hover and read as preselected. */
+	@media (hover: hover) {
+		.calls :global(.call:hover) {
+			background: var(--md-sys-color-surface-container-highest);
+		}
 	}
 	/* Cabinet press: no easing. The button drops onto its base the instant it's hit. */
 	.calls :global(.call) {
@@ -554,6 +589,37 @@
 		}
 		.calls :global(.call) {
 			--btn-h: 64px;
+		}
+	}
+	/* Once the calls are made, nothing has to fit above the fold: the chart gets its room back. */
+	.game.done .chart-area {
+		min-height: 200px;
+	}
+	/* Small phones (an SE, or a phone browser with its bars out): tighter beats all the way down,
+	   so the call buttons still make the fold. */
+	@media (max-width: 1023px) and (max-height: 620px) {
+		.balance-row {
+			padding-top: 0;
+		}
+		.chart-area {
+			min-height: 96px;
+			margin-top: 0.5rem;
+		}
+		.pips {
+			margin-top: 0.5rem;
+		}
+		.controls {
+			padding-top: 0.5rem;
+		}
+		.ask {
+			font-size: 0.875rem;
+			line-height: 1.25rem;
+		}
+		.stakes {
+			margin-top: 0.5rem;
+		}
+		.calls {
+			margin-top: 0.75rem;
 		}
 	}
 </style>

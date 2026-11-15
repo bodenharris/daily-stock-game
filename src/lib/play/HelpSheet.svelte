@@ -11,16 +11,15 @@
 	<div class="flex flex-col gap-3 type-body-lg text-on-surface">
 		<p>Every day, one real chart from a famous market moment. The name and dates stay hidden.</p>
 		<p>
-			Make five calls. Each one asks: does the price end the next stretch above or below the dashed
-			line?
+			Make five calls. Each one asks whether the price finishes the next stretch higher or lower
+			than where it is now.
 		</p>
 		<p>
 			You start with $100 and bet 10%, 25% or 50% of your balance on each call. A right call wins
 			your bet, plus a crowd bonus when most players called it the other way.
 		</p>
 		<p class="text-on-surface-variant">
-			Then name the moment, just for bragging rights, and the chart is unmasked. A new chart comes
-			out every day at midnight Eastern, and you can play past ones any time.
+			Then name the moment and the chart is unmasked. A new chart every day at midnight Eastern.
 		</p>
 		<p class="keys hidden text-on-surface-variant">
 			On a keyboard: <span class="whitespace-nowrap"><kbd>↑</kbd> and <kbd>↓</kbd></span> make the

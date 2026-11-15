@@ -92,8 +92,10 @@
 	/**
 	 * The home page's title screen: `children` is the title block, `actions` the buttons pinned
 	 * top right. With `title` it is the compact strip for the inner pages instead: a back button
-	 * (`back`), the page `title` with `children` as the line under it, and a smaller wolf;
-	 * `maxWidth` lines it up with a page column wider than 42rem.
+	 * (`back`), the page `title` with `children` as the line under it, and a smaller wolf.
+	 * The foreground sits on the same column as the page's `<main>` (max-w-md, md:max-w-2xl,
+	 * and from 1024px `maxWidth`, which the home page defaults to 80rem, with px-safe gutters
+	 * of 1 / 1.5 / 2rem), so the wolf, back button and icons line up with the content edges.
 	 * Heights come from --scene-h / --scene-h-compact in layout.css, which other layouts size
 	 * against.
 	 */
@@ -112,11 +114,58 @@
 	} = $props();
 
 	const compact = $derived(title != null);
+	const wide = $derived(!compact || maxWidth != null);
+
+	// Lit windows and beacons stay dark behind the title block, so no pixel lands between its
+	// letters. The hole is measured in scene units, whole windows only.
+	const maskId = $props.id();
+	let backdrop = $state<SVGSVGElement>();
+	let hole = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+
+	function keepClear(block: HTMLElement) {
+		const measure = () => {
+			if (!backdrop) return;
+			const b = backdrop.getBoundingClientRect();
+			let [l, t, r, btm] = [Infinity, Infinity, -Infinity, -Infinity];
+			for (const el of block.children) {
+				const c = el.getBoundingClientRect();
+				if (c.width === 0) continue;
+				[l, t, r, btm] = [
+					Math.min(l, c.left),
+					Math.min(t, c.top),
+					Math.max(r, c.right),
+					Math.max(btm, c.bottom)
+				];
+			}
+			if (l === Infinity) {
+				hole = null;
+				return;
+			}
+			const x = Math.floor((l - b.left) / PX) - 1;
+			const y = Math.floor((t - b.top) / PX) - 1;
+			hole = {
+				x,
+				y,
+				w: Math.ceil((r - b.left) / PX) + 1 - x,
+				h: Math.ceil((btm - b.top) / PX) + 1 - y
+			};
+		};
+		const ro = new ResizeObserver(measure);
+		ro.observe(block);
+		for (const el of block.children) ro.observe(el);
+		addEventListener('resize', measure);
+		measure();
+		return () => {
+			ro.disconnect();
+			removeEventListener('resize', measure);
+		};
+	}
 </script>
 
-<header class={['scene', compact && 'compact']} style:--scene-max={maxWidth}>
+<header class={['scene', compact && 'compact', wide && 'wide']} style:--scene-max={maxWidth}>
 	<div class="sky crt">
 		<svg
+			bind:this={backdrop}
 			class="backdrop pixel-art"
 			viewBox="0 0 {W} {H}"
 			width={W * PX}
@@ -124,6 +173,12 @@
 			shape-rendering="crispEdges"
 			aria-hidden="true"
 		>
+			<mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H}>
+				<rect width={W} height={H} fill="#fff" />
+				{#if hole}
+					<rect x={hole.x} y={hole.y} width={hole.w} height={hole.h} fill="#000" />
+				{/if}
+			</mask>
 			{#each SKY as fill, i (fill)}
 				<rect x="0" y={i * band} width={W} height={band} {fill} />
 			{/each}
@@ -149,19 +204,31 @@
 				<rect x={b.x} y={H - b.h} width={b.w} height="1" fill="#1d2a55" />
 				{#if b.spire}
 					<rect x={b.x + Math.floor(b.w / 2)} y={H - b.h - 5} width="1" height="5" fill="#1d2a55" />
-					<rect class="beacon" x={b.x + Math.floor(b.w / 2)} y={H - b.h - 6} width="1" height="1" />
 				{/if}
-				{#each b.windows as w, j (j)}
-					<rect
-						x={w.x}
-						y={w.y}
-						width="1"
-						height="1"
-						fill={j % 5 === 0 ? '#4de3ff' : '#ffd23f'}
-						opacity={j % 3 === 0 ? 0.55 : 0.9}
-					/>
-				{/each}
 			{/each}
+			<g mask="url(#{maskId})">
+				{#each buildings as b, i (i)}
+					{#if b.spire}
+						<rect
+							class="beacon"
+							x={b.x + Math.floor(b.w / 2)}
+							y={H - b.h - 6}
+							width="1"
+							height="1"
+						/>
+					{/if}
+					{#each b.windows as w, j (j)}
+						<rect
+							x={w.x}
+							y={w.y}
+							width="1"
+							height="1"
+							fill={j % 5 === 0 ? '#4de3ff' : '#ffd23f'}
+							opacity={j % 3 === 0 ? 0.55 : 0.9}
+						/>
+					{/each}
+				{/each}
+			</g>
 			{#each front as f, i (i)}
 				<rect x={f.x} y={H - f.h} width={f.w} height={f.h} fill="#070d1f" />
 			{/each}
@@ -169,45 +236,47 @@
 	</div>
 
 	<div class="inner">
-		<div class="hero">
-			<svg
-				class="moon pixel-art"
-				viewBox="0 0 15 15"
-				shape-rendering="crispEdges"
-				aria-hidden="true"
-			>
-				<path
-					fill="#fff2c4"
-					d="M5 0h5v1h2v1h1v2h1v1h1v5h-1v1h-1v2h-1v1h-2v1H5v-1H3v-1H2v-2H1v-1H0V5h1V4h1V2h1V1h2z"
-				/>
-				<path fill="#f0dc96" d="M4 4h2v2H4zM9 8h3v2H9zM5 10h1v1H5z" />
-			</svg>
-			<Wolf scale={compact ? 2 : PX} class="wolf" />
-		</div>
-		{#if compact}
-			<div class="bar">
-				{#if back}
-					<IconButton
-						class="pixel-panel"
-						variant="tonal"
-						size="sm"
-						href={back.href}
-						aria-label={back.label}
-					>
-						<ArrowLeft />
-					</IconButton>
-				{/if}
-				<div class="title">
-					<h1 class="page-title glitch-text font-pixel">{title}</h1>
-					<p class="sub type-label-lg type-numeric">{@render children()}</p>
-				</div>
+		<div class="stage">
+			<div class="hero">
+				<svg
+					class="moon pixel-art"
+					viewBox="0 0 15 15"
+					shape-rendering="crispEdges"
+					aria-hidden="true"
+				>
+					<path
+						fill="#fff2c4"
+						d="M5 0h5v1h2v1h1v2h1v1h1v5h-1v1h-1v2h-1v1h-2v1H5v-1H3v-1H2v-2H1v-1H0V5h1V4h1V2h1V1h2z"
+					/>
+					<path fill="#f0dc96" d="M4 4h2v2H4zM9 8h3v2H9zM5 10h1v1H5z" />
+				</svg>
+				<Wolf scale={compact ? 2 : PX} class="wolf" />
 			</div>
-		{:else}
-			<div class="title">{@render children()}</div>
-		{/if}
-		{#if actions}
-			<div class="actions">{@render actions()}</div>
-		{/if}
+			{#if compact}
+				<div class="bar">
+					{#if back}
+						<IconButton
+							class="pixel-panel"
+							variant="tonal"
+							size="sm"
+							href={back.href}
+							aria-label={back.label}
+						>
+							<ArrowLeft />
+						</IconButton>
+					{/if}
+					<div class="title" {@attach keepClear}>
+						<h1 class="page-title glitch-text font-pixel">{title}</h1>
+						<p class="sub type-label-lg type-numeric">{@render children()}</p>
+					</div>
+				</div>
+			{:else}
+				<div class="title" {@attach keepClear}>{@render children()}</div>
+			{/if}
+			{#if actions}
+				<div class="actions">{@render actions()}</div>
+			{/if}
+		</div>
 	</div>
 </header>
 
@@ -272,18 +341,41 @@
 		}
 	}
 
+	/* The foreground column: the same max width and gutters as the page's <main>. */
 	.inner {
+		--w: 28rem;
+		--g: 1rem;
 		position: relative;
 		height: 100%;
 		margin-inline: auto;
 		width: 100%;
-		max-width: 28rem;
+		max-width: var(--w);
 		padding-top: env(safe-area-inset-top);
+		padding-inline: max(var(--g), env(safe-area-inset-left))
+			max(var(--g), env(safe-area-inset-right));
 	}
+	.stage {
+		position: relative;
+		height: 100%;
+	}
+	@media (min-width: 768px) {
+		.inner {
+			--w: 42rem;
+			--g: 1.5rem;
+		}
+	}
+	@media (min-width: 1024px) {
+		.wide .inner {
+			--w: var(--scene-max, 80rem);
+			--g: 2rem;
+		}
+	}
+
+	/* Home: the wolf stands on the content's left edge, the icons end on its right edge. */
 	.hero {
 		position: absolute;
 		bottom: 0;
-		left: max(0.75rem, env(safe-area-inset-left));
+		left: 0;
 	}
 	.hero :global(.wolf) {
 		position: relative;
@@ -296,7 +388,7 @@
 		filter: drop-shadow(0 0 14px rgb(255 242 196 / 0.45));
 		/* phones: high over his head, clear of the title (117px is his height) */
 		left: 2.25rem;
-		top: calc(117px + max(0.625rem, env(safe-area-inset-top)) - var(--scene-h));
+		top: calc(117px + 0.625rem - var(--scene-h));
 	}
 	.title {
 		display: flex;
@@ -305,64 +397,77 @@
 		text-align: center;
 	}
 	/* Phones: the title sits right of the wolf and below the buttons, so neither covers it. */
-	.inner > .title {
+	.stage > .title {
 		position: absolute;
-		top: calc(4rem + env(safe-area-inset-top));
-		left: 6rem;
-		right: max(0.5rem, env(safe-area-inset-right));
+		top: 4.5rem;
+		left: 5rem;
+		right: 0;
 	}
 	.actions {
 		position: absolute;
-		top: calc(0.5rem + env(safe-area-inset-top));
-		right: max(0.75rem, env(safe-area-inset-right));
+		top: 0.75rem;
+		right: 0;
 		display: flex;
-		/* 40px buttons 8px apart: their 48px touch targets meet but never overlap */
-		gap: 0.5rem;
+		/* framed 40px buttons: 12px apart, so their 6px frames meet edge to edge */
+		gap: 0.75rem;
 	}
 	@media (max-height: 700px) and (max-width: 767px) {
-		.inner > .title {
-			top: calc(3.75rem + env(safe-area-inset-top));
+		.stage > .title {
+			top: 4.25rem;
+		}
+		/* no room for both: a streak beats the tagline */
+		.stage > .title:has(:global(.streak)) :global(.tagline) {
+			display: none;
+		}
+	}
+	/* Very short phones: a strip. The wolf one step smaller (2px a pixel), a small moon, the
+	   tagline and streak folded away, so the title fits under the icons. */
+	@media (max-height: 620px) and (max-width: 767px) {
+		.scene:not(.compact) .hero :global(.wolf) {
+			width: 48px;
+			height: 78px;
+			/* the idle bob is one sprite pixel; Wolf sets it inline for its own scale */
+			--px: 2px !important;
+			filter: drop-shadow(2px 0 0 var(--pixel-ink)) drop-shadow(-2px 0 0 var(--pixel-ink));
+		}
+		.scene:not(.compact) .moon {
+			width: 30px;
+			height: 30px;
+			left: 1.75rem;
+			top: calc(78px + 0.5rem - var(--scene-h));
+		}
+		.stage > .title {
+			top: 4.25rem;
+			left: 4rem;
+		}
+		.stage > .title :global(:is(.tagline, .streak)) {
+			display: none;
 		}
 	}
 	@media (min-width: 768px) {
-		.inner {
-			max-width: 42rem;
-			padding-inline: 1.5rem;
-		}
-		.hero {
-			left: 1.5rem;
-		}
 		/* up and to the right of his ears: the moon he would howl at, if he weren't at work */
 		.moon {
 			left: calc(100% + 6px);
 			top: -36px;
 		}
-		.inner > .title {
-			top: 3.5rem;
+		.stage > .title {
+			top: 4.5rem;
 			left: 0;
 			right: 0;
 		}
 	}
-	@media (min-width: 1024px) {
-		.inner {
-			max-width: 80rem;
-			padding-inline: 2rem;
-		}
-		.hero {
-			left: 4rem;
-		}
-	}
 	@media (min-width: 1024px) and (max-height: 960px) {
-		.inner > .title {
+		.stage > .title {
 			top: 1.75rem;
 		}
 	}
 
-	/* Compact: a back button and the page title on the left, a smaller wolf on the right. The
-	   title row ends above his ears, so it may run over him on the narrowest phones. */
+	/* Compact: the back button and page title on the content's left edge, a smaller wolf on its
+	   right edge. The title row ends above his ears, so it may run over him on the narrowest
+	   phones. */
 	.compact .hero {
 		left: auto;
-		right: max(1.25rem, env(safe-area-inset-right));
+		right: 0;
 	}
 	.compact .moon {
 		display: none;
@@ -373,9 +478,9 @@
 	}
 	.compact .bar {
 		position: absolute;
-		top: calc(1rem + env(safe-area-inset-top));
-		left: max(1rem, env(safe-area-inset-left));
-		right: max(1rem, env(safe-area-inset-right));
+		top: 1rem;
+		left: 0;
+		right: 0;
 		display: flex;
 		align-items: center;
 		gap: 1rem;
@@ -405,22 +510,9 @@
 		white-space: nowrap;
 		text-shadow: 0 2px 0 var(--pixel-ink);
 	}
-	/* the narrowest phones: a little more room between the title and his ears */
-	@media (max-width: 359px) {
-		.compact .bar {
-			gap: 0.75rem;
-		}
-		.compact .hero {
-			right: max(0.5rem, env(safe-area-inset-right));
-		}
-	}
 	@media (min-width: 768px) {
 		.compact .bar {
 			top: 1.75rem;
-			left: 1.5rem;
-		}
-		.compact .hero {
-			right: 2.5rem;
 		}
 		.compact .moon {
 			display: block;
@@ -429,17 +521,6 @@
 			--glitch-split: 3px;
 			--glitch-drop: 3px;
 			font-size: 1.5rem;
-		}
-	}
-	@media (min-width: 1024px) {
-		.compact .inner {
-			max-width: var(--scene-max, 42rem);
-		}
-		.compact .bar {
-			left: 2rem;
-		}
-		.compact .hero {
-			right: 4rem;
 		}
 	}
 </style>

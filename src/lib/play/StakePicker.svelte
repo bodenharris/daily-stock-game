@@ -49,7 +49,7 @@
 		flex: 1 1 0;
 		display: grid;
 		place-items: center;
-		height: 40px;
+		min-height: 44px;
 		cursor: pointer;
 		user-select: none;
 		-webkit-tap-highlight-color: transparent;
@@ -61,11 +61,16 @@
 			color var(--md-sys-motion-spring-default-effects-duration, 200ms)
 				var(--md-sys-motion-spring-default-effects-easing, ease);
 	}
-	/* 48px touch target without changing the visual size. */
-	.chip::after {
-		content: '';
-		position: absolute;
-		inset: -4px 0;
+	/* Small phones: a slimmer chip, with the touch target kept at 44px. */
+	@media (max-width: 1023px) and (max-height: 620px) {
+		.chip {
+			min-height: 36px;
+		}
+		.chip::after {
+			content: '';
+			position: absolute;
+			inset: -4px 0;
+		}
 	}
 	/* An arcade key: it sinks the moment it's pressed, no easing. */
 	.chip:active:not(.disabled) {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { pop, rise } from '#lib/m3/transitions.ts';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { prefersReducedMotion } from 'svelte/motion';
 	import { page } from '$app/state';
 	import Share2 from '@lucide/svelte/icons/share-2';
 	import Check from '@lucide/svelte/icons/check';
@@ -12,6 +11,7 @@
 	import { exactStanding, standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
 	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
+	import Wolf from '#lib/brand/Wolf.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
 	import type { GameView } from './types.ts';
@@ -95,18 +95,9 @@
 		n >= 100 ? `$${Math.round(n)}` : n >= 10 ? `$${n.toFixed(1)}` : `$${n.toFixed(2)}`;
 </script>
 
-<section
-	class="flex -scroll-mt-4 flex-col gap-6 pt-6 pb-6"
-	{@attach (node) => {
-		// On a phone the unmasking lands below the chart: bring its headline to the top.
-		if (!fresh || !matchMedia('(max-width: 1023px)').matches) return;
-		node.scrollIntoView({
-			block: 'start',
-			behavior: prefersReducedMotion.current ? 'instant' : 'smooth'
-		});
-	}}
->
-	<div in:rise={{ delay: d(250) }}>
+<!-- A fresh unmasking builds top-down in three beats: the name, the verdict, then the rest. -->
+<section class="flex flex-col gap-6 pt-6 pb-6">
+	<div in:rise={{ delay: d(100) }}>
 		<h2
 			class="type-headline-sm-emphasized text-balance text-on-surface outline-none"
 			tabindex="-1"
@@ -131,111 +122,119 @@
 
 	<div
 		class={[
-			'pixel-panel mx-1 px-5 py-4',
+			'pixel-panel mx-1.5 flex items-center gap-4 px-5 py-3',
 			view.balanceCents >= 10000
 				? 'bg-primary-container text-on-primary-container'
 				: 'bg-surface-container-high text-on-surface'
 		]}
-		in:pop={{ delay: d(450), start: 0.92 }}
+		in:pop={{ delay: d(250), start: 0.92 }}
 	>
-		<div class="flex items-baseline justify-between gap-3">
-			<p class="archetype font-pixel">{archetype.label}</p>
-			<!-- The histogram below says this better, so it only stands in when there isn't one. -->
-			{#if standing && !view.finishes}
-				<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
-			{/if}
-		</div>
-		<p class="mt-2 type-body-md opacity-80">{archetype.line}</p>
-	</div>
-
-	<div class="flex flex-col gap-3" in:rise={{ delay: d(650) }}>
-		<div class="grid grid-cols-2 gap-4 px-1.5 pt-1.5 pb-3">
-			<Button
-				variant="filled"
-				size="md"
-				class="pixel-frame [--btn-px:12px]"
-				onclick={share}
-				aria-live="polite"
-			>
-				{#if copied}
-					<Check /> Copied
-				{:else}
-					<Share2 /> Share
+		<div class="wolf shrink-0" aria-hidden="true"><Wolf scale={2} /></div>
+		<div class="min-w-0 flex-1">
+			<div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+				<p class="archetype font-pixel">{archetype.label}</p>
+				<!-- The histogram below says this better, so it only stands in when there isn't one. -->
+				{#if standing && !view.finishes}
+					<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
 				{/if}
-			</Button>
-			<Button variant="tonal" size="md" class="pixel-panel [--btn-px:12px]" href="/archive">
-				<CalendarDays /> Past charts
-			</Button>
-		</div>
-		{#if manualCopy}
-			<div class="bg-surface-container px-4 py-3">
-				<p class="type-label-md text-on-surface-variant">Copy this and paste it to a friend:</p>
-				<pre
-					class="mt-1 type-body-md whitespace-pre-wrap text-on-surface select-all"
-					{@attach selectAll}>{manualCopy}</pre>
 			</div>
-		{/if}
-		<p class="text-center type-body-sm text-on-surface-variant">
-			{#if archive}
-				<a href="/" class="underline-offset-4 hover:underline">Today's chart</a>
-			{:else}
-				<Countdown to={view.nextPuzzleAt} />
-			{/if}
-		</p>
+			<p class="mt-2 type-body-md opacity-80">{archetype.line}</p>
+		</div>
 	</div>
 
-	<div in:rise={{ delay: d(750) }}>
-		<p class="type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
-		{#if reveal.hindsight}
-			{@const h = reveal.hindsight}
-			<p class="hindsight mt-1 type-body-md text-on-surface-variant">
-				In hindsight: a year later it was
-				<span class="text-on-surface type-numeric">{price(h.close)}</span>
-				<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
-					>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}% from where the chart ends)</span
-				>.
+	<!-- One beat for everything below the verdict. Transitions inside {#if} blocks are local and
+	     would not play on their own, so they ride on this one. -->
+	<div class="flex flex-col gap-6" in:rise={{ delay: d(400) }}>
+		<div class="flex flex-col gap-3">
+			<div class="actions grid grid-cols-2 gap-4 px-1.5 pt-1.5 pb-3">
+				<Button
+					variant="filled"
+					size="md"
+					class="pixel-frame [--btn-px:12px]"
+					onclick={share}
+					aria-live="polite"
+				>
+					{#if copied}
+						<Check /> Copied
+					{:else}
+						<Share2 /> Share
+					{/if}
+				</Button>
+				<Button variant="tonal" size="md" class="pixel-panel [--btn-px:12px]" href="/archive">
+					<CalendarDays /> Past charts
+				</Button>
+			</div>
+			{#if manualCopy}
+				<div class="bg-surface-container px-4 py-3">
+					<p class="type-label-md text-on-surface-variant">Copy this and paste it to a friend:</p>
+					<pre
+						class="mt-1 type-body-md whitespace-pre-wrap text-on-surface select-all"
+						{@attach selectAll}>{manualCopy}</pre>
+				</div>
+			{/if}
+			<p class="text-center type-body-sm text-on-surface-variant">
+				{#if archive}
+					<a
+						href="/"
+						class="inline-flex min-h-11 items-center type-label-lg text-m3-primary underline underline-offset-4"
+						>Today's chart</a
+					>
+				{:else}
+					<Countdown to={view.nextPuzzleAt} />
+				{/if}
 			</p>
-		{/if}
-	</div>
+		</div>
 
-	{#if view.finishes}
-		{@const finished = view.finishes.finished}
-		<!-- Where the day's players finished. Nobody is named: just how many landed where. -->
-		<section
-			aria-labelledby="finishes-title"
-			class="flex flex-col gap-3"
-			in:rise={{ delay: d(850) }}
-		>
-			<div class="flex items-baseline justify-between gap-3">
-				<h3 id="finishes-title" class="type-title-md text-on-surface">Where everyone finished</h3>
-				<p class="type-label-md text-on-surface-variant type-numeric">
-					{finished}
-					{finished === 1 ? 'player' : 'players'}
-				</p>
-			</div>
-			<FinishHistogram
-				finishes={view.finishes.buckets}
-				you={view.balanceCents}
-				betterThan={exactStanding(view.finishes.place, finished).betterThan}
-				among={archive ? 'players' : 'today'}
-				animate={fresh}
-			/>
-			{#if finished === 1}
-				<p class="type-body-sm text-on-surface-variant">
-					{archive ? 'Nobody else has played this one yet.' : "You're the first to finish today."}
+		<div>
+			<p class="type-body-md text-pretty text-on-surface-variant">{reveal.story}</p>
+			{#if reveal.hindsight}
+				{@const h = reveal.hindsight}
+				<p class="hindsight mt-1 type-body-md text-on-surface-variant">
+					In hindsight: a year later it was
+					<span class="text-on-surface type-numeric">{price(h.close)}</span>
+					<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
+						>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}% from where the chart
+						ends)</span
+					>.
 				</p>
 			{/if}
-		</section>
-	{/if}
-
-	<!-- The stats page is today's only, so past days played from the archive don't link to it. -->
-	{#if !archive}
-		<div class="-mt-2 flex justify-center" in:rise={{ delay: d(view.finishes ? 950 : 850) }}>
-			<Button variant="text" size="md" href="/stats">
-				<ChartColumn /> How everyone called it
-			</Button>
 		</div>
-	{/if}
+
+		{#if view.finishes}
+			{@const finished = view.finishes.finished}
+			<!-- Where the day's players finished. Nobody is named: just how many landed where. -->
+			<section aria-labelledby="finishes-title" class="flex flex-col gap-3">
+				<div class="flex items-baseline justify-between gap-3">
+					<h3 id="finishes-title" class="type-title-md text-on-surface">Where everyone finished</h3>
+					<p class="type-label-md text-on-surface-variant type-numeric">
+						{finished}
+						{finished === 1 ? 'player' : 'players'}
+					</p>
+				</div>
+				<FinishHistogram
+					finishes={view.finishes.buckets}
+					you={view.balanceCents}
+					betterThan={exactStanding(view.finishes.place, finished).betterThan}
+					among={archive ? 'players' : 'today'}
+					animate={fresh}
+				/>
+				{#if finished === 1}
+					<p class="type-body-sm text-on-surface-variant">
+						{archive ? 'Nobody else has played this one yet.' : "You're the first to finish today."}
+					</p>
+				{/if}
+			</section>
+		{/if}
+
+		<!-- The stats page is today's only, so past days played from the archive don't link to it. -->
+		{#if !archive}
+			<div class="-mt-2 flex justify-center">
+				<Button variant="text" size="md" href="/stats">
+					<ChartColumn /> How everyone called it
+				</Button>
+			</div>
+		{/if}
+	</div>
 </section>
 
 <style>
@@ -244,5 +243,13 @@
 		font-size: 1rem;
 		line-height: 1.5rem;
 		letter-spacing: 0;
+	}
+	/* The mascot shows up for the verdict; on the narrowest phones the title needs the room. */
+	/* …and the two buttons need their labels more than their icons. */
+	@media (max-width: 359px) {
+		.wolf,
+		.actions :global(svg) {
+			display: none;
+		}
 	}
 </style>

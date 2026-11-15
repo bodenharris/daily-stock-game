@@ -36,10 +36,11 @@
 			Every chart so far. Past days don't count toward your streak.
 		</p>
 
-		<!-- Today leads in cyan, charts still to play sit raised, finished ones sink back. -->
-		<ol class="mt-6 flex flex-col gap-4">
+		<!-- One panel, one row per issue: today leads in cyan, charts still to play sit raised,
+		     finished ones sink back. -->
+		<ol class="list pixel-panel mt-6">
 			<li>
-				<a href="/" class="row today pixel-panel" {@attach stateLayer()}>
+				<a href="/" class="row today" {@attach stateLayer()}>
 					<span class="flex flex-col">
 						<span class="type-title-md type-numeric">Issue #{archive.today}</span>
 						<span class="type-body-sm text-on-primary-container/80">Today</span>
@@ -52,11 +53,7 @@
 			{#each archive.days as day (day.number)}
 				{@const p = day.played}
 				<li>
-					<a
-						href="/day/{day.number}"
-						class={['row pixel-panel', p?.finished && 'done']}
-						{@attach stateLayer()}
-					>
+					<a href="/day/{day.number}" class={['row', p?.finished && 'done']} {@attach stateLayer()}>
 						<span class="flex flex-col">
 							<span class="type-title-md type-numeric">Issue #{day.number}</span>
 							<span class="type-body-sm text-on-surface-variant">{fmt(day.date)}</span>
@@ -100,6 +97,12 @@
 </div>
 
 <style>
+	.list {
+		background: var(--md-sys-color-surface-container-low);
+	}
+	.list > li + li {
+		border-top: 1px solid var(--md-sys-color-outline-variant);
+	}
 	.row {
 		display: flex;
 		align-items: center;
@@ -109,15 +112,17 @@
 		background: var(--md-sys-color-surface-container);
 		color: var(--md-sys-color-on-surface);
 	}
+	/* inside the panel's frame, so it never runs into the next row */
+	.row:focus-visible {
+		outline-offset: -3px;
+	}
 	.row.today {
-		--panel-edge: var(--md-sys-color-primary);
 		background: var(--md-sys-color-primary-container);
 		color: var(--md-sys-color-on-primary-container);
 	}
-	/* finished: flat and recessed, the result chip does the talking */
+	/* finished: sunk into the panel, the result chip does the talking */
 	.row.done {
-		--drop: 0px;
-		background: var(--md-sys-color-surface-container-lowest);
+		background: transparent;
 		color: var(--md-sys-color-on-surface-variant);
 	}
 </style>

@@ -69,9 +69,9 @@
 		>
 			{GAME_NAME}
 		</h1>
-		<p class="neon-text mt-2 type-title-md md:mt-3 md:type-title-lg">The daily hunt</p>
+		<p class="tagline neon-text mt-2 type-title-md md:mt-3 md:type-title-lg">The daily hunt</p>
 		<p
-			class="mt-0.5 type-label-lg tracking-[0.12em] whitespace-nowrap text-on-surface-variant uppercase type-numeric"
+			class="mt-0.5 type-label-lg tracking-[0.12em] whitespace-nowrap text-on-surface-variant uppercase type-numeric [text-shadow:0_2px_0_var(--pixel-ink)]"
 		>
 			Issue #{view.number}&ensp;·&ensp;<time datetime={view.date}
 				><span class="max-[374px]:hidden">{`${issueDate.weekday}, `}</span>{issueDate.day}<span
@@ -81,7 +81,7 @@
 		</p>
 		{#if view.streak > 1}
 			<p
-				class="text-m3-tertiary type-label-lg tracking-[0.12em] whitespace-nowrap uppercase type-numeric"
+				class="streak text-m3-tertiary type-label-lg tracking-[0.12em] whitespace-nowrap uppercase type-numeric [text-shadow:0_2px_0_var(--pixel-ink)]"
 			>
 				{view.streak} day streak
 			</p>

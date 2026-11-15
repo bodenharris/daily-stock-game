@@ -2,6 +2,8 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import * as Drawer from '#lib/components/ui/drawer/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { IconButton } from '#lib/components/ui/icon-button/index.js';
+	import X from '@lucide/svelte/icons/x';
 	import type { Snippet } from 'svelte';
 
 	/**
@@ -21,11 +23,20 @@
 {#if wide.current}
 	<Dialog.Root bind:open>
 		<Dialog.Content class="w-[min(440px,calc(100%-48px))]">
-			<Dialog.Header class="gap-1">
+			<Dialog.Header class="gap-1 pe-10">
 				<Dialog.Title class="type-headline-sm-emphasized">{title}</Dialog.Title>
 				{#if description}<Dialog.Description>{description}</Dialog.Description>{/if}
 			</Dialog.Header>
 			<div>{@render children()}</div>
+			<!-- No swipe-down on a dialog, so a visible way out besides Esc and the scrim. Last in
+			     the DOM so focus starts on the form, drawn top right. -->
+			<Dialog.Close>
+				{#snippet child({ props })}
+					<IconButton {...props} shape="square" class="absolute end-3 top-3" aria-label="Close">
+						<X />
+					</IconButton>
+				{/snippet}
+			</Dialog.Close>
 		</Dialog.Content>
 	</Dialog.Root>
 {:else}

@@ -71,7 +71,7 @@
 						<span class="sr-only">Call {r.step}: you called</span>
 						{r.direction === 'up' ? 'Up' : 'Down'}
 					</span>
-					<span class="truncate type-body-md text-on-surface-variant type-numeric">
+					<span class="truncate type-body-lg text-on-surface-variant type-numeric">
 						{dollars(r.stakeCents)} bet · price {fmtMove(r.move)}
 					</span>
 				</span>
@@ -90,8 +90,11 @@
 </ol>
 
 <style>
+	/* Rows stretch to fill the rail when there's room, up to a point. */
 	.row {
+		flex: 1 1 0;
 		min-height: 3rem;
+		max-height: 4rem;
 	}
 	@media (max-height: 840px) {
 		.row {

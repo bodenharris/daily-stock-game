@@ -439,6 +439,13 @@
 		--scene-h-compact: 104px;
 	}
 }
+/* Very short phones (iPhone SE with the toolbars up): a strip, so Up and Down make the fold. */
+@media (max-height: 620px) and (max-width: 767px) {
+	:root {
+		--scene-h: 120px;
+		--scene-h-compact: 96px;
+	}
+}
 @media (min-width: 768px) {
 	:root {
 		--scene-h: 224px;
@@ -1406,8 +1413,11 @@
 	pointer-events: none;
 	background-color: currentColor;
 }
-[data-m3-ripple][data-hovered]::before {
-	opacity: var(--md-sys-state-hover-opacity);
+/* Hover only where there is a pointer that hovers, so a tapped control never stays lit. */
+@media (hover: hover) {
+	[data-m3-ripple][data-hovered]::before {
+		opacity: var(--md-sys-state-hover-opacity);
+	}
 }
 [data-m3-ripple][data-focused]::before {
 	opacity: var(--md-sys-state-focus-opacity);
@@ -1423,36 +1433,48 @@
 /* ==========================================================================
    7. ARCADE HELPERS
    ========================================================================== */
-/* The big cabinet button frame: ink keyline, 3px cyan border, a hard drop and a soft glow.
-   Box-shadows sit outside the box, so give framed things ~6px of room. `--frame` recolors it. */
-.pixel-frame {
-	--frame: var(--md-sys-color-primary);
+/* Pixel frames, two tiers with one geometry: a 3px ink keyline, a 3px coloured edge and a 6px
+   hard drop (two scene pixels each), so a primary and a secondary button side by side line up
+   top and bottom. Hierarchy comes from colour alone: the cabinet frame (primary actions) is
+   coloured `--frame` (cyan unless recoloured) and glows; the panel (cards, secondary buttons)
+   has a quiet `--panel-edge`. Box-shadows sit outside the box: give framed things 6px of room
+   (12px below). */
+.pixel-frame,
+.pixel-panel {
 	--drop: 6px;
 	box-shadow:
 		0 0 0 3px var(--pixel-ink),
-		0 0 0 6px var(--frame),
-		0 var(--drop) 0 6px color-mix(in srgb, var(--frame) 25%, var(--pixel-ink)),
-		0 0 26px 0 color-mix(in srgb, var(--frame) 30%, transparent);
+		0 0 0 6px var(--frame-edge),
+		0 var(--drop) 0 6px var(--frame-base),
+		0 0 26px 0 var(--frame-glow, transparent);
 }
-/* The quieter panel frame for cards and secondary buttons. `--panel-edge` recolors the border. */
+.pixel-frame {
+	--frame: var(--md-sys-color-primary);
+	--frame-edge: var(--frame);
+	--frame-base: color-mix(in srgb, var(--frame) 25%, var(--pixel-ink));
+	--frame-glow: color-mix(in srgb, var(--frame) 30%, transparent);
+}
 .pixel-panel {
-	--drop: 4px;
-	box-shadow:
-		0 0 0 2px var(--pixel-ink),
-		0 0 0 4px var(--panel-edge, var(--md-sys-color-outline-variant)),
-		0 var(--drop) 0 4px var(--md-sys-color-shadow);
+	--frame-edge: var(--panel-edge, var(--md-sys-color-outline-variant));
+	--frame-base: var(--md-sys-color-shadow);
+	--frame-glow: transparent;
 }
 /* Press: a framed control sinks into its drop at once, like a cabinet button; the bottom edge
    of the drop stays put. No easing either way. */
-:is(a, button, label, summary).pixel-frame:active:not(:disabled, [aria-disabled='true']) {
+:is(a, button, label, summary):is(.pixel-frame, .pixel-panel):active:not(
+		:disabled,
+		[aria-disabled='true']
+	) {
 	--drop: 2px;
 	translate: 0 4px;
 	transition: none;
 }
-:is(a, button, label, summary).pixel-panel:active:not(:disabled, [aria-disabled='true']) {
-	--drop: 1px;
-	translate: 0 3px;
-	transition: none;
+/* Focus on a framed control: the cyan ring would vanish into the frame, so a light one sits
+   past the frame instead (3px of gap, then 3px of ring). */
+.pixel-frame:focus-visible,
+.pixel-panel:focus-visible {
+	outline: 3px solid var(--md-sys-color-on-surface);
+	outline-offset: 9px;
 }
 /* CRT scanlines, one dark line every 3px (one scene pixel). Paints over the element's own
    content, never catches a tap; the element needs a position (relative, absolute …). */

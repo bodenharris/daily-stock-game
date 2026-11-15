@@ -51,3 +51,24 @@
 {:else}
 	<input bind:this={ref} data-slot={dataSlot} class={classes} {type} bind:value {...restProps} />
 {/if}
+
+<style>
+	/* Autofill: keep the dark well and light text instead of the browser's blue-grey fill (a
+	   wide inset shadow paints over it), with the same 2px edge for each state. */
+	input:is(:autofill, :-webkit-autofill) {
+		-webkit-text-fill-color: var(--md-sys-color-on-surface);
+		box-shadow:
+			inset 0 0 0 2px var(--md-sys-color-outline),
+			inset 0 0 0 100vmax var(--md-sys-color-surface-container-lowest);
+	}
+	input:is(:autofill, :-webkit-autofill):focus-visible {
+		box-shadow:
+			inset 0 0 0 2px var(--md-sys-color-primary),
+			inset 0 0 0 100vmax var(--md-sys-color-surface-container-lowest);
+	}
+	input:is(:autofill, :-webkit-autofill)[aria-invalid='true'] {
+		box-shadow:
+			inset 0 0 0 2px var(--md-sys-color-error),
+			inset 0 0 0 100vmax var(--md-sys-color-surface-container-lowest);
+	}
+</style>

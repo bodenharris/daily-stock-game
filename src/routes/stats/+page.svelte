@@ -98,11 +98,11 @@
 								: 'bg-surface-container-high text-on-surface'
 						]}
 					>
-						<p>
-							<span class="type-display-sm-emphasized type-numeric"
+						<!-- A sentence, not a second big number: the player count above is the headline. -->
+						<p class="type-title-lg">
+							You finished on <span class="type-numeric"
 								>{dollars(s.you.balanceCents, { cents: false })}</span
-							>
-							<span class="type-title-md">your finish</span>
+							>.
 						</p>
 						{#if standing}
 							<p class="type-body-lg">{standing}</p>

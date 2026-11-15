@@ -4,6 +4,7 @@
 	import favicon from '#lib/assets/favicon.svg';
 	import { GAME_NAME } from '#lib/game/config.ts';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import WolfNotice from '#lib/brand/WolfNotice.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -33,16 +34,16 @@
 	<meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
-<svelte:boundary>
+<svelte:boundary onerror={(e) => console.error(e)}>
 	{@render children()}
 
-	{#snippet failed(error, reset)}
-		<main class="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-6">
-			<p class="text-center type-title-lg text-on-surface">Something went sideways.</p>
-			<p class="text-center type-body-md text-on-surface-variant">
-				{(error as { message?: string })?.message ?? 'Please try again.'}
-			</p>
-			<Button variant="tonal" size="md" class="pixel-panel mt-4" onclick={reset}>Try again</Button>
-		</main>
+	<!-- A crash while rendering: never show the raw error to players (onerror logs it), just a
+	     way back. -->
+	<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
+	{#snippet failed(_error, reset)}
+		<WolfNotice title="Something went sideways.">
+			<Button variant="filled" size="md" class="pixel-frame" onclick={reset}>Try again</Button>
+			<Button href="/" variant="tonal" size="md" class="pixel-panel">Today's chart</Button>
+		</WolfNotice>
 	{/snippet}
 </svelte:boundary>
