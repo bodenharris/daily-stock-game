@@ -215,3 +215,9 @@ The non-investor playtester read a right call paying less than the stake ("+$21 
 - **One duplicate cut.** The same event came up as both a sector-ETF puzzle and a single-stock puzzle; only the single stock stayed, since the moment was about that company.
 - **A known data wrinkle.** On at least one crash day, Tiingo's closes for the index funds show a smaller fall than the index itself did (about 1.5 points less for the Dow fund). Stories that quote an index's move name the index, and the chart still shows the crash.
 - **Nothing here names the new moments,** for the same reason the catalog is private.
+
+## After the T3 review
+- **One money rule on every screen: whole dollars, halves rounded up.** The call log and the result line used to show cents under $10 while the balance, the pips and the share text showed whole dollars, so a pip could say +$3 beside a log row saying +$2.50. What a call paid is now the change in the rounded balance everywhere (`paidByCall`), so the per-call amounts always add up to the balance shown. A crowd bonus under 50¢ rounds to nothing and isn't mentioned.
+- **One rank sentence everywhere: "Hunter · 3rd of 6 today"** (or "Beat 64% of players today" for big crowds). The end card, the share text and the stats page all build it with `rankLine` from the same exact place. The end card now always shows the place beside the rank, so the histogram's own "64% finished below you" headline is gone; it said the same thing in different words. The stats page's "Better than…" and "bottom half" lines went with it.
+- **How to play names the crowd bonus** on the calls slide: right when most players called it wrong pays up to 10% of your balance, the same whatever you bet. It's the game's main twist and none of the slides mentioned it.
+- **How to play no longer opens over a game in progress.** The first-visit auto-open checks again for calls once the sheet's code has loaded, which can take seconds in dev or on a slow phone.

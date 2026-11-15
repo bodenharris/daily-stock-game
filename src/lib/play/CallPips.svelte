@@ -2,21 +2,14 @@
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
 	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
-	import { dollars } from './money.ts';
+	import { dollars, paidByCall } from './money.ts';
 	import type { CallResult } from './types.ts';
 
 	let { results, calls }: { results: CallResult[]; calls: number } = $props();
 
-	/**
-	 * What each call paid in whole dollars, rounded on the running balance rather than per call,
-	 * so the labels always add up to the balance shown.
-	 */
+	/** What each call paid, so the labels always add up to the balance shown. */
 	const paid = $derived(
-		results.map((r, i) => {
-			const before = results[i - 1]?.balanceAfterCents ?? START_BALANCE_CENTS;
-			const whole = Math.round(r.balanceAfterCents / 100) - Math.round(before / 100);
-			return dollars(whole * 100, { sign: whole !== 0, cents: false });
-		})
+		paidByCall(results, START_BALANCE_CENTS).map((c) => dollars(c, { sign: true }))
 	);
 
 	function fmtMove(pct: number) {
@@ -62,7 +55,7 @@
 			</span>
 			<span class="sr-only">
 				Call {i + 1}: {r
-					? `${r.correct ? 'right' : 'wrong'}, ${dollars(r.deltaCents, { sign: true })}, price ${fmtMove(r.move)}`
+					? `${r.correct ? 'right' : 'wrong'}, ${paid[i]}, price ${fmtMove(r.move)}`
 					: i === results.length
 						? 'next'
 						: 'to come'}

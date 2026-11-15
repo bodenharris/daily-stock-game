@@ -27,7 +27,7 @@
  */
 import { CALLS_PER_GAME, GAME_NAME, SITE_URL, START_BALANCE_CENTS } from './config.ts';
 import type { CallRecord } from './archetype.ts';
-import { PACK_EMOJI, type PackRank } from './rank.ts';
+import { PACK_EMOJI, rankLine, type PackRank } from './rank.ts';
 
 export const SHARE_CELLS = {
 	right: '🟩',
@@ -64,7 +64,7 @@ export function shareRow(calls: readonly CallRecord[]): string {
 
 /**
  * "$1,049": whole dollars, half rounded up, like the in-game balance
- * (`dollars(cents, { cents: false })` in src/lib/play/money.ts).
+ * (`dollars(cents)` in src/lib/play/money.ts).
  */
 export function formatWholeDollars(cents: number): string {
 	if (!Number.isSafeInteger(cents) || cents < 0) {
@@ -92,7 +92,7 @@ export function buildShareText(input: ShareInput): string {
 		shareRow(calls) + (input.named ? ' 🎯' : '')
 	];
 	if (input.rank) {
-		lines.push(`${PACK_EMOJI} ${input.rank.label}${input.standing ? ` · ${input.standing}` : ''}`);
+		lines.push(`${PACK_EMOJI} ${rankLine(input.rank, input.standing)}`);
 	}
 	lines.push(input.url ?? SITE_URL);
 	return lines.join('\n');

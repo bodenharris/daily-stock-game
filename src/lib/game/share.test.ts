@@ -142,7 +142,7 @@ describe('formatWholeDollars', () => {
 
 	it('matches the app formatter for every cent value it is likely to see', () => {
 		for (let cents = 0; cents <= 300_000; cents += 7) {
-			expect(formatWholeDollars(cents)).toBe(dollars(cents, { cents: false }));
+			expect(formatWholeDollars(cents)).toBe(dollars(cents));
 		}
 	});
 
