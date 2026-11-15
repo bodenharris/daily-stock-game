@@ -87,6 +87,7 @@
 	import type { Snippet } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import { IconButton } from '#lib/components/ui/icon-button/index.js';
+	import { sound } from '#lib/audio/sound.svelte.ts';
 	import Wolf from './Wolf.svelte';
 
 	/**
@@ -250,7 +251,16 @@
 					/>
 					<path fill="#f0dc96" d="M4 4h2v2H4zM9 8h3v2H9zM5 10h1v1H5z" />
 				</svg>
-				<Wolf scale={compact ? 2 : PX} class="wolf" />
+				<!-- Tap him and he barks. Its own sound, so the layout's click sound skips it. -->
+				<button
+					type="button"
+					class="wolf-button"
+					data-sfx="none"
+					aria-label="Make the wolf bark"
+					onclick={() => sound.play('bark')}
+				>
+					<Wolf scale={compact ? 2 : PX} class="wolf" title="" />
+				</button>
 			</div>
 			{#if compact}
 				<div class="bar">
@@ -374,8 +384,30 @@
 	/* Home: the wolf stands on the content's left edge, the icons end on its right edge. */
 	.hero {
 		position: absolute;
+		/* above the title block, which is full width from 768px and would swallow taps on him */
+		z-index: 1;
 		bottom: 0;
 		left: 0;
+	}
+	.wolf-button {
+		position: relative;
+		display: block;
+		padding: 0;
+		border: 0;
+		background: none;
+		cursor: pointer;
+		-webkit-tap-highlight-color: transparent;
+	}
+	/* A tap target a little bigger than the sprite: above his ears and either side of him, but
+	   short of the title and the buttons. Not below, where the street line is. */
+	.wolf-button::before {
+		content: '';
+		position: absolute;
+		inset: -16px -8px 0;
+	}
+	.wolf-button:focus-visible {
+		outline: 2px solid var(--md-sys-color-primary);
+		outline-offset: 4px;
 	}
 	.hero :global(.wolf) {
 		position: relative;

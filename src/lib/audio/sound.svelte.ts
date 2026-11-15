@@ -1,9 +1,10 @@
+import barkUrl from '#lib/assets/bark.wav';
 import { DEFAULT_PREFS, PREFS_KEY, parsePrefs } from './prefs.ts';
 
 /**
  * The game's sound: short 8-bit effects and an optional night ambience (wind, crickets, a far
- * off city hum), all synthesized with the Web Audio API, so there are no files to load or
- * license. Nothing makes a sound until the player has tapped or pressed a key (browsers block
+ * off city hum), synthesized with the Web Audio API. The one recording is the wolf's bark
+ * (`bark.wav`, credited in CREDITS.md), fetched on the first tap and played from memory. Nothing makes a sound until the player has tapped or pressed a key (browsers block
  * audio before that), and the game never waits on audio: every call here is fire and forget,
  * and does nothing where Web Audio is missing.
  *
@@ -11,11 +12,20 @@ import { DEFAULT_PREFS, PREFS_KEY, parsePrefs } from './prefs.ts';
  * ever changes in the browser (`load` and the setters run from effects and event handlers),
  * so nothing leaks between requests on the server, which only reads the defaults.
  */
-export type Sfx = 'tap' | 'select' | 'call-up' | 'call-down' | 'right' | 'wrong' | 'finale';
+export type Sfx =
+	'tap' | 'select' | 'call-up' | 'call-down' | 'right' | 'wrong' | 'finale' | 'bark';
 
 /** Bus levels: effects sit under the UI, the ambience well under the effects. */
 const EFFECTS_GAIN = 0.32;
 const AMBIENCE_GAIN = 0.5;
+/** The bark recording peaks near full scale; this brings it level with the howl. */
+const BARK_GAIN = 0.75;
+
+function fetchBark(): Promise<ArrayBuffer | null> {
+	return fetch(barkUrl)
+		.then((r) => (r.ok ? r.arrayBuffer() : null))
+		.catch(() => null);
+}
 
 type Wave = OscillatorType;
 type Blip = {
@@ -35,6 +45,8 @@ class SoundBoard {
 	#fx: GainNode | null = null;
 	#amb: { bus: GainNode; stop: () => void } | null = null;
 	#unlocked = false;
+	#barkBytes: Promise<ArrayBuffer | null> | null = null;
+	#barkBuffer: Promise<AudioBuffer | null> | null = null;
 
 	/** Reads the saved settings. Call once in the browser. */
 	load() {
@@ -77,6 +89,8 @@ class SoundBoard {
 	unlock() {
 		if (this.#unlocked) return;
 		this.#unlocked = true;
+		// Small (about 30 KB), so the first bark doesn't wait on the network.
+		this.#barkBytes = fetchBark();
 		if (this.ambience) this.#startAmbience();
 	}
 
@@ -130,7 +144,34 @@ class SoundBoard {
 			case 'finale':
 				this.#finale(ctx, out, t);
 				break;
+			case 'bark':
+				this.#bark(ctx, out);
+				break;
 		}
+	}
+
+	/**
+	 * A real Rottweiler's "woof woof", decoded once. Each play is nudged a few percent in pitch so
+	 * repeated taps don't sound pasted.
+	 */
+	#bark(ctx: AudioContext, out: AudioNode) {
+		this.#barkBuffer ??= (this.#barkBytes ??= fetchBark()).then((bytes) =>
+			bytes ? ctx.decodeAudioData(bytes).catch(() => null) : null
+		);
+		void this.#barkBuffer.then((buffer) => {
+			if (!buffer) {
+				// Offline or a bad decode: fetch afresh on the next tap (decoding used up the bytes).
+				this.#barkBytes = this.#barkBuffer = null;
+				return;
+			}
+			const src = ctx.createBufferSource();
+			src.buffer = buffer;
+			src.playbackRate.value = 0.96 + Math.random() * 0.08;
+			const level = ctx.createGain();
+			level.gain.value = BARK_GAIN;
+			src.connect(level).connect(out);
+			src.start();
+		});
 	}
 
 	#context(): AudioContext | null {
