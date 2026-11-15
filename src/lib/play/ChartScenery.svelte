@@ -32,7 +32,13 @@
 	 * every 3. Most are lit; a few flick on and off (`blink` is their cycle in seconds).
 	 * `widthAt(y)` narrows the floors for a stepped tower.
 	 */
-	function lights(w: number, h: number, seed: number, from = 2, widthAt = (_y: number) => w) {
+	function lights(
+		w: number,
+		h: number,
+		seed: number,
+		from = 2,
+		widthAt: (y: number) => number = () => w
+	) {
 		const out: Light[] = [];
 		let i = 0;
 		for (let y = from; y < h - 2; y += 3) {
