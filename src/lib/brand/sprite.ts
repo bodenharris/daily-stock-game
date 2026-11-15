@@ -37,19 +37,22 @@ export function spriteRuns({ rows, palette }: Sprite): Run[] {
 
 export const WOLF: Sprite = wolf;
 
-/** A small Statue of Liberty on her pedestal, torch lit, for the title screen's skyline. */
+/**
+ * The Statue of Liberty, if she were a wolf: crowned ears, glowing eyes, torch lit. Drawn in
+ * the skyline's dusk tones so she reads as part of the city, not a sticker on top of it.
+ */
 export const LIBERTY: Sprite = {
 	rows: [
 		'..F..........',
 		'.FOF.........',
 		'..O..........',
 		'.GgG.........',
-		'..g..........',
-		'..g...G.G.G..',
-		'..g....GgG...',
-		'..g...GgggG..',
-		'..g....ggG...',
-		'..gg...gG....',
+		'..g..g.G.g...',
+		'..g..gGGGg...',
+		'..g..gegeg...',
+		'..g...ggg....',
+		'..g...gkg....',
+		'..gg...g.....',
 		'...gggggggG..',
 		'.....ggggGTT.',
 		'.....gggGgTT.',
@@ -69,11 +72,13 @@ export const LIBERTY: Sprite = {
 	palette: {
 		F: '#ffd23f',
 		O: '#ff8a3d',
-		g: '#6cc4ad',
-		G: '#3f8f7f',
-		T: '#2f6e62',
-		s: '#8a82a6',
-		S: '#5c5578'
+		e: '#ffd23f',
+		k: '#0b1430',
+		g: '#2f6670',
+		G: '#22495a',
+		T: '#1a3a4c',
+		s: '#1d2a55',
+		S: '#111a3a'
 	}
 };
 
