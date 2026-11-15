@@ -90,6 +90,8 @@ export interface Finishes {
 	place: number;
 	/** Finished games on this day, the viewer's included. */
 	finished: number;
+	/** The day's best final balance (the pack leader's), exact. Never who it belongs to. */
+	leaderCents: number;
 }
 
 export interface CallResponse {
