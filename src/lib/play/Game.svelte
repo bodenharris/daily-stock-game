@@ -285,6 +285,7 @@
 				labels={showReveal && view.reveal
 					? { dates: view.reveal.dates, closes: view.reveal.closes }
 					: null}
+				span={naming ? (view.nameIt?.span ?? null) : null}
 				ticker={showReveal ? (view.reveal?.ticker ?? null) : null}
 			>
 				{#snippet tools()}

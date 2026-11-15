@@ -282,7 +282,8 @@ async function nameItFor(day: Day, game: GameRow | null): Promise<NameIt | null>
 			options: options.map((o) => o.headline),
 			answered,
 			guess: answered && game.nameGuess ? index(game.nameGuess) : null,
-			answer: answered ? index(day.puzzle.slug) : null
+			answer: answered ? index(day.puzzle.slug) : null,
+			span: [day.puzzle.dates[0], day.puzzle.dates[day.puzzle.dates.length - 1]]
 		};
 	} catch (e) {
 		console.error('name it options failed', e);
