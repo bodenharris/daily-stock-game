@@ -5,7 +5,8 @@
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { dollars } from './money.ts';
+	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
+	import { dollars, paidByCall } from './money.ts';
 	import type { CallResult } from './types.ts';
 
 	/**
@@ -13,6 +14,9 @@
 	 * it paid. Phones get the compact dots (CallPips) instead.
 	 */
 	let { results, calls }: { results: CallResult[]; calls: number } = $props();
+
+	/** The same per-call amounts as the phone pips, so they add up to the balance shown. */
+	const paid = $derived(paidByCall(results, START_BALANCE_CENTS));
 
 	function fmtMove(pct: number) {
 		const abs = Math.abs(pct);
@@ -77,7 +81,7 @@
 				</span>
 				<span class={['type-title-md type-numeric', r.correct ? 'text-up' : 'text-down']}>
 					<span class="sr-only">{r.correct ? 'right,' : 'wrong,'}</span>
-					{dollars(r.deltaCents, { sign: true })}
+					{dollars(paid[i], { sign: true })}
 				</span>
 			{:else}
 				<span class={['type-body-lg', next ? 'text-on-surface' : 'text-on-surface-variant']}>

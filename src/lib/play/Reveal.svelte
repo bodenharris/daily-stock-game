@@ -9,7 +9,7 @@
 	import { buildShareText } from '#lib/game/share.ts';
 	import { dollars } from './money.ts';
 	import { toRecords } from './records.ts';
-	import { exactStanding, standingText } from './standing.ts';
+	import { standingText } from './standing.ts';
 	import Countdown from './Countdown.svelte';
 	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
 	import Wolf from '#lib/brand/Wolf.svelte';
@@ -148,11 +148,11 @@
 						<RankBadge rank={rank.key} />
 						{rank.label}
 					{:else}
-						{dollars(view.balanceCents, { cents: false })}
+						{dollars(view.balanceCents)}
 					{/if}
 				</p>
-				<!-- The histogram below says this better, so it only stands in when there isn't one. -->
-				{#if standing && !view.finishes}
+				<!-- The same place the share text gives, so the two never disagree. -->
+				{#if rank && standing}
 					<p class="shrink-0 type-label-lg type-numeric opacity-80">{standing}</p>
 				{/if}
 			</div>
@@ -162,9 +162,7 @@
 			{#if behindLeader}
 				{@const { gap, leader } = behindLeader}
 				<p class="mt-1 type-label-lg text-pretty type-numeric opacity-80">
-					{dollars(gap, { cents: false })} behind the pack leader's {dollars(leader, {
-						cents: false
-					})}
+					{dollars(gap)} behind the pack leader's {dollars(leader)}
 				</p>
 			{/if}
 		</div>
@@ -239,13 +237,7 @@
 						{finished === 1 ? 'player' : 'players'}
 					</p>
 				</div>
-				<FinishHistogram
-					finishes={view.finishes.buckets}
-					you={view.balanceCents}
-					betterThan={exactStanding(view.finishes.place, finished).betterThan}
-					among={archive ? 'players' : 'today'}
-					animate={fresh}
-				/>
+				<FinishHistogram finishes={view.finishes.buckets} you={view.balanceCents} animate={fresh} />
 				{#if finished === 1}
 					<p class="type-body-sm text-on-surface-variant">
 						{archive ? 'Nobody else has played this one yet.' : "You're the first to finish today."}

@@ -12,7 +12,13 @@
 	import Wolf from '#lib/brand/Wolf.svelte';
 	import RankBadge from '#lib/brand/RankBadge.svelte';
 	import { ALPHA, PACK_RANKS } from '#lib/game/rank.ts';
-	import { CALLS_PER_GAME, START_BALANCE_CENTS, STAKE_OPTIONS } from '#lib/game/config.ts';
+	import {
+		CALLS_PER_GAME,
+		CROWD_RULES,
+		START_BALANCE_CENTS,
+		STAKE_OPTIONS
+	} from '#lib/game/config.ts';
+	import { stakeCentsFor } from '#lib/game/economy.ts';
 	import { dollars } from './money.ts';
 
 	/**
@@ -34,10 +40,20 @@
 		{ id: 'reveal', title: 'The Reveal', line: 'Unmask the stock. See how you ranked in the pack.' }
 	] as const;
 
+	/**
+	 * The most a crowd bonus can add, as a share of the balance. Every chip earns the same bonus
+	 * in dollars (see STAKE_OPTIONS), so the smallest chip's numbers give it.
+	 */
+	const maxBonusPercent =
+		(((CROWD_RULES.maxMultiplierHundredths - 100) / 100) *
+			STAKE_OPTIONS[0].percent *
+			STAKE_OPTIONS[0].payoutPercent) /
+		100;
+
 	const ranks = [...PACK_RANKS, ALPHA];
 	const stakes = STAKE_OPTIONS.map((o) => ({
 		percent: o.percent,
-		cents: Math.floor((START_BALANCE_CENTS * o.percent) / 100)
+		cents: stakeCentsFor(START_BALANCE_CENTS, o.percent)
 	}));
 
 	let index = $state(0);
@@ -135,6 +151,10 @@
 							</h3>
 							<p class="mt-2 type-body-lg text-balance text-on-surface">{s.line}</p>
 							{#if s.id === 'play'}
+								<p class="mt-1.5 type-body-md text-balance text-on-surface-variant">
+									Right when most players called it wrong? Crowd bonus, up to {maxBonusPercent}% of
+									your balance, the same whatever you bet.
+								</p>
 								<p class="keys mt-1.5 type-body-sm text-on-surface-variant">
 									<kbd>↑</kbd> <kbd>↓</kbd> to call · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to bet
 								</p>
@@ -242,7 +262,7 @@
 		<div class="flex gap-0.5">
 			{#each stakes as o (o.percent)}
 				<span class={['chip', o.percent === 25 && 'on']}>
-					<span class="type-label-lg type-numeric">{dollars(o.cents, { cents: false })}</span>
+					<span class="type-label-lg type-numeric">{dollars(o.cents)}</span>
 					<span class="type-label-sm type-numeric opacity-80">{o.percent}%</span>
 				</span>
 			{/each}
@@ -263,7 +283,7 @@
 	<div class="flex flex-col items-center gap-3">
 		<div class="flex items-center gap-2">
 			<span class="type-title-md text-on-surface-variant type-numeric line-through decoration-2">
-				{dollars(START_BALANCE_CENTS, { cents: false })}
+				{dollars(START_BALANCE_CENTS)}
 			</span>
 			<span class="type-headline-sm-emphasized text-on-surface type-numeric">$142</span>
 			<span class="bg-up-container px-2 py-0.5 type-label-lg text-on-up-container type-numeric"

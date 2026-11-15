@@ -29,12 +29,10 @@
 				bind:group={value}
 				onchange={() => sound.play('select')}
 				{disabled}
-				aria-label="Bet {o.percent}%, {dollars(o.cents, { cents: false })}"
+				aria-label="Bet {o.percent}%, {dollars(o.cents)}"
 			/>
 			<span class="flex items-baseline gap-1.5">
-				<span class="type-label-lg type-numeric lg:type-title-md"
-					>{dollars(o.cents, { cents: false })}</span
-				>
+				<span class="type-label-lg type-numeric lg:type-title-md">{dollars(o.cents)}</span>
 				<span class="pct type-label-sm type-numeric">{o.percent}%</span>
 			</span>
 		</label>

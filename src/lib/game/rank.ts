@@ -40,6 +40,17 @@ export const ALPHA: PackRank = { key: 'alpha', label: 'Alpha', line: 'Top of the
 export const PACK_EMOJI = '🐺';
 
 /**
+ * The one rank sentence, the same on the end card, the share text and the stats page:
+ * "Hunter · 3rd of 6 today", or just "Alpha" when there is no standing to add.
+ */
+export function rankLine(
+	rank: Pick<PackRank, 'label'>,
+	standing: string | null | undefined
+): string {
+	return standing ? `${rank.label} · ${standing}` : rank.label;
+}
+
+/**
  * The rank for a standing, or null when there is none to give (the day's finishes couldn't be
  * read). `betterThan` is the share (0..1) of the other finished players this finish beat; 1 means
  * first place, ties included.

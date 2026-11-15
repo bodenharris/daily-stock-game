@@ -32,8 +32,11 @@
 	let HelpSheet = $state<Sheet | null>(null);
 	let AccountSheet = $state<Sheet | null>(null);
 
-	async function openHelp() {
+	async function openHelp(auto = false) {
 		HelpSheet ??= (await import('#lib/play/HelpSheet.svelte')).default as Sheet;
+		// The sheet's code can take a while to load (seconds in dev, or on a slow phone). If the
+		// player has started meanwhile, don't drop the help over their game.
+		if (auto && view.results.length > 0) return;
 		helpOpen = true;
 	}
 
@@ -47,7 +50,7 @@
 		} catch {
 			// Storage blocked: skip the auto-open rather than nag on every visit.
 		}
-		if (!seen) void openHelp();
+		if (!seen) void openHelp(true);
 	});
 	async function openAccount() {
 		AccountSheet ??= (await import('#lib/play/AccountSheet.svelte')).default as Sheet;
@@ -93,7 +96,7 @@
 				variant="tonal"
 				size="sm"
 				aria-label="How to play"
-				onclick={openHelp}
+				onclick={() => openHelp()}
 			>
 				<CircleHelp />
 			</IconButton>

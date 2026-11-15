@@ -2,6 +2,8 @@
 	import { liveStats } from '#lib/remote/stats.remote.ts';
 	import { GAME_NAME } from '#lib/game/config.ts';
 	import { dollars } from '#lib/play/money.ts';
+	import { standingText } from '#lib/play/standing.ts';
+	import { packRank, rankLine } from '#lib/game/rank.ts';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import CrowdCalls from '#lib/stats/CrowdCalls.svelte';
 	import HourlyCalls from '#lib/stats/HourlyCalls.svelte';
@@ -23,31 +25,12 @@
 	);
 	const last24h = $derived(s.hourly.reduce((n, h) => n + h.calls, 0));
 
+	/** The same rank line as the end card and the share text, from the same exact place. */
 	const standing = $derived.by(() => {
-		const you = s.you;
-		if (!you) return null;
-		if (s.finished > 1 && s.bestCents != null && you.balanceCents >= s.bestCents) {
-			return 'The best finish today';
-		}
-		if (you.betterThan == null) return you.finished <= 1 ? 'The first to finish today' : null;
-		// Small crowds read better as a place than a percentile ("3rd of 4", not "better than 0%").
-		// The place and count are exact, the same ones the game's end screen uses.
-		if (you.finished <= 20) {
-			const place = Math.max(1, you.finished - Math.round(you.betterThan * (you.finished - 1)));
-			const suffix =
-				place % 10 === 1 && place % 100 !== 11
-					? 'st'
-					: place % 10 === 2 && place % 100 !== 12
-						? 'nd'
-						: place % 10 === 3 && place % 100 !== 13
-							? 'rd'
-							: 'th';
-			return `${place}${suffix} of ${you.finished} players today`;
-		}
-		const pct = Math.round(you.betterThan * 100);
-		return pct >= 50
-			? `Better than ${pct}% of players today`
-			: 'In the bottom half today. Tomorrow is another chart.';
+		const rank = s.you && packRank(s.you);
+		if (!rank) return null;
+		// Alone on the board there's no place to give, so say what the rank means instead.
+		return rankLine(rank, standingText(s.you) ?? 'the first to finish today');
 	});
 </script>
 
@@ -80,11 +63,9 @@
 					{#if s.finished > 0 && s.medianCents != null && s.bestCents != null}
 						<p class="type-body-lg text-on-surface-variant">
 							Median finish <span class="text-on-surface type-numeric"
-								>{dollars(s.medianCents, { cents: false })}</span
+								>{dollars(s.medianCents)}</span
 							>, best
-							<span class="text-on-surface type-numeric"
-								>{dollars(s.bestCents, { cents: false })}</span
-							>.
+							<span class="text-on-surface type-numeric">{dollars(s.bestCents)}</span>.
 						</p>
 					{/if}
 				</section>
@@ -100,9 +81,7 @@
 					>
 						<!-- A sentence, not a second big number: the player count above is the headline. -->
 						<p class="type-title-lg">
-							You finished on <span class="type-numeric"
-								>{dollars(s.you.balanceCents, { cents: false })}</span
-							>.
+							You finished on <span class="type-numeric">{dollars(s.you.balanceCents)}</span>.
 						</p>
 						{#if standing}
 							<p class="type-body-lg">{standing}</p>
@@ -115,11 +94,9 @@
 					<section class="panel pixel-panel">
 						<h2 class="type-title-md text-on-surface">Where everyone finished</h2>
 						<div class="mt-3">
-							<!-- Your standing is in the box above, so no headline here. -->
 							<FinishHistogram
 								finishes={s.finishes}
 								you={s.you?.balanceCents ?? null}
-								betterThan={null}
 								animate={false}
 							/>
 						</div>

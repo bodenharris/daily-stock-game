@@ -8,6 +8,7 @@
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { START_BALANCE_CENTS, STAKE_OPTIONS } from '#lib/game/config.ts';
+	import { stakeCentsFor } from '#lib/game/economy.ts';
 	import { getDay, getGame, makeCall } from '#lib/remote/game.remote.ts';
 	import PriceChart from './PriceChart.svelte';
 	import StakePicker from './StakePicker.svelte';
@@ -21,7 +22,7 @@
 	import Highlighter from '@lucide/svelte/icons/highlighter';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Eraser from '@lucide/svelte/icons/eraser';
-	import { dollars, percent } from './money.ts';
+	import { dollars, paidByCall, percent, wholeDollarCents } from './money.ts';
 	import { callSpan, chartTimeframe } from './timeframe.ts';
 	import { sound } from '#lib/audio/sound.svelte.ts';
 	import type { CallResult, Direction, GameView } from './types.ts';
@@ -128,9 +129,15 @@
 					? `${same} of ${total} called ${latest.direction}.`
 					: `${percent(same / total)} called ${latest.direction} too.`;
 		// A right call returns the stake, plus a crowd bonus when most players called it wrong.
-		const bonus = latest.correct ? latest.deltaCents - latest.stakeCents : 0;
+		// The same amount the scoreboard shows for this call, so the two never disagree, and the
+		// bonus is what's left over after the stake, so the sentence adds up.
+		const paid = paidByCall(results, START_BALANCE_CENTS).at(-1) ?? 0;
+		const bonus =
+			latest.correct && latest.deltaCents > latest.stakeCents
+				? paid - wholeDollarCents(latest.stakeCents)
+				: 0;
 		return {
-			outcome: `${latest.correct ? 'Right.' : 'Missed.'} ${dollars(latest.deltaCents, { sign: true })}.`,
+			outcome: `${latest.correct ? 'Right.' : 'Missed.'} ${dollars(paid, { sign: true })}.`,
 			crowd: bonus > 0 ? `${crowd} Crowd bonus ${dollars(bonus, { sign: true })}.` : crowd
 		};
 	});
@@ -142,7 +149,7 @@
 		STAKE_OPTIONS.map((o) => ({
 			value: String(o.percent),
 			percent: o.percent,
-			cents: Math.floor((balanceCents * o.percent) / 100)
+			cents: stakeCentsFor(balanceCents, o.percent)
 		}))
 	);
 
@@ -240,7 +247,7 @@
 <!-- One calm announcement per call for screen readers (the visible numbers animate). -->
 <p class="sr-only" aria-live="polite">
 	{#if result}{result.outcome}
-		{result.crowd} Balance {dollars(balanceCents, { cents: false })}.{/if}
+		{result.crowd} Balance {dollars(balanceCents)}.{/if}
 </p>
 
 <svelte:window onkeydown={onKey} />
@@ -257,7 +264,7 @@
 				{finished ? 'Final balance' : 'Balance'}
 			</p>
 			<p class="balance type-display-sm-emphasized text-on-surface type-numeric">
-				{dollars(Math.round(shownBalance.current), { cents: false })}
+				{dollars(Math.round(shownBalance.current))}
 			</p>
 		</div>
 		{#if finished}

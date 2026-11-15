@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exactStanding, standingText } from '../play/standing.ts';
-import { ALPHA, PACK_EMOJI, PACK_RANKS, packRank } from './rank.ts';
+import { ALPHA, PACK_EMOJI, PACK_RANKS, packRank, rankLine } from './rank.ts';
 
 const at = (betterThan: number, finished = 500) => packRank({ betterThan, finished })?.label;
 
@@ -71,5 +71,12 @@ describe('packRank', () => {
 			else expect(r.line).toBe(`Beat ${r.from}–${next.from - 1}% of the pack.`);
 			expect(at(r.from / 100)).toBe(r.label);
 		}
+	});
+});
+
+describe('rankLine', () => {
+	it('joins the rank and the standing, or gives the rank alone', () => {
+		expect(rankLine({ label: 'Hunter' }, '3rd of 6 today')).toBe('Hunter · 3rd of 6 today');
+		expect(rankLine({ label: 'Alpha' }, null)).toBe('Alpha');
 	});
 });

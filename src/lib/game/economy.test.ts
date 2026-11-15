@@ -116,11 +116,12 @@ describe('stakes', () => {
 		}
 	});
 
-	it('rounds the stake down to whole cents', () => {
+	it('rounds the stake down to whole dollars', () => {
 		expect(stakeCentsFor(10_000, 25)).toBe(2500);
-		expect(stakeCentsFor(333, 25)).toBe(83);
+		expect(stakeCentsFor(11_600, 10)).toBe(1100);
+		expect(stakeCentsFor(333, 25)).toBe(0);
+		expect(stakeCentsFor(500, 50)).toBe(200);
 		expect(stakeCentsFor(1, 50)).toBe(0);
-		expect(stakeCentsFor(19, 10)).toBe(1);
 	});
 });
 
@@ -200,28 +201,55 @@ describe('settleCall', () => {
 		).toThrow(RangeError);
 	});
 
-	it('rounds the bonus down to whole cents', () => {
-		// stake 83; bonus 83 x 0.55 x 40% = 18.26 -> 18
+	it('rounds the bonus down to whole dollars', () => {
+		// stake $33; bonus $133 x 25% x 0.55 x 40% = $7.315 -> $7
 		const s = settleCall({
-			balanceCents: 333,
+			balanceCents: 13_300,
 			stakePercent: 25,
 			multiplierHundredths: 155,
 			correct: true
 		});
-		expect(s.stakeCents).toBe(83);
-		expect(s.bonusCents).toBe(18);
-		expect(s.deltaCents).toBe(101);
-		expect(s.balanceAfterCents).toBe(434);
-		// stake 50; bonus 50 x 0.53 x 20% = 5.3 -> 5
+		expect(s.stakeCents).toBe(3300);
+		expect(s.bonusCents).toBe(700);
+		expect(s.deltaCents).toBe(4000);
+		expect(s.balanceAfterCents).toBe(17_300);
+		// stake $5; bonus 5 x 0.53 x 20% = $0.53 -> $0
 		const t = settleCall({
-			balanceCents: 101,
+			balanceCents: 1_000,
 			stakePercent: 50,
 			multiplierHundredths: 153,
 			correct: true
 		});
-		expect(t.bonusCents).toBe(5);
-		expect(t.deltaCents).toBe(55);
-		expect(t.paidMultiplierHundredths).toBe(110);
+		expect(t.bonusCents).toBe(0);
+		expect(t.deltaCents).toBe(500);
+	});
+
+	it('pays the same whole-dollar bonus on every chip', () => {
+		for (let balanceCents = 0; balanceCents <= 30_000; balanceCents += 100) {
+			for (let m = 100; m <= 200; m++) {
+				const bonuses = [10, 25, 50].map(
+					(stakePercent) =>
+						settleCall({ balanceCents, stakePercent, multiplierHundredths: m, correct: true })
+							.bonusCents
+				);
+				expect(new Set(bonuses).size).toBe(1);
+			}
+		}
+	});
+
+	it('keeps a whole-dollar balance in whole dollars', () => {
+		let balance = START_BALANCE_CENTS;
+		for (let i = 0; i < 200; i++) {
+			const s = settleCall({
+				balanceCents: balance,
+				stakePercent: [10, 25, 50][i % 3],
+				multiplierHundredths: 100 + ((i * 37) % 101),
+				correct: i % 4 !== 1
+			});
+			expect(s.stakeCents % 100).toBe(0);
+			expect(Math.abs(s.deltaCents % 100)).toBe(0);
+			balance = s.balanceAfterCents;
+		}
 	});
 
 	it('never goes below zero and always stays in whole cents', () => {
@@ -278,8 +306,8 @@ describe('settleCall', () => {
 				correct: true
 			}).balanceAfterCents;
 		}
-		// x1.6 per call (stake 50% + bonus 10%)
-		expect(balance).toBe(104_857);
+		// about x1.6 per call (stake 50% + bonus 10%), less the cents each bonus rounds away
+		expect(balance).toBe(104_400);
 	});
 });
 

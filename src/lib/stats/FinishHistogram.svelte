@@ -7,18 +7,12 @@
 	let {
 		finishes,
 		you,
-		betterThan,
-		among = 'today',
 		animate = true
 	}: {
 		/** Finishes per $10 bucket (lower edge in cents), as the server sends them. */
 		finishes: FinishBucket[];
 		/** The viewer's final balance, or null when they haven't finished. */
 		you: number | null;
-		/** Share of the other finishers the viewer beat (0–1), or null when they're alone. */
-		betterThan: number | null;
-		/** 'today' for today's chart, 'players' for a past day from the archive. */
-		among?: 'today' | 'players';
 		/** Draw the curve in (a fresh finish); off when coming back to a finished day. */
 		animate?: boolean;
 	} = $props();
@@ -32,9 +26,8 @@
 	// The groups still set the axis and back the hover readout and the screen-reader text.
 	const chart = $derived(groupFinishes(finishes, you, 20));
 	const curve = $derived(finishCurve(finishes, chart.end, SAMPLES));
-	const pct = $derived(betterThan == null ? null : Math.round(betterThan * 100));
 
-	const money = (cents: number) => dollars(cents, { cents: false });
+	const money = (cents: number) => dollars(cents);
 
 	/** Where along the axis (0–1) everyone started and where the viewer ended. */
 	const startAt = $derived(START_BALANCE_CENTS / chart.end);
@@ -96,7 +89,6 @@
 
 	const label = $derived.by(() => {
 		const parts = [`Curve of ${chart.total} final balances.`];
-		if (pct != null) parts.push(`You finished ahead of ${pct}% of the other players.`);
 		const g = chart.groups[chart.mine];
 		if (g) {
 			parts.push(
@@ -108,16 +100,6 @@
 </script>
 
 <figure class={['histogram', growing && 'animate']} aria-label="Where everyone finished">
-	{#if pct != null}
-		<!-- The headline: the share of players the viewer finished above. -->
-		<p class="headline">
-			<span class="pct font-pixel">{pct}%</span>
-			<span class="type-label-lg text-on-surface-variant">
-				of {among === 'today' ? "today's" : 'the'} players finished below you
-			</span>
-		</p>
-	{/if}
-
 	<div
 		class="plot"
 		role="img"
@@ -201,21 +183,6 @@
 </figure>
 
 <style>
-	.headline {
-		display: flex;
-		align-items: baseline;
-		flex-wrap: wrap;
-		gap: 0.25rem 0.75rem;
-		padding-bottom: 0.75rem;
-	}
-	/* The big number, on the arcade face's 8px grid, with the balance's hard drop. */
-	.pct {
-		font-size: 2rem;
-		line-height: 1;
-		color: var(--md-sys-color-primary);
-		text-shadow: 0 3px 0 var(--pixel-ink, #000);
-	}
-
 	.plot {
 		height: 8rem;
 		padding-top: 1.5rem; /* room for the YOU tag over the peak */
@@ -314,9 +281,6 @@
 	.animate .you {
 		animation: drop-tag 400ms cubic-bezier(0.2, 0.8, 0.2, 1) 1400ms both;
 	}
-	.animate .pct {
-		animation: drop 400ms cubic-bezier(0.2, 0.8, 0.2, 1) 150ms both;
-	}
 	@keyframes reveal {
 		from {
 			clip-path: inset(-10% 100% -10% 0);
@@ -340,12 +304,6 @@
 			background: var(--md-sys-color-on-surface);
 		}
 	}
-	@keyframes drop {
-		from {
-			opacity: 0;
-			translate: 0 -8px;
-		}
-	}
 	/* The tag keeps its centring while it drops. */
 	@keyframes drop-tag {
 		from {
@@ -357,8 +315,7 @@
 		.animate .curve,
 		.animate .stem,
 		.animate .dot,
-		.animate .you,
-		.animate .pct {
+		.animate .you {
 			animation: none;
 		}
 	}

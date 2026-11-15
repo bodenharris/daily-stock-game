@@ -69,7 +69,7 @@
 										p.balanceCents >= START_BALANCE_CENTS
 											? 'bg-up-container text-on-up-container'
 											: 'bg-down-container text-on-down-container'
-									]}>{dollars(p.balanceCents, { cents: false })}</span
+									]}>{dollars(p.balanceCents)}</span
 								>
 							{:else if p && p.step > 0}
 								<span class="text-m3-tertiary type-label-lg uppercase type-numeric"
