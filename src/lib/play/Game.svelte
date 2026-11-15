@@ -132,7 +132,10 @@
 		// The same amount the scoreboard shows for this call, so the two never disagree, and the
 		// bonus is what's left over after the stake, so the sentence adds up.
 		const paid = paidByCall(results, START_BALANCE_CENTS).at(-1) ?? 0;
-		const bonus = latest.correct ? paid - wholeDollarCents(latest.stakeCents) : 0;
+		const bonus =
+			latest.correct && latest.deltaCents > latest.stakeCents
+				? paid - wholeDollarCents(latest.stakeCents)
+				: 0;
 		return {
 			outcome: `${latest.correct ? 'Right.' : 'Missed.'} ${dollars(paid, { sign: true })}.`,
 			crowd: bonus > 0 ? `${crowd} Crowd bonus ${dollars(bonus, { sign: true })}.` : crowd

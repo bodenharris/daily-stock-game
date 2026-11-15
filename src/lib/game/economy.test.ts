@@ -224,6 +224,19 @@ describe('settleCall', () => {
 		expect(t.deltaCents).toBe(500);
 	});
 
+	it('pays the same whole-dollar bonus on every chip', () => {
+		for (let balanceCents = 0; balanceCents <= 30_000; balanceCents += 100) {
+			for (let m = 100; m <= 200; m++) {
+				const bonuses = [10, 25, 50].map(
+					(stakePercent) =>
+						settleCall({ balanceCents, stakePercent, multiplierHundredths: m, correct: true })
+							.bonusCents
+				);
+				expect(new Set(bonuses).size).toBe(1);
+			}
+		}
+	});
+
 	it('keeps a whole-dollar balance in whole dollars', () => {
 		let balance = START_BALANCE_CENTS;
 		for (let i = 0; i < 200; i++) {

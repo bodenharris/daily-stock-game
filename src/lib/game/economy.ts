@@ -116,7 +116,7 @@ function wholeDollarsDown(cents: number): number {
 
 /**
  * Cents at risk for a chip: balance x percent / 100, rounded down to whole dollars. Under $10 the
- * small chip can come to $0, which risks (and wins) nothing but the crowd bonus.
+ * small chip can come to $0, which risks and wins nothing.
  */
 export function stakeCentsFor(
 	balanceCents: number,
@@ -143,8 +143,9 @@ export function paidMultiplierFor(
 
 /**
  * Settle one call. A wrong call loses the stake. A right call wins the stake back as profit
- * (even money) plus the crowd bonus: stake x (multiplier - 1) x chip bonus share, rounded down to
- * whole dollars (see stakeCentsFor). So a
+ * (even money) plus the crowd bonus: balance x chip percent x (multiplier - 1) x chip bonus share,
+ * rounded down to whole dollars. It's worked out from the balance, not the rounded stake, so it is
+ * the same on every chip (percent x bonus share is 1,000 on each). So a
  * right call never pays less than the stake, and the balance can never go below zero because
  * no chip risks more than the balance.
  */
@@ -170,7 +171,10 @@ export function settleCall(input: SettleInput, rules: PayoutRules = PAYOUT_RULES
 	}
 	const stakeCents = stakeCentsFor(balanceCents, stakePercent, rules);
 	const bonusCents = wholeDollarsDown(
-		Math.floor((stakeCents * (multiplierHundredths - 100) * option.payoutPercent) / 10_000)
+		Math.floor(
+			(balanceCents * option.percent * (multiplierHundredths - 100) * option.payoutPercent) /
+				1_000_000
+		)
 	);
 	const deltaCents = correct ? stakeCents + bonusCents : -stakeCents;
 	return {
