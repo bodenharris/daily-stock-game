@@ -14,7 +14,7 @@ import { exactStanding } from '#lib/play/standing.ts';
 import type { CallResult, Finishes, GameView, NameIt } from '#lib/play/types.ts';
 import { db } from '#lib/server/db/index.ts';
 import { games, guesses, schedule, type Source } from '#lib/server/db/schema.ts';
-import { optionsFor } from './name-it.ts';
+import { optionsFor, type NameItCandidate } from './name-it.ts';
 import { puzzleForNumber, visibleBars, type PuzzleData } from './puzzle-data.ts';
 import { countStreak, playedOnItsDay } from './streak.ts';
 
@@ -131,11 +131,16 @@ async function streakFor(userId: string, today: number): Promise<number> {
 	);
 }
 
-/** "Name it" for a finished game. A failure here never holds back the reveal. */
-async function nameItFor(day: Day, game: GameRow): Promise<NameIt | null> {
+type Options = NameItCandidate[];
+
+/**
+ * "Name it" for a finished game, from `built` options if the caller already has them. A failure
+ * here never holds back the reveal.
+ */
+async function nameItFor(day: Day, game: GameRow, built?: Options): Promise<NameIt | null> {
 	if (game.finishedAt == null) return null;
 	try {
-		const options = await optionsFor(day.puzzle);
+		const options = built ?? (await optionsFor(day.puzzle));
 		const answered = game.nameGuess != null;
 		const index = (slug: string | null) => {
 			const i = options.findIndex((o) => o.slug === slug);
@@ -209,7 +214,8 @@ async function viewOf(
 	day: Day,
 	today: number,
 	user: Player | null,
-	game: GameRow | null
+	game: GameRow | null,
+	options?: Options
 ): Promise<GameView> {
 	const [calls, crowd, streak, nameIt, finishes] = await Promise.all([
 		game
@@ -217,7 +223,7 @@ async function viewOf(
 			: [],
 		game ? crowdFor(day.number) : new Map(),
 		user ? streakFor(user.id, today) : 0,
-		game && nameItFor(day, game),
+		game && nameItFor(day, game, options),
 		game && finishesFor(day, game)
 	]);
 	const p = day.puzzle;
@@ -414,7 +420,7 @@ export async function nameMoment(
 		.returning();
 	const game = updated ?? (await db.select().from(games).where(where))[0];
 	if (!game || game.finishedAt == null) error(409, 'Finish the game first');
-	return viewOf(day, today, user, game);
+	return viewOf(day, today, user, game, options);
 }
 
 /** Every past day that happened, newest first, with how this player did on each. */

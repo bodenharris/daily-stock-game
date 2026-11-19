@@ -1,9 +1,10 @@
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
+	import { isHttpError } from '@sveltejs/kit';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { rise } from '#lib/transitions.ts';
-	import { nameIt as sendGuess } from '#lib/remote/game.remote.ts';
+	import { getDay, getGame, nameIt as sendGuess } from '#lib/remote/game.remote.ts';
 	import type { NameIt } from './types.ts';
 
 	/**
@@ -39,11 +40,19 @@
 		try {
 			const { nameIt: n } = await sendGuess({ puzzleNumber: number, choice, archive });
 			onAnswered(n?.guess != null && n.guess === n.answer);
-		} catch {
+		} catch (e) {
 			picked = null;
-			error = navigator.onLine
-				? 'That did not go through. Try again.'
-				: 'You are offline. Try again when you are back.';
+			if (isHttpError(e) && e.status === 409) {
+				// A new day started: catch up, as a call does.
+				error = e.body.message;
+				await (archive ? getDay(number) : getGame())
+					.refresh()
+					.catch(() => (error = 'Refresh the page to continue.'));
+			} else {
+				error = navigator.onLine
+					? 'That did not go through. Try again.'
+					: 'You are offline. Try again when you are back.';
+			}
 		} finally {
 			busy = false;
 		}

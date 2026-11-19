@@ -1,5 +1,5 @@
 import { BETTER_AUTH_SECRET } from '$app/env/private';
-import { building } from '$app/env';
+import { building, dev } from '$app/env';
 import { getRequestEvent } from '$app/server';
 import { betterAuth } from 'better-auth/minimal';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -15,20 +15,29 @@ const WORKERS_SUBDOMAIN = 'yoursplit.workers.dev';
 export const auth = betterAuth({
 	// One build serves the production domain, the Worker's own workers.dev host, every pr-<n>
 	// Preview and deployment URL on our subdomain, and local dev. Each allowed host is also a
-	// trusted origin; an unlisted host throws. https://better-auth.com/docs/guides/dynamic-base-url
+	// trusted origin; any other host (www, say) resolves to the site's URL instead of throwing.
+	// https://better-auth.com/docs/guides/dynamic-base-url
 	baseURL: {
 		allowedHosts: [
 			new URL(SITE_URL).host,
 			`thewolfgame.${WORKERS_SUBDOMAIN}`,
 			`*-thewolfgame.${WORKERS_SUBDOMAIN}`,
-			'localhost:*'
-		]
+			'localhost:*',
+			'127.0.0.1:*'
+		],
+		fallback: SITE_URL
 	},
 	// The build imports this module without secrets; Better Auth refuses an empty one in production mode.
 	secret: building ? 'not-a-secret-while-building' : BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'pg' }),
-	// Workers get the client address in CF-Connecting-IP, not X-Forwarded-For.
-	advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] } },
+	// With a dynamic baseURL, Better Auth picks both of these from NODE_ENV, which Workers don't
+	// set. Secure cookies also keep the __Secure- names existing players already have.
+	rateLimit: { enabled: !dev },
+	advanced: {
+		useSecureCookies: !dev,
+		// Workers get the client address in CF-Connecting-IP, not X-Forwarded-For.
+		ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] }
+	},
 	emailAndPassword: { enabled: true, minPasswordLength: 8, autoSignIn: true },
 	session: {
 		// Keep sessions for a year so streaks survive, and avoid a DB round trip on every request.

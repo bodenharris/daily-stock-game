@@ -10,8 +10,23 @@
 	import { liveStats } from '#lib/remote/stats.remote.ts';
 	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
 
-	const live = liveStats();
-	const s = $derived(await live);
+	const TICK_MS = 4000;
+
+	const stats = liveStats();
+	// `current` keeps the last good numbers when a refresh fails; awaiting would throw instead.
+	const s = $derived(stats.current ?? (await stats));
+	/** Off from a failed refresh until the next one goes through. */
+	const live = $derived(!stats.error);
+
+	function refresh() {
+		// A hidden tab doesn't ask, so a forgotten tab never keeps the database awake.
+		if (document.visibilityState === 'visible') void stats.refresh();
+	}
+
+	$effect(() => {
+		const id = setInterval(refresh, TICK_MS);
+		return () => clearInterval(id);
+	});
 
 	const fmt = (n: number) => n.toLocaleString('en-US');
 	/** a as a whole percentage of b; an even split when there is nothing to count yet. */
@@ -40,6 +55,9 @@
 	});
 </script>
 
+<!-- Back on the tab: catch up now rather than on the next tick. -->
+<svelte:document onvisibilitychange={refresh} />
+
 <svelte:head>
 	<title>Live · {GAME_NAME}</title>
 </svelte:head>
@@ -50,8 +68,8 @@
 		back={{ href: '/', label: "Back to today's chart" }}
 		maxWidth="72rem"
 	>
-		<span class={['dot', !live.connected && 'off']} aria-hidden="true"></span>
-		Issue #{s.number}&ensp;·&ensp;{live.connected ? 'Live' : 'Reconnecting'}
+		<span class={['dot', !live && 'off']} aria-hidden="true"></span>
+		Issue #{s.number}&ensp;·&ensp;{live ? 'Live' : 'Reconnecting'}
 	</WolfScene>
 
 	<main

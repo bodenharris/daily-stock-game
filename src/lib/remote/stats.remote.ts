@@ -8,8 +8,6 @@ import { db } from '#lib/server/db/index.ts';
 import { games, guesses } from '#lib/server/db/schema.ts';
 import { CROWD_SOURCES, loadToday } from '#lib/server/game/play.ts';
 
-const TICK_MS = 4000;
-
 interface CallSplit {
 	step: number;
 	calls: number;
@@ -131,44 +129,41 @@ async function finishedGame(userId: string | undefined, puzzleNumber: number) {
 	};
 }
 
-/** Live stats for today's puzzle, pushed every few seconds while the page is open. */
-export const liveStats = query.live(async function* (): AsyncGenerator<LiveStats> {
-	const userId = getRequestEvent().locals.user?.id;
-	// Which puzzle the viewer's finish belongs to, so a page left open past midnight stops
-	// showing the new day's answers until they finish that one too.
-	let mine: Awaited<ReturnType<typeof finishedGame>> = null;
-	while (true) {
-		const today = await loadToday();
-		// A finish never un-happens, so once found it is not looked up again until the day rolls.
-		if (mine?.puzzle !== today.number) mine = await finishedGame(userId, today.number);
-		const { row, queryMs } = await statsFor(today.number, mine?.balanceCents ?? null);
-		yield {
-			number: today.number,
-			players: row.players,
-			finished: row.finished,
-			inProfit: row.in_profit,
-			medianCents: row.median == null ? null : Math.round(row.median),
-			bestCents: row.best,
-			finishes: row.finishes,
-			hourly: row.hourly,
-			data: { priceRows: row.price_rows, tickers: row.tickers },
-			queryMs,
-			calls: mine
-				? today.puzzle.outcomes.map((answer, i) => {
-						const s = row.steps.find((x) => x.step === i + 1);
-						return {
-							step: i + 1,
-							calls: s?.calls ?? 0,
-							ups: s?.ups ?? 0,
-							answer,
-							you: mine?.directions[i] ?? null
-						};
-					})
-				: null,
-			you: mine
-				? { balanceCents: mine.balanceCents, ...exactStanding(row.above + 1, row.finished) }
-				: null
-		};
-		await new Promise((r) => setTimeout(r, TICK_MS));
-	}
+/**
+ * Live stats for today's puzzle. The page refreshes this every few seconds while it is visible:
+ * short requests, not a stream, so a failed tick only skips that tick and nothing stays open.
+ */
+export const liveStats = query(async (): Promise<LiveStats> => {
+	const today = await loadToday();
+	// Only today's finish counts, so a page left open past midnight stops showing the new day's
+	// answers until the viewer finishes that one too.
+	const mine = await finishedGame(getRequestEvent().locals.user?.id, today.number);
+	const { row, queryMs } = await statsFor(today.number, mine?.balanceCents ?? null);
+	return {
+		number: today.number,
+		players: row.players,
+		finished: row.finished,
+		inProfit: row.in_profit,
+		medianCents: row.median == null ? null : Math.round(row.median),
+		bestCents: row.best,
+		finishes: row.finishes,
+		hourly: row.hourly,
+		data: { priceRows: row.price_rows, tickers: row.tickers },
+		queryMs,
+		calls: mine
+			? today.puzzle.outcomes.map((answer, i) => {
+					const s = row.steps.find((x) => x.step === i + 1);
+					return {
+						step: i + 1,
+						calls: s?.calls ?? 0,
+						ups: s?.ups ?? 0,
+						answer,
+						you: mine.directions[i] ?? null
+					};
+				})
+			: null,
+		you: mine
+			? { balanceCents: mine.balanceCents, ...exactStanding(row.above + 1, row.finished) }
+			: null
+	};
 });

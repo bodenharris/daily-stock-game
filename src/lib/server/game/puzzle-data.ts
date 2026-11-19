@@ -27,7 +27,7 @@ export interface PuzzleData {
 }
 
 /** Tickers that were renamed after delisting: show the symbol people knew at the time. */
-const DISPLAY_TICKER: Record<string, string> = { BBBYQ: 'BBBY', SIVBQ: 'SIVB' };
+const DISPLAY_TICKER: Record<string, string> = { BBBYQ: 'BBBY' };
 
 type Shape = Pick<PuzzleData, 'contextBars' | 'stepBars' | 'calls'>;
 
