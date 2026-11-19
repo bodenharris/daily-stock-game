@@ -79,9 +79,6 @@ export const schedule = pgTable('schedule', {
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
 
-export const sources = ['real', 'dev'] as const;
-export type Source = (typeof sources)[number];
-
 /** One row per player per daily puzzle. */
 export const games = pgTable(
 	'games',
@@ -99,8 +96,6 @@ export const games = pgTable(
 		balanceCents: integer('balance_cents').notNull(),
 		/** "Name it": the slug picked, '' when skipped, null until answered. The reveal waits for it. */
 		nameGuess: text('name_guess'),
-		/** 'dev' plays never count toward the real crowd. */
-		source: text('source', { enum: sources }).notNull().default('real'),
 		startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
 		finishedAt: timestamp('finished_at', { withTimezone: true })
 	},

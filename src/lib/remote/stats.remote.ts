@@ -1,12 +1,12 @@
 import { getRequestEvent, query } from '$app/server';
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS, START_BALANCE_CENTS } from '#lib/game/config.ts';
 import type { Direction } from '#lib/game/economy.ts';
 import { exactStanding, type Standing } from '#lib/play/standing.ts';
 import type { FinishBucket } from '#lib/play/types.ts';
 import { db } from '#lib/server/db/index.ts';
 import { games, guesses } from '#lib/server/db/schema.ts';
-import { CROWD_SOURCES, loadToday } from '#lib/server/game/play.ts';
+import { loadToday } from '#lib/server/game/play.ts';
 
 interface CallSplit {
 	step: number;
@@ -57,20 +57,19 @@ type StatsRow = {
 
 /** Everything on the page in one statement, over one day of `games` and their calls. */
 async function statsFor(puzzleNumber: number, myBalanceCents: number | null) {
-	const crowd = inArray(games.source, CROWD_SOURCES);
 	const started = performance.now();
 	const {
 		rows: [row]
 	} = await db.execute<StatsRow>(sql`
 		with day as (
 			select balance_cents, finished_at from games
-			where puzzle_number = ${puzzleNumber} and ${crowd}
+			where puzzle_number = ${puzzleNumber}
 		), done as (
 			select balance_cents from day where finished_at is not null
 		), steps as (
 			select guesses.step, count(*)::int as calls, (count(*) filter (where up))::int as ups
 			from guesses join games on games.id = guesses.game_id
-			where games.puzzle_number = ${puzzleNumber} and ${crowd}
+			where games.puzzle_number = ${puzzleNumber}
 			group by guesses.step
 		), buckets as (
 			select least(balance_cents / ${FINISH_BUCKET_CENTS} * ${FINISH_BUCKET_CENTS},
@@ -81,10 +80,9 @@ async function statsFor(puzzleNumber: number, myBalanceCents: number | null) {
 			select generate_series(date_trunc('hour', now()) - interval '23 hours',
 				date_trunc('hour', now()), interval '1 hour') as at
 		), hourly as (
-			select hours.at, count(games.id)::int as calls
+			select hours.at, count(guesses.game_id)::int as calls
 			from hours
 			left join guesses on guesses.ts >= hours.at and guesses.ts < hours.at + interval '1 hour'
-			left join games on games.id = guesses.game_id and ${crowd}
 			group by hours.at
 		)
 		select
