@@ -24,6 +24,8 @@
 	}
 
 	$effect(() => {
+		// A return visit starts from the numbers it last saw, so ask at once.
+		refresh();
 		const id = setInterval(refresh, TICK_MS);
 		return () => clearInterval(id);
 	});

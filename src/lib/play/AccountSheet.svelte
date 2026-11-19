@@ -3,7 +3,6 @@
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import { authClient } from '#lib/auth-client.ts';
-	import { getGame } from '#lib/remote/game.remote.ts';
 	import Sheet from './Sheet.svelte';
 	import type { GameView } from './types.ts';
 
@@ -36,10 +35,8 @@
 							: (res.error.message ?? 'That did not work. Try again.');
 				return;
 			}
-			password = '';
-			// The game now belongs to the account (and may bring its streak).
-			await getGame().refresh();
-			open = false;
+			// Everything on screen belonged to the previous player: load it again as this one.
+			location.reload();
 		} catch {
 			error = navigator.onLine
 				? 'That did not work. Try again.'
@@ -53,8 +50,7 @@
 		busy = true;
 		try {
 			await authClient.signOut();
-			await getGame().refresh();
-			open = false;
+			location.reload();
 		} finally {
 			busy = false;
 		}

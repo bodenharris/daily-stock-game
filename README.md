@@ -32,7 +32,7 @@ Checks: `npm run lint`, `npm run check`, `npm test`.
 Prices and puzzles (`.env` needs `DATABASE_URL`; fetching also needs `TIINGO_API_KEY`):
 
 - `npm run prices fetch [TICKER…]` downloads daily history into `.cache/tiingo` (paced for Tiingo's free plan; resumable). `npm run prices load [TICKER…]` loads it, split-adjusted, into `tickers`, `prices` and `splits`.
-- The catalog holds the answers, so it isn't in this repo: `npm run catalog export` pulls it into the git-ignored `private/catalog.json`; edit it, run `npm run catalog check`, then `npm run catalog seed` (add `-- --retire` to take puzzles out of play). `scripts/catalog.example.json` shows the format.
+- The catalog holds the answers, so it isn't in this repo: `npm run catalog export` pulls it into the git-ignored `private/catalog.json`; edit it, run `npm run catalog check`, then `npm run catalog seed` (which checks again first; add `-- --retire` to take puzzles out of play). `scripts/catalog.example.json` shows the format.
 - `npm run simulate` checks the payout rules; `npm run smoke [-- <url>]` spoiler-tests a running server on the same database; `scripts/make-images.py` redraws the icons and link preview.
 
 ## Deployment

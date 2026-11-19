@@ -53,11 +53,10 @@
 	{@render children()}
 
 	<!-- A crash while rendering: never show the raw error to players (onerror logs it), just a
-	     way back. -->
-	<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-	{#snippet failed(_error, reset)}
+	     way back. Reloading, because a query that failed keeps failing until it is asked again. -->
+	{#snippet failed()}
 		<WolfNotice title="Something went sideways.">
-			<Button variant="filled" size="md" onclick={reset}>Try again</Button>
+			<Button variant="filled" size="md" onclick={() => location.reload()}>Try again</Button>
 			<Button href="/" variant="tonal" size="md">Today's chart</Button>
 		</WolfNotice>
 	{/snippet}

@@ -226,8 +226,11 @@ Stretch lengths: ${[...steps]
 const [command, ...flags] = process.argv.slice(2);
 if (command === 'export') await exportCatalog();
 else if (command === 'check') await check();
-else if (command === 'seed') await seed(flags.includes('--retire'));
-else {
+else if (command === 'seed') {
+	// A puzzle short of prices would break its day for everyone, so never seed an unchecked catalog.
+	await check();
+	await seed(flags.includes('--retire'));
+} else {
 	console.error('Usage: node scripts/catalog.ts export | check | seed [--retire]');
 	process.exitCode = 1;
 }
