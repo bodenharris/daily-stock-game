@@ -1,0 +1,57 @@
+name: Deploy preview
+
+# Each pull request gets a Workers Preview and a Neon branch, both named pr-<number>.
+# Previews inherit nothing from production: shared secrets come from the Previews Base config,
+# and the one value only this pull request can know, its database URL, is passed with --secrets-file.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: preview-${{ github.event.number }}
+
+jobs:
+  deploy:
+    # Repository secrets are unavailable to forked pull requests; do not run on one.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      # Formatting, linting, types and unit tests. A failure stops here, so the pull request shows red and gets no Preview.
+      - run: npm run lint
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Fail if the schema changed without a committed migration
+        run: npm run db:generate && test -z "$(git status --porcelain drizzle)"
+        env:
+          DATABASE_URL: postgres://unused
+      - uses: neondatabase/create-branch-action@v6
+        id: neon
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch_name: pr-${{ github.event.number }}
+      - run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+      - run: jq -n --arg d "$DATABASE_URL" '{ DATABASE_URL: $d }' > .secrets.json
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # The action uses the wrangler that `npm ci` installed (pinned in package.json).
+          command: preview --name pr-${{ github.event.number }} --secrets-file .secrets.json
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
