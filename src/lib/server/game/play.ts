@@ -1,7 +1,5 @@
 import { error } from '@sveltejs/kit';
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
-import { dev } from '$app/env';
-import { PLAY_SOURCE } from '$app/env/private';
 import {
 	FINISH_BUCKET_CENTS,
 	FINISH_CAP_CENTS,
@@ -13,17 +11,10 @@ import { blendedShare, lockMultiplier, settleCall, type Direction } from '#lib/g
 import { exactStanding } from '#lib/play/standing.ts';
 import type { CallResult, Finishes, GameView, NameIt } from '#lib/play/types.ts';
 import { db } from '#lib/server/db/index.ts';
-import { games, guesses, schedule, type Source } from '#lib/server/db/schema.ts';
+import { games, guesses, schedule } from '#lib/server/db/schema.ts';
 import { optionsFor, type NameItCandidate } from './name-it.ts';
 import { puzzleForNumber, visibleBars, type PuzzleData } from './puzzle-data.ts';
 import { countStreak, playedOnItsDay } from './streak.ts';
-
-/**
- * Plays from a dev server are tagged 'dev' so testing never moves the real crowd. On a dev
- * server the crowd counts dev plays too, so the payout can be exercised locally.
- */
-const SOURCE: Source = PLAY_SOURCE ?? (dev ? 'dev' : 'real');
-export const CROWD_SOURCES: Source[] = SOURCE === 'dev' ? ['real', 'dev'] : ['real'];
 
 const NEW_CHART = 'A new chart just came out. Here it is.';
 const NOT_IN_ARCHIVE = 'That chart is not in the archive.';
@@ -109,7 +100,7 @@ async function crowdFor(puzzleNumber: number): Promise<Crowd> {
 		})
 		.from(guesses)
 		.innerJoin(games, eq(games.id, guesses.gameId))
-		.where(and(eq(games.puzzleNumber, puzzleNumber), inArray(games.source, CROWD_SOURCES)))
+		.where(eq(games.puzzleNumber, puzzleNumber))
 		.groupBy(guesses.step);
 	return new Map(rows.map((r) => [r.step, { up: r.ups, down: r.calls - r.ups }]));
 }
@@ -177,13 +168,7 @@ async function finishesFor(day: Day, game: GameRow): Promise<Finishes | null> {
 			top: max(games.balanceCents)
 		})
 		.from(games)
-		.where(
-			and(
-				eq(games.puzzleNumber, day.number),
-				isNotNull(games.finishedAt),
-				inArray(games.source, CROWD_SOURCES)
-			)
-		)
+		.where(and(eq(games.puzzleNumber, day.number), isNotNull(games.finishedAt)))
 		.groupBy(sql`1`)
 		.orderBy(sql`1`);
 	if (rows.length === 0) return null;
@@ -343,7 +328,6 @@ export async function placeCall(
 					puzzleNumber: day.number,
 					puzzleSlug: p.slug,
 					balanceCents: START_BALANCE_CENTS,
-					source: SOURCE,
 					startedAt: now
 				})
 				.onConflictDoUpdate({

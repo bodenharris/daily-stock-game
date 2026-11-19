@@ -18,10 +18,5 @@ export const variables = defineEnvVars({
 		...required,
 		description:
 			'Keys the daily puzzle order and the Name it options, so neither can be worked out from the public repo. Must stay the same as production, or past and future days change.'
-	},
-	PLAY_SOURCE: {
-		schema: v.optional(v.picklist(['real', 'dev'])),
-		description:
-			"Tag for plays from this deployment. Defaults to 'dev' under `vite dev` and 'real' otherwise. Set 'dev' on anything that is not production but shares its database, so test plays never move the real crowd."
 	}
 });
