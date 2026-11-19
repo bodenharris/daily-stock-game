@@ -76,7 +76,7 @@ export function shareRow(calls: readonly CallRecord[]): string {
 
 /**
  * "$1,049": whole dollars, half rounded up, like the in-game balance
- * (`dollars(cents)` in src/lib/play/money.ts).
+ * (`dollars(cents)` in src/lib/play/format.ts).
  */
 export function formatWholeDollars(cents: number): string {
 	if (!Number.isSafeInteger(cents) || cents < 0) {

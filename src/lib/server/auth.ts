@@ -10,7 +10,7 @@ import { SITE_URL } from '#lib/game/config.ts';
 import { db } from '#lib/server/db/index.ts';
 
 /** The Cloudflare account's workers.dev subdomain, where the Worker and its Previews answer. */
-const WORKERS_SUBDOMAIN = 'FILL-IN.workers.dev';
+const WORKERS_SUBDOMAIN = 'yoursplit.workers.dev';
 
 export const auth = betterAuth({
 	// One build serves the production domain, the Worker's own workers.dev host, every pr-<n>
