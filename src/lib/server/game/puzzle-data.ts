@@ -3,13 +3,12 @@ import { asc, eq, gte, lt, sql } from 'drizzle-orm';
 import { PUZZLE_SECRET } from '$app/env/private';
 import { db } from '#lib/server/db/index.ts';
 import { puzzles, schedule } from '#lib/server/db/schema.ts';
-import type { Direction } from '#lib/play/types.ts';
+import type { Direction } from '#lib/game/economy.ts';
 import { nextSlug } from './schedule-order.ts';
 
 export interface PuzzleData {
 	slug: string;
 	ticker: string;
-	company: string;
 	headline: string;
 	story: string;
 	contextBars: number;
@@ -30,23 +29,20 @@ export interface PuzzleData {
 /** Tickers that were renamed after delisting: show the symbol people knew at the time. */
 const DISPLAY_TICKER: Record<string, string> = { BBBYQ: 'BBBY', SIVBQ: 'SIVB' };
 
+type Shape = Pick<PuzzleData, 'contextBars' | 'stepBars' | 'calls'>;
+
 /** Index (into `closes`) of the last bar visible before call `step` is made (step is 1-based). */
-export function lastVisibleIndex(p: Pick<PuzzleData, 'contextBars' | 'stepBars'>, step: number) {
+export function lastVisibleIndex(p: Shape, step: number) {
 	return p.contextBars - 1 + (step - 1) * p.stepBars;
 }
 
-/** Work out the outcome of every stretch from the closes. */
-export function outcomesFor(
-	closes: number[],
-	contextBars: number,
-	stepBars: number,
-	calls: number
-): { outcomes: Direction[]; moves: number[] } {
+/** Each call's outcome, and its stretch's move in percent to one decimal. */
+export function outcomesFor(closes: number[], p: Shape) {
 	const outcomes: Direction[] = [];
 	const moves: number[] = [];
-	for (let step = 1; step <= calls; step++) {
-		const from = closes[contextBars - 1 + (step - 1) * stepBars];
-		const to = closes[contextBars - 1 + step * stepBars];
+	for (let step = 1; step <= p.calls; step++) {
+		const from = closes[lastVisibleIndex(p, step)];
+		const to = closes[lastVisibleIndex(p, step + 1)];
 		outcomes.push(to > from ? 'up' : 'down');
 		moves.push(Math.round(((to - from) / from) * 1000) / 10);
 	}
@@ -54,7 +50,7 @@ export function outcomesFor(
 }
 
 /** Visible closes before call `callsMade + 1`, normalised so the last context close is 100. */
-export function visibleBars(p: PuzzleData, callsMade: number): number[] {
+export function visibleBars(p: Shape & Pick<PuzzleData, 'closes'>, callsMade: number): number[] {
 	const end = callsMade >= p.calls ? p.closes.length : lastVisibleIndex(p, callsMade + 1) + 1;
 	const base = p.closes[p.contextBars - 1];
 	return p.closes.slice(0, end).map((c) => Math.round((c / base) * 1000) / 10);
@@ -98,7 +94,7 @@ async function load(slug: string): Promise<PuzzleData> {
 		);
 	}
 	const closes = rows.map((r) => r.close);
-	const { outcomes, moves } = outcomesFor(closes, p.contextBars, p.stepBars, p.calls);
+	const { outcomes, moves } = outcomesFor(closes, p);
 	// Undo later splits for display: the price as it was quoted on that day.
 	const quotedOn = (date: string, adjusted: number) =>
 		splitRows.rows.reduce((v, s) => (s.ts > date ? v * s.factor : v), adjusted);
@@ -117,7 +113,6 @@ async function load(slug: string): Promise<PuzzleData> {
 	return {
 		slug: p.slug,
 		ticker: DISPLAY_TICKER[p.ticker] ?? p.ticker,
-		company: p.company,
 		headline: p.headline,
 		story: p.story,
 		contextBars: p.contextBars,
@@ -136,14 +131,6 @@ async function load(slug: string): Promise<PuzzleData> {
 // it has loaded. Only settled values are kept: Workers forbid awaiting another request's I/O.
 const bySlug = new Map<string, PuzzleData>();
 const slugByNumber = new Map<number, string>();
-
-export async function puzzleBySlug(slug: string): Promise<PuzzleData> {
-	const hit = bySlug.get(slug);
-	if (hit) return hit;
-	const p = await load(slug);
-	bySlug.set(slug, p);
-	return p;
-}
 
 /**
  * The slug for daily number `number`. The first request for a number writes it into `schedule`
@@ -184,10 +171,9 @@ async function slugFor(number: number): Promise<string> {
 
 /** The puzzle for daily number `number`. */
 export async function puzzleForNumber(number: number): Promise<PuzzleData> {
-	let slug = slugByNumber.get(number);
-	if (!slug) {
-		slug = await slugFor(number);
-		slugByNumber.set(number, slug);
-	}
-	return puzzleBySlug(slug);
+	const slug = slugByNumber.get(number) ?? (await slugFor(number));
+	slugByNumber.set(number, slug);
+	const puzzle = bySlug.get(slug) ?? (await load(slug));
+	bySlug.set(slug, puzzle);
+	return puzzle;
 }

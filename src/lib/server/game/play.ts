@@ -2,16 +2,21 @@ import { error } from '@sveltejs/kit';
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, max, sql } from 'drizzle-orm';
 import { dev } from '$app/env';
 import { PLAY_SOURCE } from '$app/env/private';
+import {
+	FINISH_BUCKET_CENTS,
+	FINISH_CAP_CENTS,
+	GRACE_MS,
+	START_BALANCE_CENTS
+} from '#lib/game/config.ts';
+import { dateForNumber, midnightIn, puzzleNumberFor } from '#lib/game/daily.ts';
+import { blendedShare, lockMultiplier, settleCall, type Direction } from '#lib/game/economy.ts';
+import { exactStanding } from '#lib/play/standing.ts';
+import type { CallResult, Finishes, GameView, NameIt } from '#lib/play/types.ts';
 import { db } from '#lib/server/db/index.ts';
 import { games, guesses, schedule, type Source } from '#lib/server/db/schema.ts';
-import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS, START_BALANCE_CENTS } from '#lib/game/config.ts';
-import { blendedShare, lockMultiplier, settleCall } from '#lib/game/economy.ts';
-import { midnightIn, puzzleNumberFor } from '#lib/game/daily.ts';
-import { exactStanding } from '#lib/play/standing.ts';
-import type { CallResult, Direction, Finishes, GameView, NameIt } from '#lib/play/types.ts';
 import { optionsFor } from './name-it.ts';
 import { puzzleForNumber, visibleBars, type PuzzleData } from './puzzle-data.ts';
-import { GRACE_MS, countStreak, dateForNumber, playedOnItsDay } from './streak.ts';
+import { countStreak, playedOnItsDay } from './streak.ts';
 
 /**
  * Plays from a dev server are tagged 'dev' so testing never moves the real crowd. On a dev
@@ -22,11 +27,12 @@ export const CROWD_SOURCES: Source[] = SOURCE === 'dev' ? ['real', 'dev'] : ['re
 
 const NEW_CHART = 'A new chart just came out. Here it is.';
 const NOT_IN_ARCHIVE = 'That chart is not in the archive.';
+const ALREADY_MADE = 'That call was already made.';
 
 export interface Player {
 	id: string;
-	isAnonymous: boolean;
-	email?: string | null;
+	isAnonymous?: boolean | null;
+	email?: string;
 }
 
 type GameRow = typeof games.$inferSelect;
@@ -55,7 +61,6 @@ async function loadDay(number: number): Promise<Day> {
 	};
 }
 
-/** Today's puzzle number. */
 export function todayNumber(now = new Date()): number {
 	return puzzleNumberFor(now);
 }
@@ -64,19 +69,10 @@ export function loadToday(now = new Date()): Promise<Day> {
 	return loadDay(todayNumber(now));
 }
 
-/** Whether `number` is a past day that really happened (it has a stored schedule entry). */
-async function isPastDay(number: number, today: number): Promise<boolean> {
-	if (number >= today) return false;
-	const [row] = await db
-		.select({ n: schedule.number })
-		.from(schedule)
-		.where(eq(schedule.number, number));
-	return !!row;
-}
-
 /**
- * The day a call or guess is for. Today's page may only play today (and, for a few hours after
- * midnight, finish yesterday's game it had started); the archive may play any past day.
+ * The day a request is for. Today's page may only play today (and, for a few hours after
+ * midnight, finish yesterday's game it had started); the archive may play any past day that
+ * really happened, which is one with a stored schedule entry.
  */
 async function dayFor(
 	puzzleNumber: number,
@@ -86,7 +82,14 @@ async function dayFor(
 	// The archive only needs today's number: it never loads (and so never schedules) today.
 	if (archive) {
 		const today = todayNumber(now);
-		if (!(await isPastDay(puzzleNumber, today))) error(404, NOT_IN_ARCHIVE);
+		const [past] =
+			puzzleNumber < today
+				? await db
+						.select({ number: schedule.number })
+						.from(schedule)
+						.where(eq(schedule.number, puzzleNumber))
+				: [];
+		if (!past) error(404, NOT_IN_ARCHIVE);
 		return { today, day: await loadDay(puzzleNumber), grace: false };
 	}
 	const today = await loadToday(now);
@@ -111,22 +114,6 @@ async function crowdFor(puzzleNumber: number): Promise<Crowd> {
 	return new Map(rows.map((r) => [r.step, { up: r.ups, down: r.calls - r.ups }]));
 }
 
-function toResult(g: GuessRow, crowd: Crowd, move: number): CallResult {
-	return {
-		step: g.step,
-		direction: g.up ? 'up' : 'down',
-		stakePercent: g.stakePercent,
-		stakeCents: g.stakeCents,
-		multiplierHundredths: g.multiplierHundredths,
-		correct: g.correct,
-		deltaCents: g.deltaCents,
-		balanceAfterCents: g.balanceAfterCents,
-		crowdUpShareAtCall: g.crowdUpShare,
-		move,
-		crowd: crowd.get(g.step) ?? { up: 0, down: 0 }
-	};
-}
-
 /**
  * Consecutive daily puzzles finished on their own day, ending today or yesterday. Past days
  * played from the archive don't count: a streak means showing up every day.
@@ -137,60 +124,11 @@ async function streakFor(userId: string, today: number): Promise<number> {
 		.from(games)
 		.where(and(eq(games.userId, userId), isNotNull(games.finishedAt)))
 		.orderBy(desc(games.puzzleNumber));
-	const onTime = rows
-		.filter((r) => playedOnItsDay(r.n, r.startedAt, r.finishedAt!))
-		.map((r) => r.n);
-	return countStreak(onTime, today);
-}
-
-function assembleView(
-	day: Day,
-	game: GameRow | null,
-	calls: GuessRow[],
-	user: Player | null,
-	crowd: Crowd,
-	streak: number,
-	nameIt: NameIt | null = null,
-	finishes: Finishes | null = null
-): GameView {
-	const p = day.puzzle;
-	const callsMade = game?.step ?? 0;
-	const finished = callsMade >= p.calls;
-	// After the last call the player names the moment first; nothing identifying is sent until
-	// that guess is stored. (If the options can't be built, the reveal goes out anyway.)
-	const revealed = finished && (!nameIt || nameIt.answered);
-	const signedIn = !!user && !user.isAnonymous;
-	return {
-		number: day.number,
-		date: day.date,
-		calls: p.calls,
-		contextBars: p.contextBars,
-		stepBars: p.stepBars,
-		totalBars: p.closes.length,
-		bars: visibleBars(p, callsMade),
-		balanceCents: game?.balanceCents ?? START_BALANCE_CENTS,
-		results: calls.map((g) => toResult(g, crowd, p.moves[g.step - 1])),
-		finished,
-		reveal: revealed
-			? {
-					ticker: p.ticker,
-					company: p.company,
-					headline: p.headline,
-					story: p.story,
-					dates: p.dates,
-					closes: p.quoted,
-					moves: p.moves,
-					hindsight: p.hindsight
-				}
-			: null,
-		nextPuzzleAt: day.nextPuzzleAt,
-		signedIn,
-		email: signedIn ? (user.email ?? null) : null,
-		streak,
-		standing: finished && finishes ? exactStanding(finishes.place, finishes.finished) : null,
-		nameIt,
-		finishes: revealed ? finishes : null
-	};
+	const onTime = rows.filter((r) => playedOnItsDay(r.n, r.startedAt, r.finishedAt!));
+	return countStreak(
+		onTime.map((r) => r.n),
+		today
+	);
 }
 
 /** "Name it" for a finished game. A failure here never holds back the reveal. */
@@ -199,19 +137,19 @@ async function nameItFor(day: Day, game: GameRow): Promise<NameIt | null> {
 	try {
 		const options = await optionsFor(day.puzzle);
 		const answered = game.nameGuess != null;
-		const index = (slug: string) => {
+		const index = (slug: string | null) => {
 			const i = options.findIndex((o) => o.slug === slug);
-			return i < 0 ? null : i;
+			return answered && i >= 0 ? i : null;
 		};
 		return {
 			options: options.map((o) => o.headline),
 			answered,
-			guess: answered && game.nameGuess ? index(game.nameGuess) : null,
-			answer: answered ? index(day.puzzle.slug) : null,
+			guess: index(game.nameGuess),
+			answer: index(day.puzzle.slug),
 			span: [day.puzzle.dates[0], day.puzzle.dates[day.puzzle.dates.length - 1]]
 		};
 	} catch (e) {
-		console.error('name it options failed', e);
+		console.error('Could not build the Name it options', e);
 		return null;
 	}
 }
@@ -252,20 +190,71 @@ async function finishesFor(day: Day, game: GameRow): Promise<Finishes | null> {
 	};
 }
 
-function callsOf(gameId: string) {
-	return db.select().from(guesses).where(eq(guesses.gameId, gameId)).orderBy(asc(guesses.step));
+function toResult(g: GuessRow, crowd: Crowd, move: number): CallResult {
+	return {
+		step: g.step,
+		direction: g.up ? 'up' : 'down',
+		stakeCents: g.stakeCents,
+		correct: g.correct,
+		deltaCents: g.deltaCents,
+		balanceAfterCents: g.balanceAfterCents,
+		crowdUpShareAtCall: g.crowdUpShare,
+		move,
+		crowd: crowd.get(g.step) ?? { up: 0, down: 0 }
+	};
 }
 
-/** The full view of one game: shared by the views and the commands that change a game. */
-async function viewOfGame(day: Day, game: GameRow, user: Player, today: number) {
+/** What `user` sees of `day`: their game on it, if they have one, and the reveal once earned. */
+async function viewOf(
+	day: Day,
+	today: number,
+	user: Player | null,
+	game: GameRow | null
+): Promise<GameView> {
 	const [calls, crowd, streak, nameIt, finishes] = await Promise.all([
-		callsOf(game.id),
-		crowdFor(day.number),
-		streakFor(user.id, today),
-		nameItFor(day, game),
-		finishesFor(day, game)
+		game
+			? db.select().from(guesses).where(eq(guesses.gameId, game.id)).orderBy(asc(guesses.step))
+			: [],
+		game ? crowdFor(day.number) : new Map(),
+		user ? streakFor(user.id, today) : 0,
+		game && nameItFor(day, game),
+		game && finishesFor(day, game)
 	]);
-	return assembleView(day, game, calls, user, crowd, streak, nameIt, finishes);
+	const p = day.puzzle;
+	const callsMade = game?.step ?? 0;
+	const finished = callsMade >= p.calls;
+	// After the last call the player names the moment first; nothing identifying is sent until
+	// that guess is stored. (If the options can't be built, the reveal goes out anyway.)
+	const revealed = finished && (!nameIt || nameIt.answered);
+	const signedIn = !!user && !user.isAnonymous;
+	return {
+		number: day.number,
+		date: day.date,
+		calls: p.calls,
+		contextBars: p.contextBars,
+		stepBars: p.stepBars,
+		bars: visibleBars(p, callsMade),
+		balanceCents: game?.balanceCents ?? START_BALANCE_CENTS,
+		results: calls.map((g) => toResult(g, crowd, p.moves[g.step - 1])),
+		finished,
+		reveal: revealed
+			? {
+					ticker: p.ticker,
+					headline: p.headline,
+					story: p.story,
+					dates: p.dates,
+					closes: p.quoted,
+					hindsight: p.hindsight
+				}
+			: null,
+		nextPuzzleAt: day.nextPuzzleAt,
+		signedIn,
+		email: signedIn ? (user.email ?? null) : null,
+		streak,
+		standing: finishes ? exactStanding(finishes.place, finishes.finished) : null,
+		nameIt,
+		finishes: revealed ? finishes : null
+	};
 }
 
 /**
@@ -274,7 +263,7 @@ async function viewOfGame(day: Day, game: GameRow, user: Player, today: number) 
  */
 export async function viewFor(user: Player | null, now = new Date()): Promise<GameView> {
 	const today = await loadToday(now);
-	if (!user) return assembleView(today, null, [], null, new Map(), 0);
+	if (!user) return viewOf(today, today.number, null, null);
 
 	const inGrace = now.getTime() - today.unlockAt < GRACE_MS;
 	const rows = await db
@@ -288,30 +277,41 @@ export async function viewFor(user: Player | null, now = new Date()): Promise<Ga
 		);
 	const todays = rows.find((g) => g.puzzleNumber === today.number);
 	const yesterdays = rows.find((g) => g.puzzleNumber === today.number - 1);
-	const game =
-		!todays && yesterdays && yesterdays.step > 0 && yesterdays.finishedAt == null
-			? yesterdays
-			: todays;
-	if (!game) {
-		return assembleView(today, null, [], user, new Map(), await streakFor(user.id, today.number));
+	if (!todays && yesterdays && yesterdays.step > 0 && yesterdays.finishedAt == null) {
+		return viewOf(await loadDay(yesterdays.puzzleNumber), today.number, user, yesterdays);
 	}
-	const day = game === todays ? today : await loadDay(game.puzzleNumber);
-	return viewOfGame(day, game, user, today.number);
+	return viewOf(today, today.number, user, todays ?? null);
 }
 
-export interface PlaceCallInput {
-	step: number;
-	direction: Direction;
-	stakePercent: number;
+/** The view of a past day, for the archive. */
+export async function dayView(
+	user: Player | null,
+	number: number,
+	now = new Date()
+): Promise<GameView> {
+	const { today, day } = await dayFor(number, true, now);
+	const [game] = user
+		? await db
+				.select()
+				.from(games)
+				.where(and(eq(games.userId, user.id), eq(games.puzzleNumber, number)))
+		: [];
+	return viewOf(day, today, user, game ?? null);
+}
+
+interface CallInput {
 	puzzleNumber: number;
 	/** Played from the archive (a past day), not today's page. */
 	archive?: boolean;
+	step: number;
+	direction: Direction;
+	stakePercent: number;
 }
 
 /** Place one call. A double tap or a second tab can never place the same call twice or skip ahead. */
 export async function placeCall(
 	user: Player,
-	input: PlaceCallInput,
+	input: CallInput,
 	now = new Date()
 ): Promise<{ view: GameView; result: CallResult }> {
 	const { today, day, grace } = await dayFor(input.puzzleNumber, !!input.archive, now);
@@ -347,7 +347,7 @@ export async function placeCall(
 				.returning();
 	if (!game || (grace && game.step === 0)) error(409, NEW_CHART);
 	if (game.puzzleSlug !== p.slug) error(409, 'This game belongs to a different chart.');
-	if (game.step !== step - 1) error(409, 'That call was already made.');
+	if (game.step !== step - 1) error(409, ALREADY_MADE);
 
 	const s = settleCall({
 		balanceCents: game.balanceCents,
@@ -375,29 +375,35 @@ export async function placeCall(
 			${s.balanceAfterCents}::integer
 		from advanced
 		returning step`);
-	if (rows.length === 0) error(409, 'That call was already made.');
+	if (rows.length === 0) error(409, ALREADY_MADE);
 
-	const view = await viewOfGame(
-		day,
-		{ ...game, step, balanceCents: s.balanceAfterCents, finishedAt },
-		user,
-		today
-	);
+	const view = await viewOf(day, today, user, {
+		...game,
+		step,
+		balanceCents: s.balanceAfterCents,
+		finishedAt
+	});
 	return { view, result: view.results.find((r) => r.step === step)! };
 }
 
+interface NameInput {
+	puzzleNumber: number;
+	archive?: boolean;
+	/** An option index, or null to skip. */
+	choice: number | null;
+}
+
 /**
- * Store the player's "Name it" guess (an option index, or null to skip), then send the view
- * with the reveal. Only once per game: a second answer just returns the stored one.
+ * Store the player's "Name it" guess, then send the view with the reveal. Only once per game:
+ * a second answer just returns the stored one.
  */
 export async function nameMoment(
 	user: Player,
-	puzzleNumber: number,
-	choice: number | null,
-	archive = false,
+	input: NameInput,
 	now = new Date()
 ): Promise<GameView> {
-	const { today, day } = await dayFor(puzzleNumber, archive, now);
+	const { today, day } = await dayFor(input.puzzleNumber, !!input.archive, now);
+	const { choice } = input;
 	const options = await optionsFor(day.puzzle);
 	if (choice != null && choice >= options.length) error(400, 'Pick one of the options');
 	const where = and(eq(games.userId, user.id), eq(games.puzzleNumber, day.number));
@@ -408,40 +414,11 @@ export async function nameMoment(
 		.returning();
 	const game = updated ?? (await db.select().from(games).where(where))[0];
 	if (!game || game.finishedAt == null) error(409, 'Finish the game first');
-	return viewOfGame(day, game, user, today);
-}
-
-/** The view of a past day, for the archive. */
-export async function dayView(
-	user: Player | null,
-	number: number,
-	now = new Date()
-): Promise<GameView> {
-	const today = todayNumber(now);
-	if (!(await isPastDay(number, today))) error(404, NOT_IN_ARCHIVE);
-	const day = await loadDay(number);
-	if (!user) return assembleView(day, null, [], null, new Map(), 0);
-	const [game] = await db
-		.select()
-		.from(games)
-		.where(and(eq(games.userId, user.id), eq(games.puzzleNumber, number)));
-	if (game) return viewOfGame(day, game, user, today);
-	return assembleView(day, null, [], user, new Map(), await streakFor(user.id, today));
-}
-
-export interface ArchiveDay {
-	number: number;
-	/** Eastern date, YYYY-MM-DD. */
-	date: string;
-	/** This player's game, if they played it. */
-	played: { step: number; finished: boolean; balanceCents: number; right: number } | null;
+	return viewOf(day, today, user, game);
 }
 
 /** Every past day that happened, newest first, with how this player did on each. */
-export async function archiveFor(
-	user: Player | null,
-	now = new Date()
-): Promise<{ today: number; days: ArchiveDay[] }> {
+export async function archiveFor(user: Player | null, now = new Date()) {
 	const today = todayNumber(now);
 	const [days, mine] = await Promise.all([
 		db

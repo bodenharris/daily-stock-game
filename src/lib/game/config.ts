@@ -5,7 +5,6 @@
  * every calculation is exact and identical on every device.
  */
 
-/** Working name. Change it here and everywhere follows. */
 export const GAME_NAME = 'The Wolf';
 
 /** The production site, linked from the share text. */
@@ -47,12 +46,12 @@ export interface CrowdRules {
 	 * 200 makes it 2 x the other side's share: 50/50 -> 1.00x, beating 80/20 -> 1.60x.
 	 */
 	readonly slopeHundredths: number;
-	/** Must be at least 100: a right call never pays less than the stake. */
+	/** At least 100: a right call never pays less than the stake. */
 	readonly minMultiplierHundredths: number;
 	readonly maxMultiplierHundredths: number;
 	/**
 	 * A 50/50 prior worth this many imaginary players is blended into the real split, so the
-	 * first few players cannot swing the multiplier. Must be even (half up, half down).
+	 * first few players cannot swing the multiplier. Even, so it splits half up, half down.
 	 */
 	readonly priorPlayers: number;
 }
@@ -63,17 +62,6 @@ export const CROWD_RULES: CrowdRules = {
 	minMultiplierHundredths: 100,
 	maxMultiplierHundredths: 200,
 	priorPlayers: 10
-};
-
-export interface PayoutRules {
-	readonly stakeOptions: readonly StakeOption[];
-	readonly crowd: CrowdRules;
-}
-
-/** The rules the app plays by. Tests pass alternatives. */
-export const PAYOUT_RULES: PayoutRules = {
-	stakeOptions: STAKE_OPTIONS,
-	crowd: CROWD_RULES
 };
 
 /** Width of the buckets the day's finishes are sent in. */
@@ -87,3 +75,6 @@ export const LAUNCH_DATE = '2026-11-01';
 
 /** The daily puzzle rolls over at midnight in this time zone. */
 export const PUZZLE_TIME_ZONE = 'America/New_York';
+
+/** A game started before midnight can still be finished for this long after the rollover. */
+export const GRACE_MS = 3 * 60 * 60 * 1000;

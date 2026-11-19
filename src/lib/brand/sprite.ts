@@ -7,12 +7,12 @@ import type { PackRankKey } from '#lib/game/rank.ts';
 import wolf from './wolf.json';
 import ranks from './ranks.json';
 
-export interface Sprite {
+interface Sprite {
 	rows: string[];
 	palette: Record<string, string>;
 }
 
-export interface Run {
+interface Run {
 	x: number;
 	y: number;
 	w: number;

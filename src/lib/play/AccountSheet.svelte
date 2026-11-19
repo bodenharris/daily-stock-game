@@ -40,6 +40,10 @@
 			// The game now belongs to the account (and may bring its streak).
 			await getGame().refresh();
 			open = false;
+		} catch {
+			error = navigator.onLine
+				? 'That did not work. Try again.'
+				: 'You are offline. Try again when you are back.';
 		} finally {
 			busy = false;
 		}
@@ -102,7 +106,7 @@
 			{#if error}
 				<p class="type-body-sm text-error" role="alert">{error}</p>
 			{/if}
-			<Button type="submit" variant="filled" size="md" class="pixel-frame mt-2" disabled={busy}>
+			<Button type="submit" variant="filled" size="md" class="mt-2" disabled={busy}>
 				{signup ? 'Create account' : 'Sign in'}
 			</Button>
 			<Button

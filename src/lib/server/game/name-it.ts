@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { PUZZLE_SECRET } from '$app/env/private';
+import type { Direction } from '#lib/game/economy.ts';
 import { db } from '#lib/server/db/index.ts';
 import type { PuzzleData } from './puzzle-data.ts';
 
@@ -9,8 +10,8 @@ export interface NameItCandidate {
 	slug: string;
 	ticker: string;
 	headline: string;
-	/** Direction of the biggest single stretch of the five, the move the headline is about. */
-	bigMove: 'up' | 'down';
+	/** Direction of the biggest single stretch, the move the headline is about. */
+	bigMove: Direction;
 }
 
 export const NAME_IT_OPTIONS = 4;
@@ -53,8 +54,8 @@ export function nameItOptions(
 	return [answer, ...decoys].sort(byRank('order'));
 }
 
-/** Direction of the largest absolute move among the five stretches. */
-export function bigMoveOf(moves: number[]): 'up' | 'down' {
+/** Direction of the largest absolute move among the stretches. */
+export function bigMoveOf(moves: number[]): Direction {
 	let best = 0;
 	for (const m of moves) if (Math.abs(m) > Math.abs(best)) best = m;
 	return best >= 0 ? 'up' : 'down';

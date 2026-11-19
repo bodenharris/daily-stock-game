@@ -161,8 +161,7 @@
 			{#if hover}
 				<p
 					class="tip type-label-md type-numeric"
-					style:left="clamp(3.5rem, {((hover.from + hover.to) / 2 / chart.end) * 100}%, 100% -
-					3.5rem)"
+					style:--at="{((hover.from + hover.to) / 2 / chart.end) * 100}%"
 				>
 					<span class="text-on-surface">
 						{hover.count}
@@ -250,6 +249,8 @@
 	.tip {
 		position: absolute;
 		top: -1.5rem;
+		/* centred over the group, kept inside the plot */
+		left: clamp(3.5rem, var(--at), 100% - 3.5rem);
 		z-index: 1;
 		display: flex;
 		gap: 0.375rem;

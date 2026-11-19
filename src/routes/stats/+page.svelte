@@ -170,9 +170,7 @@
 						<p class="mt-1 type-body-md text-on-surface-variant">
 							Finish today's chart to see how everyone called each move.
 						</p>
-						<Button href="/" variant="filled" size="sm" class="pixel-frame mt-4">
-							Play today's chart
-						</Button>
+						<Button href="/" variant="filled" size="sm" class="mt-4">Play today's chart</Button>
 					{/if}
 				</section>
 

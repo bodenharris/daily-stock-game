@@ -88,7 +88,6 @@
 		position: absolute;
 		inset: 0;
 		opacity: 0;
-		margin: 0;
 		cursor: inherit;
 	}
 	.chip:has(input:focus-visible) {

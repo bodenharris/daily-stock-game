@@ -6,99 +6,42 @@ import { LAUNCH_DATE, PUZZLE_TIME_ZONE } from './config.ts';
 
 const DAY_MS = 86_400_000;
 
-const formatters = new Map<string, Intl.DateTimeFormat>();
+const clock = new Intl.DateTimeFormat('en-US', {
+	timeZone: PUZZLE_TIME_ZONE,
+	hourCycle: 'h23',
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit',
+	hour: '2-digit',
+	minute: '2-digit',
+	second: '2-digit'
+});
 
-function formatterFor(timeZone: string): Intl.DateTimeFormat {
-	let formatter = formatters.get(timeZone);
-	if (!formatter) {
-		formatter = new Intl.DateTimeFormat('en-US', {
-			timeZone,
-			hourCycle: 'h23',
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit'
-		});
-		formatters.set(timeZone, formatter);
-	}
-	return formatter;
-}
-
-interface WallClock {
-	year: number;
-	month: number;
-	day: number;
-	hour: number;
-	minute: number;
-	second: number;
-}
-
-function wallClock(date: Date, timeZone: string): WallClock {
-	if (Number.isNaN(date.getTime())) throw new RangeError('Invalid Date');
-	const parts: Record<string, number> = {};
-	for (const part of formatterFor(timeZone).formatToParts(date)) {
-		if (part.type !== 'literal') parts[part.type] = Number(part.value);
-	}
-	return {
-		year: parts.year,
-		month: parts.month,
-		day: parts.day,
-		hour: parts.hour,
-		minute: parts.minute,
-		second: parts.second
-	};
-}
-
-function pad(value: number, width = 2): string {
-	return String(value).padStart(width, '0');
-}
-
-/** "YYYY-MM-DD" for `date` as seen in the puzzle time zone. */
-export function easternDateString(date: Date, timeZone: string = PUZZLE_TIME_ZONE): string {
-	const { year, month, day } = wallClock(date, timeZone);
-	return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
-}
-
-/** Days since 1970-01-01 for a "YYYY-MM-DD" calendar date (no time zone involved). */
-function dayNumber(isoDate: string): number {
-	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-	if (!match) throw new RangeError(`expected YYYY-MM-DD, got ${isoDate}`);
-	return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / DAY_MS;
-}
-
-/**
- * Calendar days from launch to `date` in the puzzle time zone: 0 on launch day, negative before.
- */
-export function daysSinceLaunch(date: Date, launchDate: string = LAUNCH_DATE): number {
-	return dayNumber(easternDateString(date)) - dayNumber(launchDate);
+/** The wall clock in the puzzle time zone at `date`, as epoch ms of that time in UTC. */
+function wallClock(date: Date): number {
+	const p = Object.fromEntries(clock.formatToParts(date).map((x) => [x.type, Number(x.value)]));
+	return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
 }
 
 /**
  * 1-based puzzle number for `date`. Puzzle #1 is LAUNCH_DATE. Before launch this returns 1, so
  * previews and countdown pages always have a real puzzle to show; the game never has a #0.
  */
-export function puzzleNumberFor(date: Date, launchDate: string = LAUNCH_DATE): number {
-	return Math.max(1, daysSinceLaunch(date, launchDate) + 1);
+export function puzzleNumberFor(date: Date): number {
+	const days = Math.floor(wallClock(date) / DAY_MS) - Date.parse(LAUNCH_DATE) / DAY_MS;
+	return Math.max(1, days + 1);
 }
 
-/** The UTC instant of midnight starting `isoDate` in `timeZone`. */
-export function midnightIn(isoDate: string, timeZone: string = PUZZLE_TIME_ZONE): Date {
-	const target = dayNumber(isoDate) * DAY_MS;
+/** Calendar date (YYYY-MM-DD) of puzzle `number`. */
+export function dateForNumber(number: number): string {
+	return new Date(Date.parse(LAUNCH_DATE) + (number - 1) * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** The instant of midnight starting `isoDate` in the puzzle time zone. */
+export function midnightIn(isoDate: string): Date {
+	const target = Date.parse(isoDate);
 	// Guess, read the wall clock there, correct by the offset; twice covers a DST change between.
 	let guess = target;
-	for (let i = 0; i < 2; i++) {
-		const wall = wallClock(new Date(guess), timeZone);
-		const wallMs = Date.UTC(
-			wall.year,
-			wall.month - 1,
-			wall.day,
-			wall.hour,
-			wall.minute,
-			wall.second
-		);
-		guess += target - wallMs;
-	}
+	for (let i = 0; i < 2; i++) guess += target - wallClock(new Date(guess));
 	return new Date(guess);
 }

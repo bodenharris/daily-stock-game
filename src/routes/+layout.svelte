@@ -57,8 +57,8 @@
 	<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
 	{#snippet failed(_error, reset)}
 		<WolfNotice title="Something went sideways.">
-			<Button variant="filled" size="md" class="pixel-frame" onclick={reset}>Try again</Button>
-			<Button href="/" variant="tonal" size="md" class="pixel-panel">Today's chart</Button>
+			<Button variant="filled" size="md" onclick={reset}>Try again</Button>
+			<Button href="/" variant="tonal" size="md">Today's chart</Button>
 		</WolfNotice>
 	{/snippet}
 </svelte:boundary>

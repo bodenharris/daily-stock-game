@@ -164,7 +164,7 @@
 					bind:ref={primary}
 					variant={last ? 'filled' : 'tonal'}
 					size="sm"
-					class={['min-w-34', last ? 'pixel-frame' : 'pixel-panel']}
+					class="min-w-34"
 					onclick={() => (last ? (open = false) : go(index + 1))}
 				>
 					{#if last}Let's play{:else}Next<ChevronRight />{/if}
@@ -271,7 +271,7 @@
 		<ol class="flex items-end gap-1.5">
 			{#each [...PACK_RANKS, ALPHA] as r (r.key)}
 				<li class={['rank', r.key === 'hunter' && 'you']}>
-					<RankBadge rank={r.key} scale={2} />
+					<RankBadge rank={r.key} />
 				</li>
 			{/each}
 		</ol>
@@ -281,7 +281,6 @@
 
 <style>
 	.frame {
-		--frame: var(--md-sys-color-primary);
 		overflow: hidden;
 		background: var(--md-sys-color-surface-container-high);
 		color: var(--md-sys-color-on-surface);

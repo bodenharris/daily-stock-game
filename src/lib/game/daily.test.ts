@@ -1,32 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { LAUNCH_DATE, PUZZLE_TIME_ZONE } from './config.ts';
-import { daysSinceLaunch, easternDateString, midnightIn, puzzleNumberFor } from './daily.ts';
+import { dateForNumber, midnightIn, puzzleNumberFor } from './daily.ts';
 
 const at = (iso: string) => new Date(iso);
 const HOUR = 3_600_000;
+/** The calendar date of the puzzle being played at `iso`. */
+const dateAt = (iso: string) => dateForNumber(puzzleNumberFor(at(iso)));
 
-describe('config', () => {
-	it('launches on 2026-11-01 in New York time', () => {
-		expect(LAUNCH_DATE).toBe('2026-11-01');
-		expect(PUZZLE_TIME_ZONE).toBe('America/New_York');
-	});
-});
-
-describe('easternDateString', () => {
+describe('dateForNumber', () => {
 	it('uses the New York calendar date, not UTC', () => {
 		// 2026-11-14 is in EST (UTC-5).
-		expect(easternDateString(at('2026-11-14T04:59:59.999Z'))).toBe('2026-11-13');
-		expect(easternDateString(at('2026-11-14T05:00:00.000Z'))).toBe('2026-11-14');
-		expect(easternDateString(at('2026-11-15T03:00:00Z'))).toBe('2026-11-14');
+		expect(dateAt('2026-11-14T04:59:59.999Z')).toBe('2026-11-13');
+		expect(dateAt('2026-11-14T05:00:00.000Z')).toBe('2026-11-14');
+		expect(dateAt('2026-11-15T03:00:00Z')).toBe('2026-11-14');
 	});
 
 	it('uses EDT (UTC-4) in summer', () => {
-		expect(easternDateString(at('2027-07-04T03:59:59Z'))).toBe('2027-07-03');
-		expect(easternDateString(at('2027-07-04T04:00:00Z'))).toBe('2027-07-04');
+		expect(dateAt('2027-07-04T03:59:59Z')).toBe('2027-07-03');
+		expect(dateAt('2027-07-04T04:00:00Z')).toBe('2027-07-04');
+	});
+
+	it('is launch day for #1', () => {
+		expect(dateForNumber(1)).toBe('2026-11-01');
+		expect(dateForNumber(14)).toBe('2026-11-14');
 	});
 
 	it('rejects an invalid date', () => {
-		expect(() => easternDateString(new Date('nope'))).toThrow(RangeError);
+		expect(() => puzzleNumberFor(new Date('nope'))).toThrow(RangeError);
 	});
 });
 
@@ -48,11 +47,9 @@ describe('puzzleNumberFor', () => {
 		expect(puzzleNumberFor(at('2026-11-15T04:59:59.999Z'))).toBe(14);
 	});
 
-	it('serves #1 before launch and reports how far before', () => {
+	it('serves #1 before launch', () => {
 		expect(puzzleNumberFor(at('2026-11-01T03:59:59.999Z'))).toBe(1);
-		expect(daysSinceLaunch(at('2026-11-01T03:59:59.999Z'))).toBe(-1);
 		expect(puzzleNumberFor(at('2026-01-01T12:00:00Z'))).toBe(1);
-		expect(daysSinceLaunch(at('2026-11-01T04:00:00Z'))).toBe(0);
 	});
 
 	it('counts calendar days across the spring-forward change', () => {
@@ -102,7 +99,7 @@ describe('midnightIn', () => {
 		for (const date of ['2026-11-15', '2027-03-15', '2027-11-08']) {
 			const next = midnightIn(date);
 			expect(puzzleNumberFor(next)).toBe(puzzleNumberFor(new Date(next.getTime() - 1)) + 1);
-			expect(easternDateString(next)).toBe(date);
+			expect(dateForNumber(puzzleNumberFor(next))).toBe(date);
 		}
 	});
 });

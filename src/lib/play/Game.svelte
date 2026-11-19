@@ -10,7 +10,7 @@
 	import { sound } from '#lib/audio/sound.svelte.ts';
 	import { START_BALANCE_CENTS, STAKE_OPTIONS } from '#lib/game/config.ts';
 	import { stakeCentsFor } from '#lib/game/economy.ts';
-	import { pop } from '#lib/m3/transitions.ts';
+	import { pop } from '#lib/transitions.ts';
 	import { getDay, getGame, makeCall } from '#lib/remote/game.remote.ts';
 	import CallLog from './CallLog.svelte';
 	import CallPips from './CallPips.svelte';
@@ -32,6 +32,10 @@
 	const NAMED_MS = 1400;
 	/** The middle chip. Every call starts on it, so a big bet is always a choice, never a leftover. */
 	const DEFAULT_STAKE = 25;
+	const CALL_BUTTONS = [
+		{ dir: 'up', label: 'Up', Icon: ArrowUp, key: '↑' },
+		{ dir: 'down', label: 'Down', Icon: ArrowDown, key: '↓' }
+	] as const;
 
 	/** Run `fn` after `ms` (at once under reduced motion); returns the cancel. */
 	function after(ms: number, fn: () => void) {
@@ -338,12 +342,11 @@
 					</div>
 
 					<div class="calls mt-6 grid grid-cols-2 gap-6 px-1.5 pt-1.5 pb-3">
-						{#each [{ dir: 'up', label: 'Up' }, { dir: 'down', label: 'Down' }] as const as b (b.dir)}
+						{#each CALL_BUTTONS as b (b.dir)}
 							<Button
-								variant="tonal"
 								size="hero"
 								class={[
-									'call pixel-frame',
+									'call',
 									b.dir,
 									chosen === b.dir && 'chosen',
 									chosen && chosen !== b.dir && 'other'
@@ -353,13 +356,9 @@
 								data-sfx="none"
 								onclick={() => call(b.dir)}
 							>
-								{#if b.dir === 'up'}
-									<ArrowUp strokeWidth={2.5} />
-								{:else}
-									<ArrowDown strokeWidth={2.5} />
-								{/if}
+								<b.Icon strokeWidth={2.5} />
 								{b.label}
-								<kbd class="key" aria-hidden="true">{b.dir === 'up' ? '↑' : '↓'}</kbd>
+								<kbd class="key" aria-hidden="true">{b.key}</kbd>
 							</Button>
 						{/each}
 					</div>

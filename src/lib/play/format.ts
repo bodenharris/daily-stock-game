@@ -1,9 +1,9 @@
 /**
  * How the game writes money, moves, prices, dates and time spans.
  *
- * One money rule on every screen: whole dollars, halves rounded up (the share text uses the same
- * rule, see formatWholeDollars in src/lib/game/share.ts). What a call paid is the change in the
- * rounded balance (see paidByCall), so the per-call amounts always add up to the balance shown.
+ * One money rule on every screen and in the share text: whole dollars, halves rounded up. What a
+ * call paid is the change in the rounded balance (see paidByCall), so the per-call amounts always
+ * add up to the balance shown.
  */
 
 /** Cents rounded to whole dollars, halves away from zero. Still in cents. */

@@ -5,15 +5,15 @@
 
 	/*
 	 * A square button holding one lucide icon (sized here, so no classes on the icon). Always
-	 * give it an `aria-label`. With `toggle` it is a toggle button: `pressed` (bindable) lights
-	 * the icon in the primary colour.
+	 * give it an `aria-label`. `tonal` wears the pixel panel (layout.css). With `toggle` it is a
+	 * toggle button: `pressed` (bindable) lights the icon in the primary colour.
 	 */
 
 	// 48px minimum touch target around the 32 and 40px sizes.
 	const TARGET =
 		"after:absolute after:top-1/2 after:left-1/2 after:size-full after:min-h-12 after:min-w-12 after:-translate-1/2 after:content-['']";
 
-	export const iconButtonVariants = tv({
+	const iconButtonVariants = tv({
 		base: [
 			`state-layer inline-flex shrink-0 cursor-pointer items-center justify-center p-0 align-middle select-none ${TARGET}`,
 			'transition-[background-color,color] duration-(--md-sys-motion-spring-default-effects-duration) ease-(--md-sys-motion-spring-default-effects-easing)',
@@ -24,25 +24,19 @@
 			variant: {
 				standard: 'bg-transparent text-on-surface-variant',
 				tonal:
-					'bg-secondary-container text-on-secondary-container disabled:bg-on-surface/10 aria-disabled:bg-on-surface/10'
+					'pixel-panel bg-secondary-container text-on-secondary-container disabled:bg-on-surface/10 aria-disabled:bg-on-surface/10'
 			},
 			size: {
 				xs: 'size-8 [&_svg]:size-5',
 				sm: 'size-10 [&_svg]:size-6'
-			},
-			selected: { true: '' }
+			}
 		},
-		compoundVariants: [{ variant: 'standard', selected: true, class: 'text-m3-primary' }],
 		defaultVariants: { variant: 'standard', size: 'sm' }
 	});
 
-	export type IconButtonVariant = VariantProps<typeof iconButtonVariants>['variant'];
-	export type IconButtonSize = VariantProps<typeof iconButtonVariants>['size'];
-
-	export type IconButtonProps = WithElementRef<HTMLButtonAttributes> &
-		WithElementRef<HTMLAnchorAttributes> & {
-			variant?: IconButtonVariant;
-			size?: IconButtonSize;
+	type IconButtonProps = WithElementRef<HTMLButtonAttributes> &
+		WithElementRef<HTMLAnchorAttributes> &
+		VariantProps<typeof iconButtonVariants> & {
 			/** A toggle button: clicking flips `pressed`. */
 			toggle?: boolean;
 			pressed?: boolean;
@@ -68,7 +62,7 @@
 	}: IconButtonProps = $props();
 
 	const classes = $derived(
-		cn(iconButtonVariants({ variant, size, selected: toggle && pressed }), className)
+		cn(iconButtonVariants({ variant, size }), toggle && pressed && 'text-m3-primary', className)
 	);
 </script>
 

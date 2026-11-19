@@ -4,7 +4,7 @@
 //
 // 5 chart models × 6 crowd models, 20,000 games each. Every player in a game faces the same chart
 // and the same crowd, so the comparisons are paired.
-import { CALLS_PER_GAME, PAYOUT_RULES, START_BALANCE_CENTS } from '#lib/game/config.ts';
+import { CALLS_PER_GAME, STAKE_OPTIONS, START_BALANCE_CENTS } from '#lib/game/config.ts';
 import { lockMultiplier, settleCall, type Direction } from '#lib/game/economy.ts';
 
 const GAMES = 20_000;
@@ -75,7 +75,7 @@ const CROWDS: {
 	}
 ];
 
-const [LOW, MID, HIGH] = PAYOUT_RULES.stakeOptions.map((o) => o.percent).toSorted((a, b) => a - b);
+const [LOW, MID, HIGH] = STAKE_OPTIONS.map((o) => o.percent).toSorted((a, b) => a - b);
 
 type Call = { trend: Direction; read: Direction; confident: boolean; r: Rng };
 /**

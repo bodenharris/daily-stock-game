@@ -1,15 +1,16 @@
 import { getRequestEvent, query } from '$app/server';
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS, START_BALANCE_CENTS } from '#lib/game/config.ts';
+import type { Direction } from '#lib/game/economy.ts';
+import { exactStanding, type Standing } from '#lib/play/standing.ts';
+import type { FinishBucket } from '#lib/play/types.ts';
 import { db } from '#lib/server/db/index.ts';
 import { games, guesses } from '#lib/server/db/schema.ts';
 import { CROWD_SOURCES, loadToday } from '#lib/server/game/play.ts';
-import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS, START_BALANCE_CENTS } from '#lib/game/config.ts';
-import { exactStanding } from '#lib/play/standing.ts';
-import type { Direction, FinishBucket } from '#lib/play/types.ts';
 
 const TICK_MS = 4000;
 
-export interface CallSplit {
+interface CallSplit {
 	step: number;
 	calls: number;
 	ups: number;
@@ -19,7 +20,7 @@ export interface CallSplit {
 	you: Direction | null;
 }
 
-export interface LiveStats {
+interface LiveStats {
 	number: number;
 	players: number;
 	finished: number;
@@ -39,7 +40,7 @@ export interface LiveStats {
 	 */
 	calls: CallSplit[] | null;
 	/** The viewer's own finish today, ranked by the same exact rule as the game's end screen. */
-	you: { balanceCents: number; betterThan: number | null; finished: number } | null;
+	you: (Standing & { balanceCents: number }) | null;
 }
 
 type StatsRow = {
@@ -108,25 +109,25 @@ async function statsFor(puzzleNumber: number, myBalanceCents: number | null) {
 async function finishedGame(userId: string | undefined, puzzleNumber: number) {
 	if (!userId) return null;
 	const [row] = await db
-		.select({ id: games.id, balanceCents: games.balanceCents })
+		.select({
+			balanceCents: games.balanceCents,
+			ups: sql<boolean[]>`array_agg(${guesses.up} order by ${guesses.step})`
+		})
 		.from(games)
+		.innerJoin(guesses, eq(guesses.gameId, games.id))
 		.where(
 			and(
 				eq(games.userId, userId),
 				eq(games.puzzleNumber, puzzleNumber),
 				isNotNull(games.finishedAt)
 			)
-		);
+		)
+		.groupBy(games.id);
 	if (!row) return null;
-	const calls = await db
-		.select({ up: guesses.up })
-		.from(guesses)
-		.where(eq(guesses.gameId, row.id))
-		.orderBy(asc(guesses.step));
 	return {
 		puzzle: puzzleNumber,
 		balanceCents: row.balanceCents,
-		directions: calls.map((c): Direction => (c.up ? 'up' : 'down'))
+		directions: row.ups.map((up): Direction => (up ? 'up' : 'down'))
 	};
 }
 

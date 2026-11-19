@@ -18,7 +18,6 @@
 </script>
 
 <IconButton
-	class="pixel-panel"
 	variant="tonal"
 	aria-label={on ? 'Sound settings (on)' : 'Sound settings (muted)'}
 	onclick={show}

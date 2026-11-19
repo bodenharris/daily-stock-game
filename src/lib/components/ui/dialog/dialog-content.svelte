@@ -3,9 +3,9 @@
 	import { cn } from '#lib/utils.js';
 
 	/*
-	 * A centred dialog on a 50% scrim (32% barely separated it from the page): surface-container
-	 * high with a hard 2px outline and drop. Enter: fade on default-effects and scale 0.8 to 1 on
-	 * default-spatial. Exit: fade and scale to 0.9 on fast-effects.
+	 * A centred dialog on a 50% scrim: surface-container-high with a hard 2px outline and drop.
+	 * Enter: fade on default-effects and scale 0.8 to 1 on default-spatial. Exit: fade and scale
+	 * to 0.9 on fast-effects.
 	 */
 	let {
 		ref = $bindable(null),

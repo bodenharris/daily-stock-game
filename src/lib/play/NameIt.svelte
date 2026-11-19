@@ -2,7 +2,7 @@
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { rise } from '#lib/m3/transitions.ts';
+	import { rise } from '#lib/transitions.ts';
 	import { nameIt as sendGuess } from '#lib/remote/game.remote.ts';
 	import type { NameIt } from './types.ts';
 
@@ -124,7 +124,6 @@
 		padding: 0.625rem 1.25rem;
 		background: var(--md-sys-color-surface-container-high);
 		color: var(--md-sys-color-on-surface);
-		font: inherit;
 		font-size: 1rem;
 		line-height: 1.375rem;
 		transition-property: background-color, color, opacity;

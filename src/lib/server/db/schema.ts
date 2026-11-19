@@ -68,7 +68,7 @@ export const puzzles = pgTable('puzzles', {
 });
 
 /**
- * Which puzzle each daily number shows. Written the first time a number is played, so a day's
+ * Which puzzle each daily number shows. Written the first time the number is loaded, so a day's
  * puzzle never changes afterwards, even if the catalog is edited.
  */
 export const schedule = pgTable('schedule', {

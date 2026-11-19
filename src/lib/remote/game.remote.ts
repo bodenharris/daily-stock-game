@@ -4,9 +4,12 @@ import { command, getRequestEvent, query } from '$app/server';
 import { dev } from '$app/env';
 import { getIP } from 'better-auth/api';
 import { and, count, eq, gt } from 'drizzle-orm';
+import { CALLS_PER_GAME, STAKE_OPTIONS } from '#lib/game/config.ts';
+import type { GameView } from '#lib/play/types.ts';
 import { auth } from '#lib/server/auth.ts';
 import { db } from '#lib/server/db/index.ts';
 import { session, user } from '#lib/server/db/schema.ts';
+import { NAME_IT_OPTIONS } from '#lib/server/game/name-it.ts';
 import {
 	archiveFor,
 	dayView,
@@ -15,14 +18,8 @@ import {
 	viewFor,
 	type Player
 } from '#lib/server/game/play.ts';
-import { CALLS_PER_GAME, STAKE_OPTIONS } from '#lib/game/config.ts';
-import type { CallResponse, GameView } from '#lib/play/types.ts';
 
-function currentUser(): Player | null {
-	const { locals } = getRequestEvent();
-	if (!locals.user) return null;
-	return { id: locals.user.id, isAnonymous: !!locals.user.isAnonymous, email: locals.user.email };
-}
+const currentUser = (): Player | null => getRequestEvent().locals.user ?? null;
 
 // New anonymous players per IP per hour. Generous, because a whole hall can share one IP, but it
 // stops a script from minting thousands of players to swing the crowd.
@@ -53,10 +50,10 @@ async function playerForWrite(): Promise<Player> {
 	}
 	const res = await auth.api.signInAnonymous({ headers: request.headers });
 	if (!res?.user) error(500, 'Could not start a game');
-	return { id: res.user.id, isAnonymous: true };
+	return res.user;
 }
 
-export const getGame = query(async (): Promise<GameView> => viewFor(currentUser()));
+export const getGame = query(() => viewFor(currentUser()));
 
 const puzzleNumber = v.pipe(v.number(), v.integer(), v.minValue(1));
 
@@ -67,7 +64,7 @@ export const getDay = query(puzzleNumber, (number) => dayView(currentUser(), num
 export const getArchive = query(() => archiveFor(currentUser()));
 
 /** Point the right cached query at a game's new view: today's page, or the archive's. */
-function publish(view: GameView, archive: boolean) {
+function update(view: GameView, archive: boolean | undefined) {
 	if (archive) {
 		getDay(view.number).set(view);
 		void getArchive().refresh();
@@ -76,33 +73,36 @@ function publish(view: GameView, archive: boolean) {
 	}
 }
 
+/** One call. The new view reaches the page through its query; the result says how it went. */
 export const makeCall = command(
 	v.object({
 		puzzleNumber,
+		archive: v.optional(v.boolean()),
 		step: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(CALLS_PER_GAME)),
 		direction: v.picklist(['up', 'down']),
-		stakePercent: v.picklist(STAKE_OPTIONS.map((o) => o.percent)),
-		archive: v.optional(v.boolean())
+		stakePercent: v.picklist(STAKE_OPTIONS.map((o) => o.percent))
 	}),
-	async (input): Promise<CallResponse> => {
-		const res = await placeCall(await playerForWrite(), input);
-		publish(res.view, !!input.archive);
-		return res;
+	async (input) => {
+		const { view, result } = await placeCall(await playerForWrite(), input);
+		update(view, input.archive);
+		return { result };
 	}
 );
 
-/** "Name it": pick one of the four moments (by index), or null to skip. Then the reveal. */
+/** "Name it": pick one of the moments (by index), or null to skip. Then the reveal. */
 export const nameIt = command(
 	v.object({
 		puzzleNumber,
-		choice: v.nullable(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(3))),
-		archive: v.optional(v.boolean())
+		archive: v.optional(v.boolean()),
+		choice: v.nullable(
+			v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(NAME_IT_OPTIONS - 1))
+		)
 	}),
-	async ({ puzzleNumber, choice, archive }): Promise<GameView> => {
-		const user = currentUser();
-		if (!user) error(401, 'Play today first');
-		const view = await nameMoment(user, puzzleNumber, choice, !!archive);
-		publish(view, !!archive);
+	async (input) => {
+		const player = currentUser();
+		if (!player) error(401, 'Play today first');
+		const view = await nameMoment(player, input);
+		update(view, input.archive);
 		return view;
 	}
 );

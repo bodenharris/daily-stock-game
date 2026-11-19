@@ -5,8 +5,9 @@
 
 	/*
 	 * The arcade button: capitals with tracking, a flat state layer and an instant one-step
-	 * press. Add `.pixel-frame` (primary actions) or `.pixel-panel` for the cabinet frame, which
-	 * sinks into its drop instead (layout.css).
+	 * press. `filled` (primary actions) wears the cabinet frame and `tonal` the panel, both of
+	 * which sink into their drop instead (`.pixel-frame` / `.pixel-panel` in layout.css); give
+	 * them 6px of room (12px below). `text` is unframed.
 	 *
 	 * Sizes are CSS variables, so a caller can re-size one without fighting class order:
 	 * --btn-h (height), --btn-px (side padding), --btn-gap (icon to label), --btn-icon.
@@ -18,7 +19,7 @@
 	const DISABLED_FILL =
 		'disabled:bg-on-surface/10 disabled:text-on-surface/38 aria-disabled:bg-on-surface/10 aria-disabled:text-on-surface/38';
 
-	export const buttonVariants = tv({
+	const buttonVariants = tv({
 		base: [
 			'state-layer inline-flex shrink-0 cursor-pointer items-center justify-center align-middle whitespace-nowrap no-underline select-none',
 			'uppercase tracking-[0.12em] active:translate-y-0.5',
@@ -30,8 +31,8 @@
 		],
 		variants: {
 			variant: {
-				filled: `bg-m3-primary text-on-primary ${DISABLED_FILL}`,
-				tonal: `bg-secondary-container text-on-secondary-container ${DISABLED_FILL}`,
+				filled: `pixel-frame bg-m3-primary text-on-primary ${DISABLED_FILL}`,
+				tonal: `pixel-panel bg-secondary-container text-on-secondary-container ${DISABLED_FILL}`,
 				text: 'bg-transparent text-m3-primary disabled:text-on-surface/38 aria-disabled:text-on-surface/38'
 			},
 			size: {
@@ -44,14 +45,9 @@
 		defaultVariants: { variant: 'filled', size: 'sm' }
 	});
 
-	export type ButtonVariant = VariantProps<typeof buttonVariants>['variant'];
-	export type ButtonSize = VariantProps<typeof buttonVariants>['size'];
-
-	export type ButtonProps = WithElementRef<HTMLButtonAttributes> &
-		WithElementRef<HTMLAnchorAttributes> & {
-			variant?: ButtonVariant;
-			size?: ButtonSize;
-		};
+	type ButtonProps = WithElementRef<HTMLButtonAttributes> &
+		WithElementRef<HTMLAnchorAttributes> &
+		VariantProps<typeof buttonVariants>;
 </script>
 
 <script lang="ts">

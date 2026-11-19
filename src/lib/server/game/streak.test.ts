@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GRACE_MS, countStreak, dateForNumber, playedOnItsDay } from './streak.ts';
-import { midnightIn } from '#lib/game/daily.ts';
+import { GRACE_MS } from '#lib/game/config.ts';
+import { dateForNumber, midnightIn } from '#lib/game/daily.ts';
+import { countStreak, playedOnItsDay } from './streak.ts';
 
 /** Midnight Eastern that starts puzzle `n`'s day. */
 const unlock = (n: number) => midnightIn(dateForNumber(n)).getTime();

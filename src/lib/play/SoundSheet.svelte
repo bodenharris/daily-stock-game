@@ -43,7 +43,5 @@
 			(on) => sound.setAmbience(on)
 		)}
 	</div>
-	<Button variant="tonal" size="md" class="pixel-panel mt-6 w-full" onclick={() => (open = false)}>
-		Done
-	</Button>
+	<Button variant="tonal" size="md" class="mt-6 w-full" onclick={() => (open = false)}>Done</Button>
 </Sheet>

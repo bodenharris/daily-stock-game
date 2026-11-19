@@ -88,23 +88,17 @@
 			</p>
 		{/if}
 		{#snippet actions()}
-			<IconButton
-				class="pixel-panel"
-				variant="tonal"
-				aria-label="How to play"
-				onclick={() => openHelp()}
-			>
+			<IconButton variant="tonal" aria-label="How to play" onclick={() => openHelp()}>
 				<CircleHelp />
 			</IconButton>
 			<SoundButton />
-			<IconButton class="pixel-panel" variant="tonal" href="/archive" aria-label="Past charts">
+			<IconButton variant="tonal" href="/archive" aria-label="Past charts">
 				<CalendarDays />
 			</IconButton>
-			<IconButton class="pixel-panel" variant="tonal" href="/stats" aria-label="Live stats">
+			<IconButton variant="tonal" href="/stats" aria-label="Live stats">
 				<ChartColumn />
 			</IconButton>
 			<IconButton
-				class="pixel-panel"
 				variant="tonal"
 				aria-label={view.signedIn ? 'Your account' : 'Save your streak'}
 				onclick={openAccount}

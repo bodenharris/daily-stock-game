@@ -10,7 +10,7 @@
 	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
 	import { packRank } from '#lib/game/rank.ts';
 	import { buildShareText } from '#lib/game/share.ts';
-	import { pop, rise } from '#lib/m3/transitions.ts';
+	import { pop, rise } from '#lib/transitions.ts';
 	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
 	import Countdown from './Countdown.svelte';
 	import { dollars, formatDate, formatPrice } from './format.ts';
@@ -162,7 +162,7 @@
 				<Button
 					variant="filled"
 					size="md"
-					class="pixel-frame [--btn-px:12px]"
+					class="[--btn-px:12px]"
 					onclick={share}
 					aria-live="polite"
 				>
@@ -172,7 +172,7 @@
 						<Share2 /> Share
 					{/if}
 				</Button>
-				<Button variant="tonal" size="md" class="pixel-panel [--btn-px:12px]" href="/archive">
+				<Button variant="tonal" size="md" class="[--btn-px:12px]" href="/archive">
 					<CalendarDays /> Past charts
 				</Button>
 			</div>

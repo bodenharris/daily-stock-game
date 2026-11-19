@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { NameItCandidate } from './name-it.ts';
+import type { Direction } from '#lib/game/economy.ts';
+import { bigMoveOf, nameItOptions, type NameItCandidate } from './name-it.ts';
 
+// Only the pure helpers are tested here: no database, and no secrets needed (as in CI).
+vi.mock('$app/env/private', () => ({ PUZZLE_SECRET: 'test' }));
 vi.mock('#lib/server/db/index.ts', () => ({ db: {} }));
 
-const { bigMoveOf, nameItOptions } = await import('./name-it.ts');
-
-const make = (i: number, bigMove: 'up' | 'down', ticker = `T${i}`): NameItCandidate => ({
+const make = (i: number, bigMove: Direction, ticker = `T${i}`): NameItCandidate => ({
 	slug: `p${i}`,
 	ticker,
 	headline: `Moment ${i}`,

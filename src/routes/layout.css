@@ -140,8 +140,8 @@
 
 /* ==========================================================================
    4. MOTION: M3 Expressive springs as CSS. The curves are the springs' step responses as
-   linear(); their shape depends only on the damping ratio. src/lib/m3/transitions.ts samples
-   the same springs for Svelte transitions.
+   linear(); their shape depends only on the damping ratio. src/lib/transitions.ts samples the
+   same springs for Svelte transitions.
    ========================================================================== */
 :root {
 	--md-ref-motion-spring-curve-d80: linear(
@@ -207,8 +207,8 @@
 
 /* ==========================================================================
    5. TAILWIND THEME
-   `primary` and `secondary` carry an `m3-` prefix (bg-m3-primary, outline-m3-secondary), a
-   leftover from sharing names with shadcn's tokens; every other role is unprefixed.
+   `primary` and `secondary` carry an `m3-` prefix (bg-m3-primary, outline-m3-secondary) so
+   they never collide with the shadcn tokens of the same names; every other role is unprefixed.
    ========================================================================== */
 @theme inline {
 	--font-sans: var(--md-ref-typeface-plain);
@@ -399,9 +399,9 @@
    7. ARCADE HELPERS
    ========================================================================== */
 /* State layer: a flat tint of the content colour on hover (pointers that hover only, so a tapped
-   control never stays lit), keyboard focus and press, switched instantly. There is no Material
-   ripple in the arcade: framed controls also sink into their drop (below). In the components
-   layer, so a positioning utility on the host (absolute, fixed ...) still wins. */
+   control never stays lit), keyboard focus and press, switched instantly, with no ripple; framed
+   controls also sink into their drop (below). In the components layer, so a positioning utility
+   on the host (absolute, fixed ...) still wins. */
 @layer components {
 	.state-layer {
 		position: relative;
@@ -432,8 +432,8 @@
    hard drop (two scene pixels each), so a primary and a secondary button side by side line up
    top and bottom. Hierarchy comes from colour alone: the cabinet frame (primary actions) is
    coloured `--frame` (cyan unless recoloured) and glows; the panel (cards, secondary buttons)
-   has a quiet `--panel-edge`. Box-shadows sit outside the box: give framed things 6px of room
-   (12px below). */
+   has a quiet outline edge. Buttons get them from their variant (filled: frame, tonal: panel).
+   Box-shadows sit outside the box: give framed things 6px of room (12px below). */
 .pixel-frame,
 .pixel-panel {
 	--drop: 6px;
@@ -441,7 +441,7 @@
 		0 0 0 3px var(--pixel-ink),
 		0 0 0 6px var(--frame-edge),
 		0 var(--drop) 0 6px var(--frame-base),
-		0 0 26px 0 var(--frame-glow, transparent);
+		0 0 26px 0 var(--frame-glow);
 }
 .pixel-frame {
 	--frame: var(--md-sys-color-primary);
@@ -450,7 +450,7 @@
 	--frame-glow: color-mix(in srgb, var(--frame) 30%, transparent);
 }
 .pixel-panel {
-	--frame-edge: var(--panel-edge, var(--md-sys-color-outline-variant));
+	--frame-edge: var(--md-sys-color-outline-variant);
 	--frame-base: var(--md-sys-color-shadow);
 	--frame-glow: transparent;
 }
@@ -492,7 +492,7 @@
 		var(--glitch-split, 3px) 0 0 var(--md-sys-color-primary),
 		0 var(--glitch-drop, 5px) 0 var(--pixel-ink);
 }
-/* Neon label: cyan, letterspaced, glowing (krillion-style taglines and eyebrows). */
+/* Neon label: cyan, letterspaced, glowing (taglines and eyebrows). */
 .neon-text {
 	color: var(--md-sys-color-primary);
 	text-transform: uppercase;

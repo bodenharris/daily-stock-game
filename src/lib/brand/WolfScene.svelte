@@ -266,13 +266,7 @@
 			{#if compact}
 				<div class="bar">
 					{#if back}
-						<IconButton
-							class="pixel-panel"
-							variant="tonal"
-							size="sm"
-							href={back.href}
-							aria-label={back.label}
-						>
+						<IconButton variant="tonal" size="sm" href={back.href} aria-label={back.label}>
 							<ArrowLeft />
 						</IconButton>
 					{/if}
@@ -393,11 +387,7 @@
 	.wolf-button {
 		position: relative;
 		display: block;
-		padding: 0;
-		border: 0;
-		background: none;
 		cursor: pointer;
-		-webkit-tap-highlight-color: transparent;
 	}
 	/* A tap target a little bigger than the sprite: above his ears and either side of him, but
 	   short of the title and the buttons. Not below, where the street line is. */
