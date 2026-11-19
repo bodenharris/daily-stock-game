@@ -1,3 +1,0 @@
-# /etc/sudoers.d/thewolf-deploy (install with: sudo visudo -f /etc/sudoers.d/thewolf-deploy)
-# The deploy user may restart the app, and nothing else.
-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart thewolf@prod, /usr/bin/systemctl restart thewolf@preview
