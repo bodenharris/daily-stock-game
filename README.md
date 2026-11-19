@@ -27,6 +27,8 @@ npm run db:migrate
 npm run dev
 ```
 
+Local development uses the `dev` branch of the Neon project, a copy of production that you can reset from its parent whenever you want fresh data.
+
 Checks: `npm run lint`, `npm run check`, `npm test`.
 
 Prices and puzzles (`.env` needs `DATABASE_URL`; fetching also needs `TIINGO_API_KEY`):
