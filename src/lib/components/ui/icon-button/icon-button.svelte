@@ -72,7 +72,6 @@
 	);
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller resolves its own href -->
 {#if href}
 	<a
 		bind:this={ref}

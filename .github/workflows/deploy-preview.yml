@@ -45,7 +45,8 @@ jobs:
       - run: npm run db:migrate
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url }}
-      - run: jq -n --arg d "$DATABASE_URL" '{ DATABASE_URL: $d }' > .secrets.json
+      - run: |
+          jq -n --arg d "$DATABASE_URL" '{ DATABASE_URL: $d }' > .secrets.json
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url }}
       - uses: cloudflare/wrangler-action@v4
