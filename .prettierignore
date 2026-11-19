@@ -8,3 +8,11 @@ bun.lockb
 # Miscellaneous
 /static/
 /drizzle/
+
+# The pre-rebuild app, vendored agent skills and generated files
+/old/
+.agents/
+.claude/
+skills-lock.json
+.cache/
+/private/
