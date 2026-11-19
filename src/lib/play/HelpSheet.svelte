@@ -1,17 +1,17 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import ArrowUp from '@lucide/svelte/icons/arrow-up';
+	import Check from '@lucide/svelte/icons/check';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
-	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { IconButton } from '#lib/components/ui/icon-button/index.js';
-	import Wolf from '#lib/brand/Wolf.svelte';
 	import RankBadge from '#lib/brand/RankBadge.svelte';
-	import { ALPHA, PACK_RANKS } from '#lib/game/rank.ts';
+	import Wolf from '#lib/brand/Wolf.svelte';
 	import {
 		CALLS_PER_GAME,
 		CROWD_RULES,
@@ -19,26 +19,26 @@
 		STAKE_OPTIONS
 	} from '#lib/game/config.ts';
 	import { stakeCentsFor } from '#lib/game/economy.ts';
-	import { dollars } from './money.ts';
+	import { ALPHA, PACK_RANKS } from '#lib/game/rank.ts';
+	import { dollars } from './format.ts';
 
 	/**
 	 * How to play, as three quick slides (goal, calls, reveal), each a picture and one line, so a
 	 * first-time player has the game in under 20 seconds. Swipe, arrow keys, the dots or the
 	 * buttons move between slides; the last slide's button starts the game.
 	 */
-	// `view` is accepted (and ignored) so both lazily loaded sheets share one prop shape.
-	// eslint-disable-next-line svelte/no-unused-props
-	let { open = $bindable(false) }: { open?: boolean; view?: unknown } = $props();
+	let { open = $bindable(false) }: { open?: boolean } = $props();
 
-	const slides = [
-		{ id: 'goal', title: 'The Goal', line: 'Will the mystery stock rise or fall?' },
+	const slides: { title: string; line: string; art: Snippet; more?: Snippet }[] = [
+		{ title: 'The Goal', line: 'Will the mystery stock rise or fall?', art: goal },
 		{
-			id: 'play',
 			title: 'How to Play',
-			line: `Make ${CALLS_PER_GAME} calls. Pick how much to risk on each.`
+			line: `Make ${CALLS_PER_GAME} calls. Pick how much to risk on each.`,
+			art: play,
+			more: playMore
 		},
-		{ id: 'reveal', title: 'The Reveal', line: 'Unmask the stock. See how you ranked in the pack.' }
-	] as const;
+		{ title: 'The Reveal', line: 'Unmask the stock. See how you ranked in the pack.', art: reveal }
+	];
 
 	/**
 	 * The most a crowd bonus can add, as a share of the balance. Every chip earns the same bonus
@@ -50,22 +50,15 @@
 			STAKE_OPTIONS[0].payoutPercent) /
 		100;
 
-	const ranks = [...PACK_RANKS, ALPHA];
-	const stakes = STAKE_OPTIONS.map((o) => ({
-		percent: o.percent,
-		cents: stakeCentsFor(START_BALANCE_CENTS, o.percent)
-	}));
-
 	let index = $state(0);
-	let track = $state<HTMLElement | null>(null);
+	let track = $state<HTMLElement>();
 	let primary = $state<HTMLElement | null>(null);
 	const last = $derived(index === slides.length - 1);
 
 	function go(i: number) {
-		const next = Math.max(0, Math.min(slides.length - 1, i));
-		index = next;
+		index = Math.max(0, Math.min(slides.length - 1, i));
 		track?.scrollTo({
-			left: next * track.clientWidth,
+			left: index * track.clientWidth,
 			behavior: prefersReducedMotion.current ? 'instant' : 'smooth'
 		});
 	}
@@ -74,31 +67,27 @@
 	function onscroll() {
 		if (!track) return;
 		const i = Math.round(track.scrollLeft / track.clientWidth);
-		if (i !== index && i >= 0 && i < slides.length) index = i;
+		if (i >= 0 && i < slides.length) index = i;
 	}
 
+	const KEYS: Record<string, () => number> = {
+		ArrowRight: () => index + 1,
+		ArrowLeft: () => index - 1,
+		Home: () => 0,
+		End: () => slides.length - 1
+	};
 	function onkeydown(e: KeyboardEvent) {
-		if (e.altKey || e.ctrlKey || e.metaKey) return;
-		const to =
-			e.key === 'ArrowRight'
-				? index + 1
-				: e.key === 'ArrowLeft'
-					? index - 1
-					: e.key === 'Home'
-						? 0
-						: e.key === 'End'
-							? slides.length - 1
-							: null;
-		if (to == null) return;
+		const to = KEYS[e.key];
+		if (!to || e.altKey || e.ctrlKey || e.metaKey) return;
 		e.preventDefault();
-		go(to);
+		go(to());
 	}
 </script>
 
 <Dialog.Root bind:open onOpenChangeComplete={(o) => !o && (index = 0)}>
 	<Dialog.Content
-		class="max-h-[calc(100%-40px)] w-[min(400px,calc(100%-44px))] max-w-none min-w-0 gap-0 overflow-visible rounded-none bg-transparent p-0 shadow-none"
-		onOpenAutoFocus={(e) => {
+		class="max-h-[calc(100%-40px)] w-[min(400px,calc(100%-44px))] max-w-none min-w-0 gap-0 overflow-visible bg-transparent p-0 shadow-none"
+		onOpenAutoFocus={(e: Event) => {
 			e.preventDefault();
 			primary?.focus();
 		}}
@@ -112,7 +101,7 @@
 				</Dialog.Description>
 				<Dialog.Close>
 					{#snippet child({ props })}
-						<IconButton {...props} shape="square" size="sm" aria-label="Close">
+						<IconButton {...props} aria-label="Close">
 							<X />
 						</IconButton>
 					{/snippet}
@@ -127,7 +116,7 @@
 				aria-roledescription="carousel"
 				aria-label="How to play"
 			>
-				{#each slides as s, i (s.id)}
+				{#each slides as s, i (s.title)}
 					<section
 						class={['slide', i === index && 'active']}
 						role="group"
@@ -137,28 +126,12 @@
 					>
 						<div class="stage" aria-hidden="true">
 							<span class="moon"></span>
-							{#if s.id === 'goal'}
-								{@render goal()}
-							{:else if s.id === 'play'}
-								{@render play()}
-							{:else}
-								{@render reveal()}
-							{/if}
+							{@render s.art()}
 						</div>
 						<div class="px-5 pt-4 text-center">
-							<h3 class="glitch-text font-pixel text-base leading-tight uppercase">
-								{s.title}
-							</h3>
+							<h3 class="glitch-text font-pixel text-base leading-tight uppercase">{s.title}</h3>
 							<p class="mt-2 type-body-lg text-balance text-on-surface">{s.line}</p>
-							{#if s.id === 'play'}
-								<p class="mt-1.5 type-body-md text-balance text-on-surface-variant">
-									Right when most players called it wrong? Crowd bonus, up to {maxBonusPercent}% of
-									your balance, the same whatever you bet.
-								</p>
-								<p class="keys mt-1.5 type-body-sm text-on-surface-variant">
-									<kbd>↑</kbd> <kbd>↓</kbd> to call · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to bet
-								</p>
-							{/if}
+							{@render s.more?.()}
 						</div>
 					</section>
 				{/each}
@@ -169,16 +142,14 @@
 
 			<footer class="flex items-center gap-2 px-3 pt-3 pb-4">
 				<IconButton
-					shape="square"
-					size="sm"
 					aria-label="Previous slide"
 					disabled={index === 0}
 					onclick={() => go(index - 1)}
 				>
 					<ChevronLeft />
 				</IconButton>
-				<div class="dots flex flex-1 justify-center">
-					{#each slides as s, i (s.id)}
+				<div class="flex flex-1 justify-center">
+					{#each slides as s, i (s.title)}
 						<button
 							type="button"
 							class={['dot', i === index && 'on']}
@@ -193,10 +164,10 @@
 					bind:ref={primary}
 					variant={last ? 'filled' : 'tonal'}
 					size="sm"
-					class={['next min-w-34', last ? 'pixel-frame' : 'pixel-panel']}
+					class="min-w-34"
 					onclick={() => (last ? (open = false) : go(index + 1))}
 				>
-					{#if last}Let's play{:else}Next<ChevronRight data-icon="inline-end" />{/if}
+					{#if last}Let's play{:else}Next<ChevronRight />{/if}
 				</Button>
 			</footer>
 		</div>
@@ -209,7 +180,7 @@
 		<Wolf scale={2} title="" />
 		<div class="flex flex-col items-center gap-2">
 			<div class="ticker font-pixel">????</div>
-			<svg class="chart" viewBox="0 0 64 32" width="128" height="64" shape-rendering="crispEdges">
+			<svg viewBox="0 0 64 32" width="128" height="64" shape-rendering="crispEdges">
 				<path
 					d="M0 24 H8 V20 H16 V22 H24 V14 H32 V16 H40 V10"
 					fill="none"
@@ -231,8 +202,10 @@
 					text-anchor="middle"
 					class="font-pixel"
 					font-size="12"
-					fill="var(--md-sys-color-tertiary)">?</text
+					fill="var(--md-sys-color-tertiary)"
 				>
+					?
+				</text>
 			</svg>
 		</div>
 		<div class="flex flex-col gap-2">
@@ -246,36 +219,41 @@
 {#snippet play()}
 	<div class="flex w-full max-w-64 flex-col gap-3">
 		<div class="flex justify-center gap-1.5">
-			{#each { length: CALLS_PER_GAME }, i (i)}
-				<span
-					class={[
-						'pip',
-						i === 0 || i === 1 ? 'bg-up text-on-up' : i === 2 ? 'bg-down text-on-down' : '',
-						i === 3 && 'next-pip',
-						i === 4 && 'empty'
-					]}
-				>
-					{#if i < 2}<Check strokeWidth={3} />{:else if i === 2}<X strokeWidth={3} />{/if}
-				</span>
-			{/each}
+			<span class="pip bg-up text-on-up"><Check strokeWidth={3} /></span>
+			<span class="pip bg-up text-on-up"><Check strokeWidth={3} /></span>
+			<span class="pip bg-down text-on-down"><X strokeWidth={3} /></span>
+			<span class="pip next"></span>
+			<span class="pip empty"></span>
 		</div>
 		<div class="flex gap-0.5">
-			{#each stakes as o (o.percent)}
+			{#each STAKE_OPTIONS as o (o.percent)}
 				<span class={['chip', o.percent === 25 && 'on']}>
-					<span class="type-label-lg type-numeric">{dollars(o.cents)}</span>
+					<span class="type-label-lg type-numeric">
+						{dollars(stakeCentsFor(START_BALANCE_CENTS, o.percent))}
+					</span>
 					<span class="type-label-sm type-numeric opacity-80">{o.percent}%</span>
 				</span>
 			{/each}
 		</div>
 		<div class="grid grid-cols-2 gap-2">
-			<span class="mini-call bg-up type-label-lg tracking-[0.12em] text-on-up uppercase"
-				><ArrowUp strokeWidth={3} />Up</span
-			>
-			<span class="mini-call bg-down type-label-lg tracking-[0.12em] text-on-down uppercase"
-				><ArrowDown strokeWidth={3} />Down</span
-			>
+			<span class="mini-call bg-up type-label-lg tracking-[0.12em] text-on-up uppercase">
+				<ArrowUp strokeWidth={3} />Up
+			</span>
+			<span class="mini-call bg-down type-label-lg tracking-[0.12em] text-on-down uppercase">
+				<ArrowDown strokeWidth={3} />Down
+			</span>
 		</div>
 	</div>
+{/snippet}
+
+{#snippet playMore()}
+	<p class="mt-1.5 type-body-md text-balance text-on-surface-variant">
+		Right when most players called it wrong? Crowd bonus, up to {maxBonusPercent}% of your balance,
+		the same whatever you bet.
+	</p>
+	<p class="keys mt-1.5 type-body-sm text-on-surface-variant">
+		<kbd>↑</kbd> <kbd>↓</kbd> to call · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to bet
+	</p>
 {/snippet}
 
 <!-- Slide 3: the final balance, and the Wolf Pack Ranks from Pup to Alpha. -->
@@ -286,14 +264,14 @@
 				{dollars(START_BALANCE_CENTS)}
 			</span>
 			<span class="type-headline-sm-emphasized text-on-surface type-numeric">$142</span>
-			<span class="bg-up-container px-2 py-0.5 type-label-lg text-on-up-container type-numeric"
-				>+42%</span
-			>
+			<span class="bg-up-container px-2 py-0.5 type-label-lg text-on-up-container type-numeric">
+				+42%
+			</span>
 		</div>
-		<ol class="ranks flex items-end gap-1.5">
-			{#each ranks as r (r.key)}
+		<ol class="flex items-end gap-1.5">
+			{#each [...PACK_RANKS, ALPHA] as r (r.key)}
 				<li class={['rank', r.key === 'hunter' && 'you']}>
-					<RankBadge rank={r.key} scale={2} />
+					<RankBadge rank={r.key} />
 				</li>
 			{/each}
 		</ol>
@@ -303,7 +281,6 @@
 
 <style>
 	.frame {
-		--frame: var(--md-sys-color-primary);
 		overflow: hidden;
 		background: var(--md-sys-color-surface-container-high);
 		color: var(--md-sys-color-on-surface);
@@ -385,9 +362,6 @@
 		color: var(--md-sys-color-tertiary);
 		box-shadow: 0 0 0 2px var(--pixel-ink);
 	}
-	.chart {
-		display: block;
-	}
 	.call {
 		display: grid;
 		place-items: center;
@@ -400,12 +374,12 @@
 		height: 22px;
 	}
 	.call.up {
-		background: var(--md-ext-color-up);
-		color: var(--md-ext-color-on-up);
+		background: var(--up);
+		color: var(--on-up);
 	}
 	.call.down {
-		background: var(--md-ext-color-down);
-		color: var(--md-ext-color-on-down);
+		background: var(--down);
+		color: var(--on-down);
 	}
 
 	.pip {
@@ -418,7 +392,7 @@
 		width: 16px;
 		height: 16px;
 	}
-	.pip.next-pip {
+	.pip.next {
 		background: var(--md-sys-color-surface-container-highest);
 		box-shadow: inset 0 0 0 2px var(--md-sys-color-primary);
 	}
@@ -514,6 +488,7 @@
 		}
 	}
 
+	/* Keyboard play is only for keyboard-and-mouse screens. */
 	.keys {
 		display: none;
 	}

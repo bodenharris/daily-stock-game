@@ -1,10 +1,22 @@
 <script lang="ts">
 	import { curveCatmullRom, line } from 'd3-shape';
-	import type { ChartPoint, ChartProjection } from './layout.ts';
+	import type { ChartPoint } from './layout.ts';
 	import type { Marker } from './marker.svelte.ts';
 
-	/** `projection`: the chart's live scale, which the strokes are pinned to. */
-	let { marker, projection }: { marker: Marker; projection: ChartProjection } = $props();
+	/**
+	 * The red marker's strokes over the chart. `toPx` and `fromPx` are the chart's live scale, so
+	 * when a call widens the chart's range the strokes ease along with the line instead of
+	 * staying where they were on screen.
+	 */
+	let {
+		marker,
+		toPx,
+		fromPx
+	}: {
+		marker: Marker;
+		toPx: (p: ChartPoint) => [number, number];
+		fromPx: (px: [number, number]) => ChartPoint;
+	} = $props();
 
 	let width = $state(0);
 	let height = $state(0);
@@ -12,33 +24,25 @@
 	let lastPx: [number, number] | null = null;
 
 	const toPath = line().curve(curveCatmullRom.alpha(0.5));
-	// Mapped through the live scale, so when a call widens the chart's range the strokes ease
-	// along with the line instead of staying where they were on screen.
 	const paths = $derived(
 		width > 0 && height > 0
 			? marker.strokes.map((s) => {
-					const px = s.map(projection.toPx);
+					const px = s.map(toPx);
 					// A tap leaves a dot: a zero-length segment that the round cap turns into one.
 					return px.length === 1 ? `M${px[0][0]} ${px[0][1]}h0.01` : (toPath(px) ?? '');
 				})
 			: []
 	);
 
-	// Marks saved before they were pinned to the chart: pin them where they show now.
-	$effect(() => {
-		if (!marker.boxStrokes || width === 0 || height === 0) return;
-		marker.adopt(([sx, sy]) => projection.fromPx([sx * width, sy * height]));
-	});
-
-	const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
 	/** A pointer position on the layer, in pixels and as a point on the chart. */
-	function at(e: PointerEvent, el: HTMLElement): { p: ChartPoint; px: [number, number] } {
+	function at(e: PointerEvent, el: HTMLElement) {
 		const r = el.getBoundingClientRect();
+		const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
 		const px: [number, number] = [
 			clamp(e.clientX - r.left, r.width),
 			clamp(e.clientY - r.top, r.height)
 		];
-		return { p: projection.fromPx(px), px };
+		return { p: fromPx(px), px };
 	}
 
 	function down(e: PointerEvent & { currentTarget: HTMLDivElement }) {
@@ -53,7 +57,7 @@
 
 	function move(e: PointerEvent & { currentTarget: HTMLDivElement }) {
 		if (!drawing) return;
-		const points: [number, number][] = [];
+		const points: ChartPoint[] = [];
 		for (const ev of e.getCoalescedEvents?.() ?? [e]) {
 			const { p, px } = at(ev, e.currentTarget);
 			// Skip jitter under 2px: fewer points, same line.
@@ -68,13 +72,13 @@
 		if (!drawing) return;
 		drawing = false;
 		lastPx = null;
-		marker.end();
+		marker.save();
 	}
 </script>
 
 <svelte:window
-	onkeydown={(e) => {
-		if (e.key === 'Escape' && marker.active) marker.active = false;
+	onkeydown={(e: KeyboardEvent) => {
+		if (e.key === 'Escape') marker.active = false;
 	}}
 />
 
@@ -101,6 +105,7 @@
 
 <style>
 	.layer {
+		--marker-red: #ff2d2d;
 		position: absolute;
 		inset: 0;
 		z-index: 2;
@@ -125,8 +130,5 @@
 		stroke-linejoin: round;
 		opacity: 0.9;
 		filter: drop-shadow(0 0 3px color-mix(in srgb, var(--marker-red) 60%, transparent));
-	}
-	.layer {
-		--marker-red: #ff2d2d;
 	}
 </style>

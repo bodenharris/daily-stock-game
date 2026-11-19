@@ -2,31 +2,25 @@
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
 	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
-	import { dollars, paidByCall } from './money.ts';
+	import { dollars, formatMove, paidByCall } from './format.ts';
 	import type { CallResult } from './types.ts';
 
+	/** The phone scoreboard: one column per call, right or wrong, and what it paid. */
 	let { results, calls }: { results: CallResult[]; calls: number } = $props();
 
 	/** What each call paid, so the labels always add up to the balance shown. */
 	const paid = $derived(
 		paidByCall(results, START_BALANCE_CENTS).map((c) => dollars(c, { sign: true }))
 	);
-
-	function fmtMove(pct: number) {
-		const abs = Math.abs(pct);
-		const body = abs >= 10 ? Math.round(abs).toString() : abs.toFixed(1);
-		return `${pct >= 0 ? '+' : '−'}${body}%`;
-	}
 </script>
 
-<!-- The scoreboard: one column per call, right or wrong, and what it paid. -->
 <ol class="grid gap-1" style:grid-template-columns="repeat({calls}, 1fr)">
 	{#each { length: calls }, i (i)}
 		{@const r = results[i]}
 		<li class="flex flex-col items-center gap-1.5">
 			<span
 				class={[
-					'pip grid place-items-center rounded-none',
+					'pip grid place-items-center',
 					r
 						? r.correct
 							? 'bg-up text-on-up'
@@ -37,11 +31,10 @@
 				]}
 				aria-hidden="true"
 			>
-				{#if r}
-					{#if r.correct}<Check class="size-4" strokeWidth={3} />{:else}<X
-							class="size-4"
-							strokeWidth={3}
-						/>{/if}
+				{#if r?.correct}
+					<Check class="size-4" strokeWidth={3} />
+				{:else if r}
+					<X class="size-4" strokeWidth={3} />
 				{/if}
 			</span>
 			<span
@@ -55,7 +48,7 @@
 			</span>
 			<span class="sr-only">
 				Call {i + 1}: {r
-					? `${r.correct ? 'right' : 'wrong'}, ${paid[i]}, price ${fmtMove(r.move)}`
+					? `${r.correct ? 'right' : 'wrong'}, ${paid[i]}, price ${formatMove(r.move)}`
 					: i === results.length
 						? 'next'
 						: 'to come'}
@@ -68,8 +61,8 @@
 	.pip {
 		width: 1.75rem;
 		height: 1.75rem;
-		transition: background-color var(--md-sys-motion-spring-default-effects-duration, 200ms)
-			var(--md-sys-motion-spring-default-effects-easing, ease);
+		transition: background-color var(--md-sys-motion-spring-default-effects-duration)
+			var(--md-sys-motion-spring-default-effects-easing);
 	}
 	.paid {
 		line-height: 1;

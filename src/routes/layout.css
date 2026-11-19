@@ -1,29 +1,16 @@
 /*
- * Design tokens: The Wolf's arcade look (pixel type, square corners, hard-edged frames on night
- * navy) laid over the M3 token structure, so every component keeps its role names.
- * Ported from material-expressive-svelte (docs/foundation.md there), minus the runtime theming.
- * Section references such as "color.md §3" point to docs/research/*.md in that repo.
+ * The Wolf's arcade look: pixel type, square corners and hard-edged frames on night navy.
+ * One dark scheme, hand-tuned, like an arcade cabinet: there is no light mode. The colour
+ * roles keep their Material 3 names (--md-sys-color-*), so components read as roles, not hex.
  *
- * Layers:
- *   1. --md-sys-* / --md-ref-* custom properties (material-web naming). The color block is one
- *      hand-tuned dark palette (section 1).
- *   2. Game roles (--up, --down, --chart-*) and the shadcn bridge (--background, --primary, ...),
- *      all aliases of M3 roles.
- *   3. @theme inline: Tailwind utilities (bg-primary-container, bg-up, text-down, type-title-md,
- *      rounded-m3-xl, shadow-m3-2, ease-spring-fast-spatial, duration-spring-fast-spatial, ...).
- *
- * Always dark, like an arcade cabinet: there is no light scheme. Shape tokens are all 0 and the
- * elevation tokens are hard pixel frames, so rounded-m3-* and shadow-m3-* turn pixel on their own.
+ *   1. Fonts      2. Colour      3. Layout      4. Motion
+ *   5. Tailwind theme (utilities: bg-up, text-on-surface-variant, type-title-md, ...)
+ *   6. Base       7. Arcade helpers (.pixel-frame, .state-layer, .glitch-text, ...)
  */
 @import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn-svelte/tailwind.css';
-
-/* `dark:` always applies: the site has one (dark) scheme. */
-@custom-variant dark (&:where(:root, :root *));
 
 /* ==========================================================================
-   0. FONTS (self-hosted in static/fonts, preloaded from src/app.html)
+   1. FONTS (self-hosted in static/fonts, preloaded from src/app.html)
    Fontsource v5.3 subsets, both SIL OFL. VT323 (terminal pixel type) for everything; it runs
    small, so `size-adjust` brings it up to the optical size of a normal UI sans. Press Start 2P
    (chunky 8-bit capitals) only for the wordmark and big moments: `font-pixel`.
@@ -62,375 +49,66 @@
 		U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+:root {
+	--md-ref-typeface-plain: 'VT323', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+	--md-ref-typeface-pixel: 'Press Start 2P', 'VT323', ui-monospace, monospace;
+}
+
 /* ==========================================================================
-   1. COLOR: 49 M3 roles + the custom "down" color, light / dark
+   2. COLOUR: night-market navy panels, a cyan signal colour, neon green for up, hot pink for
+   down (pink and cyan are also the two halves of the wordmark's glitch split), and the wolf's
+   yellow eyes as the reveal accent.
    ========================================================================== */
-/* The Wolf arcade palette: one dark scheme, hand-tuned (no generator). Night-market navy panels,
-   a cyan signal color, neon green for up, hot pink for down, and the wolf's yellow eyes as the
-   reveal accent. `.dark` / `.light` keep working as hooks but resolve to the same palette. */
-:root,
-.dark,
-.light {
+:root {
 	--md-sys-color-primary: #4de3ff;
 	--md-sys-color-on-primary: #051222;
 	--md-sys-color-primary-container: #123a52;
 	--md-sys-color-on-primary-container: #c4f6ff;
-	--md-sys-color-primary-fixed: #c4f6ff;
-	--md-sys-color-primary-fixed-dim: #4de3ff;
-	--md-sys-color-on-primary-fixed: #051222;
-	--md-sys-color-on-primary-fixed-variant: #123a52;
-	--md-sys-color-inverse-primary: #0a6f86;
 	--md-sys-color-secondary: #9fb2d3;
-	--md-sys-color-on-secondary: #0b1528;
 	--md-sys-color-secondary-container: #1b3050;
 	--md-sys-color-on-secondary-container: #d6e2f5;
-	--md-sys-color-secondary-fixed: #d6e2f5;
-	--md-sys-color-secondary-fixed-dim: #9fb2d3;
-	--md-sys-color-on-secondary-fixed: #0b1528;
-	--md-sys-color-on-secondary-fixed-variant: #1b3050;
 	--md-sys-color-tertiary: #ffd23f;
-	--md-sys-color-on-tertiary: #2a1f00;
-	--md-sys-color-tertiary-container: #40340c;
-	--md-sys-color-on-tertiary-container: #ffeaa3;
-	--md-sys-color-tertiary-fixed: #ffeaa3;
-	--md-sys-color-tertiary-fixed-dim: #ffd23f;
-	--md-sys-color-on-tertiary-fixed: #2a1f00;
-	--md-sys-color-on-tertiary-fixed-variant: #40340c;
 	--md-sys-color-error: #ff7a7a;
-	--md-sys-color-on-error: #2a0505;
-	--md-sys-color-error-container: #4a1418;
-	--md-sys-color-on-error-container: #ffd6d6;
 	--md-sys-color-surface: #0a1428;
-	--md-sys-color-surface-dim: #070e1c;
-	--md-sys-color-surface-bright: #1f3254;
 	--md-sys-color-surface-container-lowest: #050a14;
 	--md-sys-color-surface-container-low: #0d1830;
 	--md-sys-color-surface-container: #101d33;
 	--md-sys-color-surface-container-high: #16263f;
 	--md-sys-color-surface-container-highest: #1b3050;
 	--md-sys-color-on-surface: #e8f1ff;
-	--md-sys-color-surface-variant: #1b3050;
 	--md-sys-color-on-surface-variant: #9fb2d3;
 	--md-sys-color-outline: #4a6491;
 	--md-sys-color-outline-variant: #1f3557;
-	--md-sys-color-inverse-surface: #e8f1ff;
-	--md-sys-color-inverse-on-surface: #101d33;
-	--md-sys-color-scrim: #000000;
 	--md-sys-color-shadow: #02050b;
-	--md-sys-color-surface-tint: #4de3ff;
-	--md-sys-color-background: #0a1428;
-	--md-sys-color-on-background: #e8f1ff;
-	/* custom color: down (hot pink, the other half of the title's glitch) */
-	--md-ext-color-down: #ff5d8f;
-	--md-ext-color-on-down: #2b0614;
-	--md-ext-color-down-container: #4a1530;
-	--md-ext-color-on-down-container: #ffd0e0;
-	/* custom color: up (neon green) */
-	--md-ext-color-up: #5cf29a;
-	--md-ext-color-on-up: #04210f;
-	--md-ext-color-up-container: #0f3a28;
-	--md-ext-color-on-up-container: #b6ffd6;
-	/* pixel frame pieces (see .pixel-frame / .pixel-panel below) */
+	/* the keyline every pixel frame and sprite outline is drawn in */
 	--pixel-ink: #050a14;
-	--pixel-glow: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent);
+
+	/* Game roles. Both pass AA on their pairs. */
+	--up: #5cf29a;
+	--on-up: #04210f;
+	--up-container: #0f3a28;
+	--on-up-container: #b6ffd6;
+	--down: #ff5d8f;
+	--on-down: #2b0614;
+	--down-container: #4a1530;
+	--on-down-container: #ffd0e0;
+
+	/* The price chart (custom SVG in its own component styles). */
+	--chart-line: var(--md-sys-color-on-surface);
+	--chart-grid: var(--md-sys-color-outline-variant);
+	--chart-axis: var(--md-sys-color-on-surface-variant);
+	--chart-baseline: var(--md-sys-color-outline);
+	--chart-up: var(--up);
+	--chart-down: var(--down);
 }
 
-/* Game roles + shadcn bridge: aliases only, re-declared on every scheme scope so a forced
-   `.dark` / `.light` subtree re-resolves them. */
-:root,
-.dark,
-.light {
-	/* Up = neon green, down = hot pink (custom colors). Both pass AA on their pairs. */
-	--up: var(--md-ext-color-up);
-	--on-up: var(--md-ext-color-on-up);
-	--up-container: var(--md-ext-color-up-container);
-	--on-up-container: var(--md-ext-color-on-up-container);
-	--down: var(--md-ext-color-down);
-	--on-down: var(--md-ext-color-on-down);
-	--down-container: var(--md-ext-color-down-container);
-	--on-down-container: var(--md-ext-color-on-down-container);
-	/* the same roles under Tailwind's names, for plain CSS / SVG: var(--color-up), var(--color-on-down) … */
-	--color-up: var(--up);
-	--color-on-up: var(--on-up);
-	--color-up-container: var(--up-container);
-	--color-on-up-container: var(--on-up-container);
-	--color-down: var(--down);
-	--color-on-down: var(--on-down);
-	--color-down-container: var(--down-container);
-	--color-on-down-container: var(--on-down-container);
-
-	/* Price chart (custom SVG). Use as `stroke-chart-line`, `fill-chart-area`, `var(--chart-mask)`. */
-	--chart-line: var(--md-sys-color-on-surface); /* the price path while hidden / neutral */
-	--chart-area: color-mix(
-		in srgb,
-		var(--md-sys-color-primary) 10%,
-		transparent
-	); /* fill under the line */
-	--chart-grid: var(--md-sys-color-outline-variant); /* gridlines, 1px */
-	--chart-axis: var(--md-sys-color-on-surface-variant); /* axis labels, ticks */
-	--chart-baseline: var(--md-sys-color-outline); /* dashed start-price / entry reference */
-	--chart-mask: var(--md-sys-color-surface-container); /* the not-yet-revealed future */
-	--chart-mask-edge: var(--md-sys-color-outline-variant); /* edge of the mask ("now" line) */
-	--chart-marker: var(--md-sys-color-primary); /* current point dot */
-	--chart-marker-ring: var(--md-sys-color-surface); /* halo around the dot */
-	--chart-up: var(--up); /* a revealed stretch that went up */
-	--chart-down: var(--down); /* a revealed stretch that went down */
-	--chart-reveal: var(--md-sys-color-tertiary); /* final reveal accent (ticker, event pin) */
-
-	/* shadcn semantic tokens → M3 roles */
-	--background: var(--md-sys-color-surface);
-	--foreground: var(--md-sys-color-on-surface);
-	--card: var(--md-sys-color-surface-container-low);
-	--card-foreground: var(--md-sys-color-on-surface);
-	--popover: var(--md-sys-color-surface-container);
-	--popover-foreground: var(--md-sys-color-on-surface);
-	--primary: var(--md-sys-color-primary);
-	--primary-foreground: var(--md-sys-color-on-primary);
-	--secondary: var(--md-sys-color-secondary-container);
-	--secondary-foreground: var(--md-sys-color-on-secondary-container);
-	--muted: var(--md-sys-color-surface-container-highest);
-	--muted-foreground: var(--md-sys-color-on-surface-variant);
-	--accent: color-mix(
-		in srgb,
-		var(--md-sys-color-on-surface) 10%,
-		var(--md-sys-color-surface-container)
-	);
-	--accent-foreground: var(--md-sys-color-on-surface);
-	--destructive: var(--md-sys-color-error);
-	--destructive-foreground: var(--md-sys-color-on-error);
-	--border: var(--md-sys-color-outline-variant);
-	--input: var(--md-sys-color-outline);
-	--ring: var(--md-sys-color-secondary);
-	--chart-1: var(--md-sys-color-primary);
-	--chart-2: var(--md-ext-color-down);
-	--chart-3: var(--md-sys-color-tertiary);
-	--chart-4: var(--md-sys-color-secondary);
-	--chart-5: var(--md-sys-color-outline);
-	--radius: var(--md-sys-shape-corner-medium);
-	--sidebar: var(--md-sys-color-surface-container);
-	--sidebar-foreground: var(--md-sys-color-on-surface-variant);
-	--sidebar-primary: var(--md-sys-color-primary);
-	--sidebar-primary-foreground: var(--md-sys-color-on-primary);
-	--sidebar-accent: var(--md-sys-color-secondary-container);
-	--sidebar-accent-foreground: var(--md-sys-color-on-secondary-container);
-	--sidebar-border: var(--md-sys-color-outline-variant);
-	--sidebar-ring: var(--md-sys-color-secondary);
-}
 /* ==========================================================================
-   2. STATE LAYERS, ELEVATION, SHAPE, TYPE (static tokens)
+   3. LAYOUT: the header heights. --scene-h is the home page's WolfScene, --scene-h-compact the
+   one on the other pages; layouts size against them (100dvh minus the header).
    ========================================================================== */
 :root {
-	/* State layers (color.md §3: current m3 site values) */
-	--md-sys-state-hover-opacity: 0.08;
-	--md-sys-state-focus-opacity: 0.1;
-	--md-sys-state-pressed-opacity: 0.1;
-	--md-sys-state-dragged-opacity: 0.16;
-	--md-sys-state-disabled-container-opacity: 0.12; /* on-surface @ 12% */
-	--md-sys-state-disabled-content-opacity: 0.38; /* on-surface @ 38% */
-	--md-sys-scrim-opacity: 0.32;
-
-	/* Elevation as pixel frames: an ink keyline, a 2px border, then a hard drop that grows with the
-	   level (no blur). Levels 4-5 add the cyan glow of an active cabinet. */
-	--md-shadow-key: var(--md-sys-color-shadow);
-	--md-shadow-ambient: var(--pixel-glow);
-	--md-sys-elevation-level0: 0 0 0 0 transparent;
-	--md-sys-elevation-level1:
-		0 0 0 2px var(--md-sys-color-outline-variant), 0 4px 0 2px var(--md-sys-color-shadow);
-	--md-sys-elevation-level2:
-		0 0 0 2px var(--md-sys-color-outline-variant), 0 6px 0 2px var(--md-sys-color-shadow);
-	--md-sys-elevation-level3:
-		0 0 0 2px var(--md-sys-color-outline), 0 8px 0 2px var(--md-sys-color-shadow);
-	--md-sys-elevation-level4:
-		0 0 0 2px var(--md-sys-color-outline), 0 8px 0 2px var(--md-sys-color-shadow),
-		0 0 24px 0 var(--pixel-glow);
-	--md-sys-elevation-level5:
-		0 0 0 2px var(--md-sys-color-primary), 0 10px 0 2px var(--md-sys-color-shadow),
-		0 0 32px 0 var(--pixel-glow);
-
-	/* Shape: md.sys.shape.corner.* (typography-shape.md §3.1, Expressive 10-step scale) */
-	/* Pixel art has no curves: every corner is square. Kept as tokens so components stay unchanged. */
-	--md-sys-shape-corner-none: 0px;
-	--md-sys-shape-corner-extra-small: 0px;
-	--md-sys-shape-corner-small: 0px;
-	--md-sys-shape-corner-medium: 0px;
-	--md-sys-shape-corner-large: 0px;
-	--md-sys-shape-corner-large-increased: 0px;
-	--md-sys-shape-corner-extra-large: 0px;
-	--md-sys-shape-corner-extra-large-increased: 0px;
-	--md-sys-shape-corner-extra-extra-large: 0px;
-	--md-sys-shape-corner-full: 0px;
-
-	/* Header heights: --scene-h is the home page's WolfScene, --scene-h-compact the one on the
-	   other pages. Layouts may size against them (100dvh minus the header); the queries below
-	   set the other breakpoints. */
 	--scene-h: 192px;
 	--scene-h-compact: 120px;
-
-	/* Typefaces: VT323 for brand and plain alike (one pixel voice); Press Start 2P for the wordmark.
-	   VT323 has a single weight, so the emphasized styles differ by size only (no faux bold:
-	   font-synthesis is off in the base layer). ROND below is a no-op kept for the token shape. */
-	--md-ref-typeface-brand: 'VT323', ui-monospace, 'Cascadia Mono', Menlo, monospace;
-	--md-ref-typeface-plain: 'VT323', ui-monospace, 'Cascadia Mono', Menlo, monospace;
-	--md-ref-typeface-pixel: 'Press Start 2P', 'VT323', ui-monospace, monospace;
-	--md-ref-typeface-weight-regular: 400;
-	--md-ref-typeface-weight-medium: 500;
-	--md-ref-typeface-weight-semibold: 600;
-	--md-ref-typeface-weight-bold: 700;
-	--md-ref-typeface-emphasized-rond: 100;
-
-	/* md.sys.typescale.* baseline (typography-shape.md §1.2) */
-	--md-sys-typescale-display-large-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-display-large-weight: 400;
-	--md-sys-typescale-display-large-size: 3.5625rem; /* 57px */
-	--md-sys-typescale-display-large-line-height: 4rem; /* 64px */
-	--md-sys-typescale-display-large-tracking: -0.015625rem; /* -0.25px */
-	--md-sys-typescale-display-medium-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-display-medium-weight: 400;
-	--md-sys-typescale-display-medium-size: 2.8125rem; /* 45px */
-	--md-sys-typescale-display-medium-line-height: 3.25rem; /* 52px */
-	--md-sys-typescale-display-medium-tracking: 0; /* 0px */
-	--md-sys-typescale-display-small-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-display-small-weight: 400;
-	--md-sys-typescale-display-small-size: 2.25rem; /* 36px */
-	--md-sys-typescale-display-small-line-height: 2.75rem; /* 44px */
-	--md-sys-typescale-display-small-tracking: 0; /* 0px */
-	--md-sys-typescale-headline-large-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-headline-large-weight: 400;
-	--md-sys-typescale-headline-large-size: 2rem; /* 32px */
-	--md-sys-typescale-headline-large-line-height: 2.5rem; /* 40px */
-	--md-sys-typescale-headline-large-tracking: 0; /* 0px */
-	--md-sys-typescale-headline-medium-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-headline-medium-weight: 400;
-	--md-sys-typescale-headline-medium-size: 1.75rem; /* 28px */
-	--md-sys-typescale-headline-medium-line-height: 2.25rem; /* 36px */
-	--md-sys-typescale-headline-medium-tracking: 0; /* 0px */
-	--md-sys-typescale-headline-small-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-headline-small-weight: 400;
-	--md-sys-typescale-headline-small-size: 1.5rem; /* 24px */
-	--md-sys-typescale-headline-small-line-height: 2rem; /* 32px */
-	--md-sys-typescale-headline-small-tracking: 0; /* 0px */
-	--md-sys-typescale-title-large-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-title-large-weight: 400;
-	--md-sys-typescale-title-large-size: 1.375rem; /* 22px */
-	--md-sys-typescale-title-large-line-height: 1.75rem; /* 28px */
-	--md-sys-typescale-title-large-tracking: 0; /* 0px */
-	--md-sys-typescale-title-medium-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-title-medium-weight: 500;
-	--md-sys-typescale-title-medium-size: 1rem; /* 16px */
-	--md-sys-typescale-title-medium-line-height: 1.5rem; /* 24px */
-	--md-sys-typescale-title-medium-tracking: 0.009375rem; /* 0.15px */
-	--md-sys-typescale-title-small-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-title-small-weight: 500;
-	--md-sys-typescale-title-small-size: 0.875rem; /* 14px */
-	--md-sys-typescale-title-small-line-height: 1.25rem; /* 20px */
-	--md-sys-typescale-title-small-tracking: 0.00625rem; /* 0.1px */
-	--md-sys-typescale-body-large-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-body-large-weight: 400;
-	--md-sys-typescale-body-large-size: 1rem; /* 16px */
-	--md-sys-typescale-body-large-line-height: 1.5rem; /* 24px */
-	--md-sys-typescale-body-large-tracking: 0.03125rem; /* 0.5px */
-	--md-sys-typescale-body-medium-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-body-medium-weight: 400;
-	--md-sys-typescale-body-medium-size: 0.875rem; /* 14px */
-	--md-sys-typescale-body-medium-line-height: 1.25rem; /* 20px */
-	--md-sys-typescale-body-medium-tracking: 0.015625rem; /* 0.25px */
-	--md-sys-typescale-body-small-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-body-small-weight: 400;
-	--md-sys-typescale-body-small-size: 0.75rem; /* 12px */
-	--md-sys-typescale-body-small-line-height: 1rem; /* 16px */
-	--md-sys-typescale-body-small-tracking: 0.025rem; /* 0.4px */
-	--md-sys-typescale-label-large-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-label-large-weight: 500;
-	--md-sys-typescale-label-large-size: 0.875rem; /* 14px */
-	--md-sys-typescale-label-large-line-height: 1.25rem; /* 20px */
-	--md-sys-typescale-label-large-tracking: 0.00625rem; /* 0.1px */
-	--md-sys-typescale-label-medium-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-label-medium-weight: 500;
-	--md-sys-typescale-label-medium-size: 0.75rem; /* 12px */
-	--md-sys-typescale-label-medium-line-height: 1rem; /* 16px */
-	--md-sys-typescale-label-medium-tracking: 0.03125rem; /* 0.5px */
-	--md-sys-typescale-label-small-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-label-small-weight: 500;
-	--md-sys-typescale-label-small-size: 0.6875rem; /* 11px */
-	--md-sys-typescale-label-small-line-height: 1rem; /* 16px */
-	--md-sys-typescale-label-small-tracking: 0.03125rem; /* 0.5px */
-
-	/* md.sys.typescale.emphasized.* (M3 Expressive; variable-font wght column, see typography-shape.md 1.3/1.4) */
-	--md-sys-typescale-emphasized-display-large-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-emphasized-display-large-weight: 500;
-	--md-sys-typescale-emphasized-display-large-size: 3.5625rem;
-	--md-sys-typescale-emphasized-display-large-line-height: 4rem;
-	--md-sys-typescale-emphasized-display-large-tracking: -0.015625rem;
-	--md-sys-typescale-emphasized-display-medium-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-emphasized-display-medium-weight: 500;
-	--md-sys-typescale-emphasized-display-medium-size: 2.8125rem;
-	--md-sys-typescale-emphasized-display-medium-line-height: 3.25rem;
-	--md-sys-typescale-emphasized-display-medium-tracking: 0;
-	--md-sys-typescale-emphasized-display-small-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-emphasized-display-small-weight: 500;
-	--md-sys-typescale-emphasized-display-small-size: 2.25rem;
-	--md-sys-typescale-emphasized-display-small-line-height: 2.75rem;
-	--md-sys-typescale-emphasized-display-small-tracking: 0;
-	--md-sys-typescale-emphasized-headline-large-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-emphasized-headline-large-weight: 500;
-	--md-sys-typescale-emphasized-headline-large-size: 2rem;
-	--md-sys-typescale-emphasized-headline-large-line-height: 2.5rem;
-	--md-sys-typescale-emphasized-headline-large-tracking: 0;
-	--md-sys-typescale-emphasized-headline-medium-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-emphasized-headline-medium-weight: 500;
-	--md-sys-typescale-emphasized-headline-medium-size: 1.75rem;
-	--md-sys-typescale-emphasized-headline-medium-line-height: 2.25rem;
-	--md-sys-typescale-emphasized-headline-medium-tracking: 0;
-	--md-sys-typescale-emphasized-headline-small-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-emphasized-headline-small-weight: 500;
-	--md-sys-typescale-emphasized-headline-small-size: 1.5rem;
-	--md-sys-typescale-emphasized-headline-small-line-height: 2rem;
-	--md-sys-typescale-emphasized-headline-small-tracking: 0;
-	--md-sys-typescale-emphasized-title-large-font: var(--md-ref-typeface-brand);
-	--md-sys-typescale-emphasized-title-large-weight: 500;
-	--md-sys-typescale-emphasized-title-large-size: 1.375rem;
-	--md-sys-typescale-emphasized-title-large-line-height: 1.75rem;
-	--md-sys-typescale-emphasized-title-large-tracking: 0;
-	--md-sys-typescale-emphasized-title-medium-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-title-medium-weight: 600;
-	--md-sys-typescale-emphasized-title-medium-size: 1rem;
-	--md-sys-typescale-emphasized-title-medium-line-height: 1.5rem;
-	--md-sys-typescale-emphasized-title-medium-tracking: 0.009375rem;
-	--md-sys-typescale-emphasized-title-small-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-title-small-weight: 600;
-	--md-sys-typescale-emphasized-title-small-size: 0.875rem;
-	--md-sys-typescale-emphasized-title-small-line-height: 1.25rem;
-	--md-sys-typescale-emphasized-title-small-tracking: 0.00625rem;
-	--md-sys-typescale-emphasized-body-large-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-body-large-weight: 500;
-	--md-sys-typescale-emphasized-body-large-size: 1rem;
-	--md-sys-typescale-emphasized-body-large-line-height: 1.5rem;
-	--md-sys-typescale-emphasized-body-large-tracking: 0.03125rem;
-	--md-sys-typescale-emphasized-body-medium-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-body-medium-weight: 500;
-	--md-sys-typescale-emphasized-body-medium-size: 0.875rem;
-	--md-sys-typescale-emphasized-body-medium-line-height: 1.25rem;
-	--md-sys-typescale-emphasized-body-medium-tracking: 0.015625rem;
-	--md-sys-typescale-emphasized-body-small-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-body-small-weight: 500;
-	--md-sys-typescale-emphasized-body-small-size: 0.75rem;
-	--md-sys-typescale-emphasized-body-small-line-height: 1rem;
-	--md-sys-typescale-emphasized-body-small-tracking: 0.025rem;
-	--md-sys-typescale-emphasized-label-large-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-label-large-weight: 600;
-	--md-sys-typescale-emphasized-label-large-size: 0.875rem;
-	--md-sys-typescale-emphasized-label-large-line-height: 1.25rem;
-	--md-sys-typescale-emphasized-label-large-tracking: 0.00625rem;
-	--md-sys-typescale-emphasized-label-medium-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-label-medium-weight: 600;
-	--md-sys-typescale-emphasized-label-medium-size: 0.75rem;
-	--md-sys-typescale-emphasized-label-medium-line-height: 1rem;
-	--md-sys-typescale-emphasized-label-medium-tracking: 0.03125rem;
-	--md-sys-typescale-emphasized-label-small-font: var(--md-ref-typeface-plain);
-	--md-sys-typescale-emphasized-label-small-weight: 600;
-	--md-sys-typescale-emphasized-label-small-size: 0.6875rem;
-	--md-sys-typescale-emphasized-label-small-line-height: 1rem;
-	--md-sys-typescale-emphasized-label-small-tracking: 0.03125rem;
 }
 /* Short phones: the game needs the height more than the sky does. */
 @media (max-height: 700px) and (max-width: 767px) {
@@ -461,97 +139,11 @@
 }
 
 /* ==========================================================================
-   3. MOTION (docs/research/motion.md §6, verbatim)
+   4. MOTION: M3 Expressive springs as CSS. The curves are the springs' step responses as
+   linear(); their shape depends only on the damping ratio. src/lib/transitions.ts samples the
+   same springs for Svelte transitions.
    ========================================================================== */
 :root {
-	/* Durations (legacy system, still used by transitions) */
-	--md-sys-motion-duration-short1: 50ms;
-	--md-sys-motion-duration-short2: 100ms;
-	--md-sys-motion-duration-short3: 150ms;
-	--md-sys-motion-duration-short4: 200ms;
-	--md-sys-motion-duration-medium1: 250ms;
-	--md-sys-motion-duration-medium2: 300ms;
-	--md-sys-motion-duration-medium3: 350ms;
-	--md-sys-motion-duration-medium4: 400ms;
-	--md-sys-motion-duration-long1: 450ms;
-	--md-sys-motion-duration-long2: 500ms;
-	--md-sys-motion-duration-long3: 550ms;
-	--md-sys-motion-duration-long4: 600ms;
-	--md-sys-motion-duration-extra-long1: 700ms;
-	--md-sys-motion-duration-extra-long2: 800ms;
-	--md-sys-motion-duration-extra-long3: 900ms;
-	--md-sys-motion-duration-extra-long4: 1000ms;
-
-	/* Easings */
-	--md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
-	--md-sys-motion-easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
-	--md-sys-motion-easing-standard-decelerate: cubic-bezier(0, 0, 0, 1);
-	/* Exact emphasized path, M 0,0 C .05,0 .133333,.06 .166666,.4 C .208333,.82 .25,1 1,1 */
-	--md-sys-motion-easing-emphasized: linear(
-		0,
-		0.0082 3.2%,
-		0.0329 6.25%,
-		0.0723 8.95%,
-		0.098 10.2%,
-		0.1269 11.35%,
-		0.1572 12.35%,
-		0.1917 13.3%,
-		0.2286 14.15%,
-		0.2704 14.95%,
-		0.3079 15.55%,
-		0.3486 16.1%,
-		0.479 17.5%,
-		0.5452 18.35%,
-		0.6074 19.4%,
-		0.66 20.6%,
-		0.6893 21.45%,
-		0.7167 22.4%,
-		0.7655 24.6%,
-		0.8078 27.25%,
-		0.8445 30.4%,
-		0.8833 35.05%,
-		0.9154 40.6%,
-		0.9419 47.2%,
-		0.9632 54.95%,
-		0.9795 64%,
-		0.9909 74.4%,
-		0.9977 86.35%,
-		1
-	);
-	--md-sys-motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
-	--md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
-	--md-sys-motion-easing-linear: cubic-bezier(0, 0, 1, 1);
-	--md-sys-motion-easing-legacy: cubic-bezier(0.4, 0, 0.2, 1);
-	--md-sys-motion-easing-legacy-accelerate: cubic-bezier(0.4, 0, 1, 1);
-	--md-sys-motion-easing-legacy-decelerate: cubic-bezier(0, 0, 0.2, 1);
-
-	/* Spring step-response curves (shape depends only on damping ratio) */
-	--md-ref-motion-spring-curve-d60: linear(
-		0,
-		0.0077 1.25%,
-		0.0313 2.6%,
-		0.0698 4%,
-		0.1254 5.55%,
-		0.18 6.85%,
-		0.2493 8.35%,
-		0.5292 13.95%,
-		0.6478 16.45%,
-		0.7586 19.05%,
-		0.8487 21.5%,
-		0.9236 23.95%,
-		0.9832 26.4%,
-		1.0298 28.95%,
-		1.0633 31.6%,
-		1.0788 33.45%,
-		1.0888 35.35%,
-		1.094 37.4%,
-		1.0943 39.65%,
-		1.0809 44.7%,
-		1.0188 58.8%,
-		0.9979 67.1%,
-		0.991 78%,
-		1
-	);
 	--md-ref-motion-spring-curve-d80: linear(
 		0,
 		0.0062 1.35%,
@@ -572,29 +164,6 @@
 		1.003 50.2%,
 		1.012 55.25%,
 		1.0147 64.85%,
-		1
-	);
-	--md-ref-motion-spring-curve-d90: linear(
-		0,
-		0.0056 1.3%,
-		0.0223 2.7%,
-		0.0501 4.2%,
-		0.0909 5.9%,
-		0.1785 8.9%,
-		0.3935 15.5%,
-		0.4924 18.7%,
-		0.5874 22.1%,
-		0.6681 25.4%,
-		0.7361 28.65%,
-		0.7939 31.95%,
-		0.8433 35.4%,
-		0.8848 39.05%,
-		0.9214 43.3%,
-		0.9501 47.95%,
-		0.9714 53.1%,
-		0.9862 58.95%,
-		0.9951 65.45%,
-		0.9999 73.45%,
 		1
 	);
 	--md-ref-motion-spring-curve-d100: linear(
@@ -620,456 +189,49 @@
 		0.9914 73.8%,
 		1
 	);
-
-	--md-sys-motion-reduced: 0;
-}
-
-/* Spring tokens: expressive scheme (default) */
-:root,
-[data-motion-scheme='expressive'] {
-	--md-sys-motion-spring-fast-spatial-damping: 0.6;
-	--md-sys-motion-spring-fast-spatial-stiffness: 800;
-	--md-sys-motion-spring-fast-spatial-easing: var(--md-ref-motion-spring-curve-d60);
-	--md-sys-motion-spring-fast-spatial-duration: 359ms;
-
-	--md-sys-motion-spring-default-spatial-damping: 0.8;
-	--md-sys-motion-spring-default-spatial-stiffness: 380;
+	/* spatial (position, size, scale) may overshoot; effects (opacity, colour) never do */
 	--md-sys-motion-spring-default-spatial-easing: var(--md-ref-motion-spring-curve-d80);
 	--md-sys-motion-spring-default-spatial-duration: 435ms;
-
-	--md-sys-motion-spring-slow-spatial-damping: 0.8;
-	--md-sys-motion-spring-slow-spatial-stiffness: 200;
-	--md-sys-motion-spring-slow-spatial-easing: var(--md-ref-motion-spring-curve-d80);
-	--md-sys-motion-spring-slow-spatial-duration: 599ms;
-
-	--md-sys-motion-spring-fast-effects-damping: 1;
-	--md-sys-motion-spring-fast-effects-stiffness: 3800;
-	--md-sys-motion-spring-fast-effects-easing: var(--md-ref-motion-spring-curve-d100);
-	--md-sys-motion-spring-fast-effects-duration: 150ms;
-
-	--md-sys-motion-spring-default-effects-damping: 1;
-	--md-sys-motion-spring-default-effects-stiffness: 1600;
 	--md-sys-motion-spring-default-effects-easing: var(--md-ref-motion-spring-curve-d100);
 	--md-sys-motion-spring-default-effects-duration: 231ms;
-
-	--md-sys-motion-spring-slow-effects-damping: 1;
-	--md-sys-motion-spring-slow-effects-stiffness: 800;
-	--md-sys-motion-spring-slow-effects-easing: var(--md-ref-motion-spring-curve-d100);
-	--md-sys-motion-spring-slow-effects-duration: 326ms;
-}
-
-/* Spring tokens: standard scheme (calmer, no bounce). Opt a subtree in with data-motion-scheme="standard". */
-[data-motion-scheme='standard'] {
-	--md-sys-motion-spring-fast-spatial-damping: 0.9;
-	--md-sys-motion-spring-fast-spatial-stiffness: 1400;
-	--md-sys-motion-spring-fast-spatial-easing: var(--md-ref-motion-spring-curve-d90);
-	--md-sys-motion-spring-fast-spatial-duration: 224ms;
-
-	--md-sys-motion-spring-default-spatial-damping: 0.9;
-	--md-sys-motion-spring-default-spatial-stiffness: 700;
-	--md-sys-motion-spring-default-spatial-easing: var(--md-ref-motion-spring-curve-d90);
-	--md-sys-motion-spring-default-spatial-duration: 317ms;
-
-	--md-sys-motion-spring-slow-spatial-damping: 0.9;
-	--md-sys-motion-spring-slow-spatial-stiffness: 300;
-	--md-sys-motion-spring-slow-spatial-easing: var(--md-ref-motion-spring-curve-d90);
-	--md-sys-motion-spring-slow-spatial-duration: 484ms;
-
-	/* effects springs are identical in both schemes; restated so the subtree is self-contained */
-	--md-sys-motion-spring-fast-effects-damping: 1;
-	--md-sys-motion-spring-fast-effects-stiffness: 3800;
 	--md-sys-motion-spring-fast-effects-easing: var(--md-ref-motion-spring-curve-d100);
 	--md-sys-motion-spring-fast-effects-duration: 150ms;
-	--md-sys-motion-spring-default-effects-damping: 1;
-	--md-sys-motion-spring-default-effects-stiffness: 1600;
-	--md-sys-motion-spring-default-effects-easing: var(--md-ref-motion-spring-curve-d100);
-	--md-sys-motion-spring-default-effects-duration: 231ms;
-	--md-sys-motion-spring-slow-effects-damping: 1;
-	--md-sys-motion-spring-slow-effects-stiffness: 800;
-	--md-sys-motion-spring-slow-effects-easing: var(--md-ref-motion-spring-curve-d100);
-	--md-sys-motion-spring-slow-effects-duration: 326ms;
 }
-
-/* Reduced motion: no spatial motion, keep subtle fades (motion.md §5) */
+/* Reduced motion: no spatial movement; fades stay. */
 @media (prefers-reduced-motion: reduce) {
-	:root,
-	[data-motion-scheme] {
-		--md-sys-motion-spring-fast-spatial-duration: 0ms;
+	:root {
 		--md-sys-motion-spring-default-spatial-duration: 0ms;
-		--md-sys-motion-spring-slow-spatial-duration: 0ms;
-		--md-sys-motion-spring-fast-spatial-easing: var(--md-ref-motion-spring-curve-d100);
 		--md-sys-motion-spring-default-spatial-easing: var(--md-ref-motion-spring-curve-d100);
-		--md-sys-motion-spring-slow-spatial-easing: var(--md-ref-motion-spring-curve-d100);
-		--md-sys-motion-reduced: 1; /* components read this to disable shape morphs / wavy / loaders */
 	}
 }
 
 /* ==========================================================================
-   4. TAILWIND THEME: utilities that reference the vars above
+   5. TAILWIND THEME
+   `primary` and `secondary` carry an `m3-` prefix (bg-m3-primary, outline-m3-secondary) so
+   they never collide with the shadcn tokens of the same names; every other role is unprefixed.
    ========================================================================== */
 @theme inline {
 	--font-sans: var(--md-ref-typeface-plain);
-	--font-plain: var(--md-ref-typeface-plain);
-	--font-brand: var(--md-ref-typeface-brand);
 	--font-pixel: var(--md-ref-typeface-pixel);
 
-	/* shadcn semantic colors (bg-background, text-muted-foreground, bg-primary, …) */
-	--color-background: var(--background);
-	--color-foreground: var(--foreground);
-	--color-card: var(--card);
-	--color-card-foreground: var(--card-foreground);
-	--color-popover: var(--popover);
-	--color-popover-foreground: var(--popover-foreground);
-	--color-primary: var(--primary);
-	--color-primary-foreground: var(--primary-foreground);
-	--color-secondary: var(--secondary);
-	--color-secondary-foreground: var(--secondary-foreground);
-	--color-muted: var(--muted);
-	--color-muted-foreground: var(--muted-foreground);
-	--color-accent: var(--accent);
-	--color-accent-foreground: var(--accent-foreground);
-	--color-destructive: var(--destructive);
-	--color-destructive-foreground: var(--destructive-foreground);
-	--color-border: var(--border);
-	--color-input: var(--input);
-	--color-ring: var(--ring);
-	--color-chart-1: var(--chart-1);
-	--color-chart-2: var(--chart-2);
-	--color-chart-3: var(--chart-3);
-	--color-chart-4: var(--chart-4);
-	--color-chart-5: var(--chart-5);
-	--color-sidebar: var(--sidebar);
-	--color-sidebar-foreground: var(--sidebar-foreground);
-	--color-sidebar-primary: var(--sidebar-primary);
-	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-	--color-sidebar-accent: var(--sidebar-accent);
-	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-	--color-sidebar-border: var(--sidebar-border);
-	--color-sidebar-ring: var(--sidebar-ring);
-
-	/* M3 color roles — UNPREFIXED: bg-primary-container, text-on-surface-variant,
-	   bg-surface-container-low, border-outline-variant, bg-inverse-surface, …
-	   COLLISIONS with shadcn names keep the shadcn meaning on the bare name and expose the
-	   M3 role with an `m3-` prefix instead:
-	     primary     → bare `primary` = shadcn --primary (= M3 primary, same color); M3: `m3-primary`
-	     secondary   → bare `secondary` = shadcn --secondary (= M3 SECONDARY-CONTAINER!); M3: `m3-secondary`
-	     background  → bare `background` = shadcn --background (= M3 surface); M3: `m3-background`
-	   (accent, muted, destructive, border, input, ring are shadcn-only names; M3 has no such roles —
-	   use error / outline-variant / outline / secondary.) Every other M3 role has no prefix. */
 	--color-m3-primary: var(--md-sys-color-primary);
 	--color-on-primary: var(--md-sys-color-on-primary);
 	--color-primary-container: var(--md-sys-color-primary-container);
 	--color-on-primary-container: var(--md-sys-color-on-primary-container);
-	--color-primary-fixed: var(--md-sys-color-primary-fixed);
-	--color-primary-fixed-dim: var(--md-sys-color-primary-fixed-dim);
-	--color-on-primary-fixed: var(--md-sys-color-on-primary-fixed);
-	--color-on-primary-fixed-variant: var(--md-sys-color-on-primary-fixed-variant);
-	--color-inverse-primary: var(--md-sys-color-inverse-primary);
 	--color-m3-secondary: var(--md-sys-color-secondary);
-	--color-on-secondary: var(--md-sys-color-on-secondary);
 	--color-secondary-container: var(--md-sys-color-secondary-container);
 	--color-on-secondary-container: var(--md-sys-color-on-secondary-container);
-	--color-secondary-fixed: var(--md-sys-color-secondary-fixed);
-	--color-secondary-fixed-dim: var(--md-sys-color-secondary-fixed-dim);
-	--color-on-secondary-fixed: var(--md-sys-color-on-secondary-fixed);
-	--color-on-secondary-fixed-variant: var(--md-sys-color-on-secondary-fixed-variant);
-	--color-tertiary: var(--md-sys-color-tertiary);
-	--color-on-tertiary: var(--md-sys-color-on-tertiary);
-	--color-tertiary-container: var(--md-sys-color-tertiary-container);
-	--color-on-tertiary-container: var(--md-sys-color-on-tertiary-container);
-	--color-tertiary-fixed: var(--md-sys-color-tertiary-fixed);
-	--color-tertiary-fixed-dim: var(--md-sys-color-tertiary-fixed-dim);
-	--color-on-tertiary-fixed: var(--md-sys-color-on-tertiary-fixed);
-	--color-on-tertiary-fixed-variant: var(--md-sys-color-on-tertiary-fixed-variant);
 	--color-error: var(--md-sys-color-error);
-	--color-on-error: var(--md-sys-color-on-error);
-	--color-error-container: var(--md-sys-color-error-container);
-	--color-on-error-container: var(--md-sys-color-on-error-container);
-	--color-surface: var(--md-sys-color-surface);
-	--color-surface-dim: var(--md-sys-color-surface-dim);
-	--color-surface-bright: var(--md-sys-color-surface-bright);
 	--color-surface-container-lowest: var(--md-sys-color-surface-container-lowest);
 	--color-surface-container-low: var(--md-sys-color-surface-container-low);
 	--color-surface-container: var(--md-sys-color-surface-container);
 	--color-surface-container-high: var(--md-sys-color-surface-container-high);
 	--color-surface-container-highest: var(--md-sys-color-surface-container-highest);
 	--color-on-surface: var(--md-sys-color-on-surface);
-	--color-surface-variant: var(--md-sys-color-surface-variant);
 	--color-on-surface-variant: var(--md-sys-color-on-surface-variant);
 	--color-outline: var(--md-sys-color-outline);
 	--color-outline-variant: var(--md-sys-color-outline-variant);
-	--color-inverse-surface: var(--md-sys-color-inverse-surface);
-	--color-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
-	--color-scrim: var(--md-sys-color-scrim);
-	--color-shadow: var(--md-sys-color-shadow);
-	--color-surface-tint: var(--md-sys-color-surface-tint);
-	--color-m3-background: var(--md-sys-color-background);
-	--color-on-background: var(--md-sys-color-on-background);
 
-	/* Type scale: text-display-lg … text-label-sm (+ -emphasized) set size, line-height, tracking,
-	   weight. They do NOT set the family — use type-* utilities (below) for the complete style. */
-	--text-display-lg: var(--md-sys-typescale-display-large-size);
-	--text-display-lg--line-height: var(--md-sys-typescale-display-large-line-height);
-	--text-display-lg--letter-spacing: var(--md-sys-typescale-display-large-tracking);
-	--text-display-lg--font-weight: var(--md-sys-typescale-display-large-weight);
-	--text-display-md: var(--md-sys-typescale-display-medium-size);
-	--text-display-md--line-height: var(--md-sys-typescale-display-medium-line-height);
-	--text-display-md--letter-spacing: var(--md-sys-typescale-display-medium-tracking);
-	--text-display-md--font-weight: var(--md-sys-typescale-display-medium-weight);
-	--text-display-sm: var(--md-sys-typescale-display-small-size);
-	--text-display-sm--line-height: var(--md-sys-typescale-display-small-line-height);
-	--text-display-sm--letter-spacing: var(--md-sys-typescale-display-small-tracking);
-	--text-display-sm--font-weight: var(--md-sys-typescale-display-small-weight);
-	--text-headline-lg: var(--md-sys-typescale-headline-large-size);
-	--text-headline-lg--line-height: var(--md-sys-typescale-headline-large-line-height);
-	--text-headline-lg--letter-spacing: var(--md-sys-typescale-headline-large-tracking);
-	--text-headline-lg--font-weight: var(--md-sys-typescale-headline-large-weight);
-	--text-headline-md: var(--md-sys-typescale-headline-medium-size);
-	--text-headline-md--line-height: var(--md-sys-typescale-headline-medium-line-height);
-	--text-headline-md--letter-spacing: var(--md-sys-typescale-headline-medium-tracking);
-	--text-headline-md--font-weight: var(--md-sys-typescale-headline-medium-weight);
-	--text-headline-sm: var(--md-sys-typescale-headline-small-size);
-	--text-headline-sm--line-height: var(--md-sys-typescale-headline-small-line-height);
-	--text-headline-sm--letter-spacing: var(--md-sys-typescale-headline-small-tracking);
-	--text-headline-sm--font-weight: var(--md-sys-typescale-headline-small-weight);
-	--text-title-lg: var(--md-sys-typescale-title-large-size);
-	--text-title-lg--line-height: var(--md-sys-typescale-title-large-line-height);
-	--text-title-lg--letter-spacing: var(--md-sys-typescale-title-large-tracking);
-	--text-title-lg--font-weight: var(--md-sys-typescale-title-large-weight);
-	--text-title-md: var(--md-sys-typescale-title-medium-size);
-	--text-title-md--line-height: var(--md-sys-typescale-title-medium-line-height);
-	--text-title-md--letter-spacing: var(--md-sys-typescale-title-medium-tracking);
-	--text-title-md--font-weight: var(--md-sys-typescale-title-medium-weight);
-	--text-title-sm: var(--md-sys-typescale-title-small-size);
-	--text-title-sm--line-height: var(--md-sys-typescale-title-small-line-height);
-	--text-title-sm--letter-spacing: var(--md-sys-typescale-title-small-tracking);
-	--text-title-sm--font-weight: var(--md-sys-typescale-title-small-weight);
-	--text-body-lg: var(--md-sys-typescale-body-large-size);
-	--text-body-lg--line-height: var(--md-sys-typescale-body-large-line-height);
-	--text-body-lg--letter-spacing: var(--md-sys-typescale-body-large-tracking);
-	--text-body-lg--font-weight: var(--md-sys-typescale-body-large-weight);
-	--text-body-md: var(--md-sys-typescale-body-medium-size);
-	--text-body-md--line-height: var(--md-sys-typescale-body-medium-line-height);
-	--text-body-md--letter-spacing: var(--md-sys-typescale-body-medium-tracking);
-	--text-body-md--font-weight: var(--md-sys-typescale-body-medium-weight);
-	--text-body-sm: var(--md-sys-typescale-body-small-size);
-	--text-body-sm--line-height: var(--md-sys-typescale-body-small-line-height);
-	--text-body-sm--letter-spacing: var(--md-sys-typescale-body-small-tracking);
-	--text-body-sm--font-weight: var(--md-sys-typescale-body-small-weight);
-	--text-label-lg: var(--md-sys-typescale-label-large-size);
-	--text-label-lg--line-height: var(--md-sys-typescale-label-large-line-height);
-	--text-label-lg--letter-spacing: var(--md-sys-typescale-label-large-tracking);
-	--text-label-lg--font-weight: var(--md-sys-typescale-label-large-weight);
-	--text-label-md: var(--md-sys-typescale-label-medium-size);
-	--text-label-md--line-height: var(--md-sys-typescale-label-medium-line-height);
-	--text-label-md--letter-spacing: var(--md-sys-typescale-label-medium-tracking);
-	--text-label-md--font-weight: var(--md-sys-typescale-label-medium-weight);
-	--text-label-sm: var(--md-sys-typescale-label-small-size);
-	--text-label-sm--line-height: var(--md-sys-typescale-label-small-line-height);
-	--text-label-sm--letter-spacing: var(--md-sys-typescale-label-small-tracking);
-	--text-label-sm--font-weight: var(--md-sys-typescale-label-small-weight);
-	--text-display-lg-emphasized: var(--md-sys-typescale-emphasized-display-large-size);
-	--text-display-lg-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-display-large-line-height
-	);
-	--text-display-lg-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-display-large-tracking
-	);
-	--text-display-lg-emphasized--font-weight: var(
-		--md-sys-typescale-emphasized-display-large-weight
-	);
-	--text-display-md-emphasized: var(--md-sys-typescale-emphasized-display-medium-size);
-	--text-display-md-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-display-medium-line-height
-	);
-	--text-display-md-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-display-medium-tracking
-	);
-	--text-display-md-emphasized--font-weight: var(
-		--md-sys-typescale-emphasized-display-medium-weight
-	);
-	--text-display-sm-emphasized: var(--md-sys-typescale-emphasized-display-small-size);
-	--text-display-sm-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-display-small-line-height
-	);
-	--text-display-sm-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-display-small-tracking
-	);
-	--text-display-sm-emphasized--font-weight: var(
-		--md-sys-typescale-emphasized-display-small-weight
-	);
-	--text-headline-lg-emphasized: var(--md-sys-typescale-emphasized-headline-large-size);
-	--text-headline-lg-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-headline-large-line-height
-	);
-	--text-headline-lg-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-headline-large-tracking
-	);
-	--text-headline-lg-emphasized--font-weight: var(
-		--md-sys-typescale-emphasized-headline-large-weight
-	);
-	--text-headline-md-emphasized: var(--md-sys-typescale-emphasized-headline-medium-size);
-	--text-headline-md-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-headline-medium-line-height
-	);
-	--text-headline-md-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-headline-medium-tracking
-	);
-	--text-headline-md-emphasized--font-weight: var(
-		--md-sys-typescale-emphasized-headline-medium-weight
-	);
-	--text-headline-sm-emphasized: var(--md-sys-typescale-emphasized-headline-small-size);
-	--text-headline-sm-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-headline-small-line-height
-	);
-	--text-headline-sm-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-headline-small-tracking
-	);
-	--text-headline-sm-emphasized--font-weight: var(
-		--md-sys-typescale-emphasized-headline-small-weight
-	);
-	--text-title-lg-emphasized: var(--md-sys-typescale-emphasized-title-large-size);
-	--text-title-lg-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-title-large-line-height
-	);
-	--text-title-lg-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-title-large-tracking
-	);
-	--text-title-lg-emphasized--font-weight: var(--md-sys-typescale-emphasized-title-large-weight);
-	--text-title-md-emphasized: var(--md-sys-typescale-emphasized-title-medium-size);
-	--text-title-md-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-title-medium-line-height
-	);
-	--text-title-md-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-title-medium-tracking
-	);
-	--text-title-md-emphasized--font-weight: var(--md-sys-typescale-emphasized-title-medium-weight);
-	--text-title-sm-emphasized: var(--md-sys-typescale-emphasized-title-small-size);
-	--text-title-sm-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-title-small-line-height
-	);
-	--text-title-sm-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-title-small-tracking
-	);
-	--text-title-sm-emphasized--font-weight: var(--md-sys-typescale-emphasized-title-small-weight);
-	--text-body-lg-emphasized: var(--md-sys-typescale-emphasized-body-large-size);
-	--text-body-lg-emphasized--line-height: var(--md-sys-typescale-emphasized-body-large-line-height);
-	--text-body-lg-emphasized--letter-spacing: var(--md-sys-typescale-emphasized-body-large-tracking);
-	--text-body-lg-emphasized--font-weight: var(--md-sys-typescale-emphasized-body-large-weight);
-	--text-body-md-emphasized: var(--md-sys-typescale-emphasized-body-medium-size);
-	--text-body-md-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-body-medium-line-height
-	);
-	--text-body-md-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-body-medium-tracking
-	);
-	--text-body-md-emphasized--font-weight: var(--md-sys-typescale-emphasized-body-medium-weight);
-	--text-body-sm-emphasized: var(--md-sys-typescale-emphasized-body-small-size);
-	--text-body-sm-emphasized--line-height: var(--md-sys-typescale-emphasized-body-small-line-height);
-	--text-body-sm-emphasized--letter-spacing: var(--md-sys-typescale-emphasized-body-small-tracking);
-	--text-body-sm-emphasized--font-weight: var(--md-sys-typescale-emphasized-body-small-weight);
-	--text-label-lg-emphasized: var(--md-sys-typescale-emphasized-label-large-size);
-	--text-label-lg-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-label-large-line-height
-	);
-	--text-label-lg-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-label-large-tracking
-	);
-	--text-label-lg-emphasized--font-weight: var(--md-sys-typescale-emphasized-label-large-weight);
-	--text-label-md-emphasized: var(--md-sys-typescale-emphasized-label-medium-size);
-	--text-label-md-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-label-medium-line-height
-	);
-	--text-label-md-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-label-medium-tracking
-	);
-	--text-label-md-emphasized--font-weight: var(--md-sys-typescale-emphasized-label-medium-weight);
-	--text-label-sm-emphasized: var(--md-sys-typescale-emphasized-label-small-size);
-	--text-label-sm-emphasized--line-height: var(
-		--md-sys-typescale-emphasized-label-small-line-height
-	);
-	--text-label-sm-emphasized--letter-spacing: var(
-		--md-sys-typescale-emphasized-label-small-tracking
-	);
-	--text-label-sm-emphasized--font-weight: var(--md-sys-typescale-emphasized-label-small-weight);
-
-	/* Shape: rounded-m3-none … rounded-m3-full (also rounded-t-m3-xl, rounded-s-m3-lg, …) */
-	--radius-m3-none: var(--md-sys-shape-corner-none);
-	--radius-m3-xs: var(--md-sys-shape-corner-extra-small);
-	--radius-m3-sm: var(--md-sys-shape-corner-small);
-	--radius-m3-md: var(--md-sys-shape-corner-medium);
-	--radius-m3-lg: var(--md-sys-shape-corner-large);
-	--radius-m3-lg-increased: var(--md-sys-shape-corner-large-increased);
-	--radius-m3-xl: var(--md-sys-shape-corner-extra-large);
-	--radius-m3-xl-increased: var(--md-sys-shape-corner-extra-large-increased);
-	--radius-m3-xxl: var(--md-sys-shape-corner-extra-extra-large);
-	--radius-m3-full: var(--md-sys-shape-corner-full);
-
-	/* shadcn radius scale (derived from --radius = 12px) */
-	--radius-sm: calc(var(--radius) * 0.6);
-	--radius-md: calc(var(--radius) * 0.8);
-	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) * 1.4);
-	--radius-2xl: calc(var(--radius) * 1.8);
-	--radius-3xl: calc(var(--radius) * 2.2);
-	--radius-4xl: calc(var(--radius) * 2.6);
-
-	/* Elevation: shadow-m3-0 … shadow-m3-5 */
-	--shadow-m3-0: var(--md-sys-elevation-level0);
-	--shadow-m3-1: var(--md-sys-elevation-level1);
-	--shadow-m3-2: var(--md-sys-elevation-level2);
-	--shadow-m3-3: var(--md-sys-elevation-level3);
-	--shadow-m3-4: var(--md-sys-elevation-level4);
-	--shadow-m3-5: var(--md-sys-elevation-level5);
-
-	/* Easing: ease-m3-standard, ease-m3-emphasized, …, ease-spring-fast-spatial, … */
-	--ease-m3-standard: var(--md-sys-motion-easing-standard);
-	--ease-m3-standard-accelerate: var(--md-sys-motion-easing-standard-accelerate);
-	--ease-m3-standard-decelerate: var(--md-sys-motion-easing-standard-decelerate);
-	--ease-m3-emphasized: var(--md-sys-motion-easing-emphasized);
-	--ease-m3-emphasized-accelerate: var(--md-sys-motion-easing-emphasized-accelerate);
-	--ease-m3-emphasized-decelerate: var(--md-sys-motion-easing-emphasized-decelerate);
-	--ease-m3-linear: var(--md-sys-motion-easing-linear);
-	--ease-m3-legacy: var(--md-sys-motion-easing-legacy);
-	--ease-m3-legacy-accelerate: var(--md-sys-motion-easing-legacy-accelerate);
-	--ease-m3-legacy-decelerate: var(--md-sys-motion-easing-legacy-decelerate);
-	--ease-spring-fast-spatial: var(--md-sys-motion-spring-fast-spatial-easing);
-	--ease-spring-default-spatial: var(--md-sys-motion-spring-default-spatial-easing);
-	--ease-spring-slow-spatial: var(--md-sys-motion-spring-slow-spatial-easing);
-	--ease-spring-fast-effects: var(--md-sys-motion-spring-fast-effects-easing);
-	--ease-spring-default-effects: var(--md-sys-motion-spring-default-effects-easing);
-	--ease-spring-slow-effects: var(--md-sys-motion-spring-slow-effects-easing);
-
-	/* Duration: duration-m3-short1 … duration-m3-extra-long4, duration-spring-fast-spatial, …
-	   (Tailwind's duration-* reads the --transition-duration-* theme namespace) */
-	--transition-duration-m3-short1: var(--md-sys-motion-duration-short1);
-	--transition-duration-m3-short2: var(--md-sys-motion-duration-short2);
-	--transition-duration-m3-short3: var(--md-sys-motion-duration-short3);
-	--transition-duration-m3-short4: var(--md-sys-motion-duration-short4);
-	--transition-duration-m3-medium1: var(--md-sys-motion-duration-medium1);
-	--transition-duration-m3-medium2: var(--md-sys-motion-duration-medium2);
-	--transition-duration-m3-medium3: var(--md-sys-motion-duration-medium3);
-	--transition-duration-m3-medium4: var(--md-sys-motion-duration-medium4);
-	--transition-duration-m3-long1: var(--md-sys-motion-duration-long1);
-	--transition-duration-m3-long2: var(--md-sys-motion-duration-long2);
-	--transition-duration-m3-long3: var(--md-sys-motion-duration-long3);
-	--transition-duration-m3-long4: var(--md-sys-motion-duration-long4);
-	--transition-duration-m3-extra-long1: var(--md-sys-motion-duration-extra-long1);
-	--transition-duration-m3-extra-long2: var(--md-sys-motion-duration-extra-long2);
-	--transition-duration-m3-extra-long3: var(--md-sys-motion-duration-extra-long3);
-	--transition-duration-m3-extra-long4: var(--md-sys-motion-duration-extra-long4);
-	--transition-duration-spring-fast-spatial: var(--md-sys-motion-spring-fast-spatial-duration);
-	--transition-duration-spring-default-spatial: var(
-		--md-sys-motion-spring-default-spatial-duration
-	);
-	--transition-duration-spring-slow-spatial: var(--md-sys-motion-spring-slow-spatial-duration);
-	--transition-duration-spring-fast-effects: var(--md-sys-motion-spring-fast-effects-duration);
-	--transition-duration-spring-default-effects: var(
-		--md-sys-motion-spring-default-effects-duration
-	);
-	--transition-duration-spring-slow-effects: var(--md-sys-motion-spring-slow-effects-duration);
-
-	/* Game roles: bg-up text-on-up, bg-down-container text-on-down-container, text-down, fill-up … */
 	--color-up: var(--up);
 	--color-on-up: var(--on-up);
 	--color-up-container: var(--up-container);
@@ -1078,248 +240,103 @@
 	--color-on-down: var(--on-down);
 	--color-down-container: var(--down-container);
 	--color-on-down-container: var(--on-down-container);
-
-	/* Chart: stroke-chart-line, fill-chart-area, stroke-chart-grid, fill-chart-mask, … */
-	--color-chart-line: var(--chart-line);
-	--color-chart-area: var(--chart-area);
-	--color-chart-grid: var(--chart-grid);
-	--color-chart-axis: var(--chart-axis);
-	--color-chart-baseline: var(--chart-baseline);
-	--color-chart-mask: var(--chart-mask);
-	--color-chart-mask-edge: var(--chart-mask-edge);
-	--color-chart-marker: var(--chart-marker);
-	--color-chart-marker-ring: var(--chart-marker-ring);
-	--color-chart-up: var(--chart-up);
-	--color-chart-down: var(--chart-down);
-	--color-chart-reveal: var(--chart-reveal);
+	/* the ticker and dates at the unmasking */
+	--color-chart-reveal: var(--md-sys-color-tertiary);
 }
 
-/* Full type styles incl. family: type-display-lg … type-label-sm, type-*-emphasized
-   (typography-shape.md §9.3). Emphasized also sets ROND 100 (a no-op on VT323). */
-@utility type-display-lg {
-	font-family: var(--md-sys-typescale-display-large-font);
-	font-size: var(--md-sys-typescale-display-large-size);
-	line-height: var(--md-sys-typescale-display-large-line-height);
-	letter-spacing: var(--md-sys-typescale-display-large-tracking);
-	font-weight: var(--md-sys-typescale-display-large-weight);
-}
-@utility type-display-md {
-	font-family: var(--md-sys-typescale-display-medium-font);
-	font-size: var(--md-sys-typescale-display-medium-size);
-	line-height: var(--md-sys-typescale-display-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-display-medium-tracking);
-	font-weight: var(--md-sys-typescale-display-medium-weight);
-}
-@utility type-display-sm {
-	font-family: var(--md-sys-typescale-display-small-font);
-	font-size: var(--md-sys-typescale-display-small-size);
-	line-height: var(--md-sys-typescale-display-small-line-height);
-	letter-spacing: var(--md-sys-typescale-display-small-tracking);
-	font-weight: var(--md-sys-typescale-display-small-weight);
-}
-@utility type-headline-lg {
-	font-family: var(--md-sys-typescale-headline-large-font);
-	font-size: var(--md-sys-typescale-headline-large-size);
-	line-height: var(--md-sys-typescale-headline-large-line-height);
-	letter-spacing: var(--md-sys-typescale-headline-large-tracking);
-	font-weight: var(--md-sys-typescale-headline-large-weight);
-}
-@utility type-headline-md {
-	font-family: var(--md-sys-typescale-headline-medium-font);
-	font-size: var(--md-sys-typescale-headline-medium-size);
-	line-height: var(--md-sys-typescale-headline-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-headline-medium-tracking);
-	font-weight: var(--md-sys-typescale-headline-medium-weight);
-}
-@utility type-headline-sm {
-	font-family: var(--md-sys-typescale-headline-small-font);
-	font-size: var(--md-sys-typescale-headline-small-size);
-	line-height: var(--md-sys-typescale-headline-small-line-height);
-	letter-spacing: var(--md-sys-typescale-headline-small-tracking);
-	font-weight: var(--md-sys-typescale-headline-small-weight);
-}
-@utility type-title-lg {
-	font-family: var(--md-sys-typescale-title-large-font);
-	font-size: var(--md-sys-typescale-title-large-size);
-	line-height: var(--md-sys-typescale-title-large-line-height);
-	letter-spacing: var(--md-sys-typescale-title-large-tracking);
-	font-weight: var(--md-sys-typescale-title-large-weight);
-}
-@utility type-title-md {
-	font-family: var(--md-sys-typescale-title-medium-font);
-	font-size: var(--md-sys-typescale-title-medium-size);
-	line-height: var(--md-sys-typescale-title-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-title-medium-tracking);
-	font-weight: var(--md-sys-typescale-title-medium-weight);
-}
-@utility type-title-sm {
-	font-family: var(--md-sys-typescale-title-small-font);
-	font-size: var(--md-sys-typescale-title-small-size);
-	line-height: var(--md-sys-typescale-title-small-line-height);
-	letter-spacing: var(--md-sys-typescale-title-small-tracking);
-	font-weight: var(--md-sys-typescale-title-small-weight);
-}
-@utility type-body-lg {
-	font-family: var(--md-sys-typescale-body-large-font);
-	font-size: var(--md-sys-typescale-body-large-size);
-	line-height: var(--md-sys-typescale-body-large-line-height);
-	letter-spacing: var(--md-sys-typescale-body-large-tracking);
-	font-weight: var(--md-sys-typescale-body-large-weight);
-}
-@utility type-body-md {
-	font-family: var(--md-sys-typescale-body-medium-font);
-	font-size: var(--md-sys-typescale-body-medium-size);
-	line-height: var(--md-sys-typescale-body-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-body-medium-tracking);
-	font-weight: var(--md-sys-typescale-body-medium-weight);
-}
-@utility type-body-sm {
-	font-family: var(--md-sys-typescale-body-small-font);
-	font-size: var(--md-sys-typescale-body-small-size);
-	line-height: var(--md-sys-typescale-body-small-line-height);
-	letter-spacing: var(--md-sys-typescale-body-small-tracking);
-	font-weight: var(--md-sys-typescale-body-small-weight);
-}
-@utility type-label-lg {
-	font-family: var(--md-sys-typescale-label-large-font);
-	font-size: var(--md-sys-typescale-label-large-size);
-	line-height: var(--md-sys-typescale-label-large-line-height);
-	letter-spacing: var(--md-sys-typescale-label-large-tracking);
-	font-weight: var(--md-sys-typescale-label-large-weight);
-}
-@utility type-label-md {
-	font-family: var(--md-sys-typescale-label-medium-font);
-	font-size: var(--md-sys-typescale-label-medium-size);
-	line-height: var(--md-sys-typescale-label-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-label-medium-tracking);
-	font-weight: var(--md-sys-typescale-label-medium-weight);
-}
-@utility type-label-sm {
-	font-family: var(--md-sys-typescale-label-small-font);
-	font-size: var(--md-sys-typescale-label-small-size);
-	line-height: var(--md-sys-typescale-label-small-line-height);
-	letter-spacing: var(--md-sys-typescale-label-small-tracking);
-	font-weight: var(--md-sys-typescale-label-small-weight);
-}
-@utility type-display-lg-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-display-large-font);
-	font-size: var(--md-sys-typescale-emphasized-display-large-size);
-	line-height: var(--md-sys-typescale-emphasized-display-large-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-display-large-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-display-large-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
-}
+/* Type styles, family included. VT323 has a single weight, so the emphasized styles differ by
+   size only (no faux bold: font-synthesis is off in the base layer); the weights stay for the
+   fallback font that shows while VT323 loads. */
 @utility type-display-md-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-display-medium-font);
-	font-size: var(--md-sys-typescale-emphasized-display-medium-size);
-	line-height: var(--md-sys-typescale-emphasized-display-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-display-medium-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-display-medium-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 2.8125rem;
+	line-height: 3.25rem;
+	letter-spacing: 0;
+	font-weight: 500;
 }
 @utility type-display-sm-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-display-small-font);
-	font-size: var(--md-sys-typescale-emphasized-display-small-size);
-	line-height: var(--md-sys-typescale-emphasized-display-small-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-display-small-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-display-small-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
-}
-@utility type-headline-lg-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-headline-large-font);
-	font-size: var(--md-sys-typescale-emphasized-headline-large-size);
-	line-height: var(--md-sys-typescale-emphasized-headline-large-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-headline-large-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-headline-large-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
-}
-@utility type-headline-md-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-headline-medium-font);
-	font-size: var(--md-sys-typescale-emphasized-headline-medium-size);
-	line-height: var(--md-sys-typescale-emphasized-headline-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-headline-medium-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-headline-medium-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 2.25rem;
+	line-height: 2.75rem;
+	letter-spacing: 0;
+	font-weight: 500;
 }
 @utility type-headline-sm-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-headline-small-font);
-	font-size: var(--md-sys-typescale-emphasized-headline-small-size);
-	line-height: var(--md-sys-typescale-emphasized-headline-small-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-headline-small-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-headline-small-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 1.5rem;
+	line-height: 2rem;
+	letter-spacing: 0;
+	font-weight: 500;
+}
+@utility type-title-lg {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 1.375rem;
+	line-height: 1.75rem;
+	letter-spacing: 0;
+	font-weight: 400;
 }
 @utility type-title-lg-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-title-large-font);
-	font-size: var(--md-sys-typescale-emphasized-title-large-size);
-	line-height: var(--md-sys-typescale-emphasized-title-large-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-title-large-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-title-large-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 1.375rem;
+	line-height: 1.75rem;
+	letter-spacing: 0;
+	font-weight: 500;
 }
-@utility type-title-md-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-title-medium-font);
-	font-size: var(--md-sys-typescale-emphasized-title-medium-size);
-	line-height: var(--md-sys-typescale-emphasized-title-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-title-medium-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-title-medium-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+@utility type-title-md {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 1rem;
+	line-height: 1.5rem;
+	letter-spacing: 0.009375rem;
+	font-weight: 500;
 }
-@utility type-title-sm-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-title-small-font);
-	font-size: var(--md-sys-typescale-emphasized-title-small-size);
-	line-height: var(--md-sys-typescale-emphasized-title-small-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-title-small-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-title-small-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+@utility type-body-lg {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 1rem;
+	line-height: 1.5rem;
+	letter-spacing: 0.03125rem;
+	font-weight: 400;
 }
-@utility type-body-lg-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-body-large-font);
-	font-size: var(--md-sys-typescale-emphasized-body-large-size);
-	line-height: var(--md-sys-typescale-emphasized-body-large-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-body-large-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-body-large-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+@utility type-body-md {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	letter-spacing: 0.015625rem;
+	font-weight: 400;
 }
-@utility type-body-md-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-body-medium-font);
-	font-size: var(--md-sys-typescale-emphasized-body-medium-size);
-	line-height: var(--md-sys-typescale-emphasized-body-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-body-medium-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-body-medium-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+@utility type-body-sm {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 0.75rem;
+	line-height: 1rem;
+	letter-spacing: 0.025rem;
+	font-weight: 400;
 }
-@utility type-body-sm-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-body-small-font);
-	font-size: var(--md-sys-typescale-emphasized-body-small-size);
-	line-height: var(--md-sys-typescale-emphasized-body-small-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-body-small-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-body-small-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+@utility type-label-lg {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	letter-spacing: 0.00625rem;
+	font-weight: 500;
 }
-@utility type-label-lg-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-label-large-font);
-	font-size: var(--md-sys-typescale-emphasized-label-large-size);
-	line-height: var(--md-sys-typescale-emphasized-label-large-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-label-large-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-label-large-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+@utility type-label-md {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 0.75rem;
+	line-height: 1rem;
+	letter-spacing: 0.03125rem;
+	font-weight: 500;
 }
-@utility type-label-md-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-label-medium-font);
-	font-size: var(--md-sys-typescale-emphasized-label-medium-size);
-	line-height: var(--md-sys-typescale-emphasized-label-medium-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-label-medium-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-label-medium-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+@utility type-label-sm {
+	font-family: var(--md-ref-typeface-plain);
+	font-size: 0.6875rem;
+	line-height: 1rem;
+	letter-spacing: 0.03125rem;
+	font-weight: 500;
 }
-@utility type-label-sm-emphasized {
-	font-family: var(--md-sys-typescale-emphasized-label-small-font);
-	font-size: var(--md-sys-typescale-emphasized-label-small-size);
-	line-height: var(--md-sys-typescale-emphasized-label-small-line-height);
-	letter-spacing: var(--md-sys-typescale-emphasized-label-small-tracking);
-	font-weight: var(--md-sys-typescale-emphasized-label-small-weight);
-	font-variation-settings: 'ROND' var(--md-ref-typeface-emphasized-rond);
+
+/* Money and scores: tabular lining figures, so digits don't jiggle while counting. Pair it with a
+   type-* style. It sets no family on purpose: utility order in the stylesheet is not class
+   order, so two families would fight. */
+@utility type-numeric {
+	font-variant-numeric: tabular-nums lining-nums;
 }
 
 /* Page gutters that clear the notch and home indicator: --gutter at least (1rem unless a page
@@ -1332,19 +349,12 @@
 	padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
-/* Money and scores: tabular lining figures, so digits don't jiggle while counting. Pair it with a
-   type-* style (every style is already VT323, whose digits are fixed-width). It sets no family on
-   purpose: utility order in the stylesheet is not class order, so two families would fight. */
-@utility type-numeric {
-	font-variant-numeric: tabular-nums lining-nums;
-}
-
 /* ==========================================================================
-   5. BASE
+   6. BASE
    ========================================================================== */
 @layer base {
 	* {
-		@apply border-border;
+		border-color: var(--md-sys-color-outline-variant);
 	}
 	:root {
 		color-scheme: dark;
@@ -1352,7 +362,7 @@
 		text-size-adjust: 100%;
 	}
 	html {
-		@apply bg-surface-container-lowest font-sans;
+		background-color: var(--md-sys-color-surface-container-lowest);
 		/* one weight only: never smear a pixel font into a fake bold or italic */
 		font-synthesis: none;
 		-webkit-font-smoothing: none;
@@ -1374,11 +384,6 @@
 	svg.pixel-art {
 		image-rendering: pixelated;
 	}
-	/* Host of `ripple()` / `stateLayer()`: static hosts become the overlay's containing block. Kept in
-	   the base layer so any positioning utility (absolute, fixed, sticky …) on the host still wins. */
-	[data-m3-ripple-host] {
-		position: relative;
-	}
 	/* Focus: a 3px cyan pixel outline, 2px outward offset. Components may override. */
 	:focus-visible {
 		outline: 3px solid var(--md-sys-color-primary);
@@ -1391,54 +396,44 @@
 }
 
 /* ==========================================================================
-   6. COMPONENT HELPERS
-   ========================================================================== */
-/* State layer created by `stateLayer()` / `ripple()` (src/lib/m3/ripple.svelte.ts): a flat tint
-   on hover, focus and press, switched instantly. There is no radial ripple in the arcade: framed
-   controls sink into their drop instead (section 7), and `ripple()` renders as a flat layer too. */
-[data-m3-ripple] {
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	overflow: hidden;
-	pointer-events: none;
-	color: var(--m3-ripple-color, currentColor);
-	-webkit-tap-highlight-color: transparent;
-}
-[data-m3-ripple]::before {
-	content: '';
-	position: absolute;
-	inset: 0;
-	opacity: 0;
-	pointer-events: none;
-	background-color: currentColor;
-}
-/* Hover only where there is a pointer that hovers, so a tapped control never stays lit. */
-@media (hover: hover) {
-	[data-m3-ripple][data-hovered]::before {
-		opacity: var(--md-sys-state-hover-opacity);
-	}
-}
-[data-m3-ripple][data-focused]::before {
-	opacity: var(--md-sys-state-focus-opacity);
-}
-[data-m3-ripple][data-pressed]::before {
-	opacity: var(--md-sys-state-pressed-opacity);
-}
-:is([disabled], [aria-disabled='true'], [data-disabled]:not([data-disabled='false']))
-	> [data-m3-ripple] {
-	display: none;
-}
-
-/* ==========================================================================
    7. ARCADE HELPERS
    ========================================================================== */
+/* State layer: a flat tint of the content colour on hover (pointers that hover only, so a tapped
+   control never stays lit), keyboard focus and press, switched instantly, with no ripple; framed
+   controls also sink into their drop (below). In the components layer, so a positioning utility
+   on the host (absolute, fixed ...) still wins. */
+@layer components {
+	.state-layer {
+		position: relative;
+	}
+	.state-layer::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background-color: currentColor;
+		opacity: 0;
+		pointer-events: none;
+	}
+	@media (hover: hover) {
+		.state-layer:hover::before {
+			opacity: 0.08;
+		}
+	}
+	.state-layer:is(:focus-visible, :has(:focus-visible), :active)::before {
+		opacity: 0.1;
+	}
+	.state-layer:is(:disabled, [aria-disabled='true'])::before {
+		content: none;
+	}
+}
+
 /* Pixel frames, two tiers with one geometry: a 3px ink keyline, a 3px coloured edge and a 6px
    hard drop (two scene pixels each), so a primary and a secondary button side by side line up
    top and bottom. Hierarchy comes from colour alone: the cabinet frame (primary actions) is
    coloured `--frame` (cyan unless recoloured) and glows; the panel (cards, secondary buttons)
-   has a quiet `--panel-edge`. Box-shadows sit outside the box: give framed things 6px of room
-   (12px below). */
+   has a quiet outline edge. Buttons get them from their variant (filled: frame, tonal: panel).
+   Box-shadows sit outside the box: give framed things 6px of room (12px below). */
 .pixel-frame,
 .pixel-panel {
 	--drop: 6px;
@@ -1446,7 +441,7 @@
 		0 0 0 3px var(--pixel-ink),
 		0 0 0 6px var(--frame-edge),
 		0 var(--drop) 0 6px var(--frame-base),
-		0 0 26px 0 var(--frame-glow, transparent);
+		0 0 26px 0 var(--frame-glow);
 }
 .pixel-frame {
 	--frame: var(--md-sys-color-primary);
@@ -1455,7 +450,7 @@
 	--frame-glow: color-mix(in srgb, var(--frame) 30%, transparent);
 }
 .pixel-panel {
-	--frame-edge: var(--panel-edge, var(--md-sys-color-outline-variant));
+	--frame-edge: var(--md-sys-color-outline-variant);
 	--frame-base: var(--md-sys-color-shadow);
 	--frame-glow: transparent;
 }
@@ -1477,7 +472,7 @@
 	outline-offset: 9px;
 }
 /* CRT scanlines, one dark line every 3px (one scene pixel). Paints over the element's own
-   content, never catches a tap; the element needs a position (relative, absolute …). */
+   content, never catches a tap; the element needs a position (relative, absolute ...). */
 .crt::after {
 	content: '';
 	position: absolute;
@@ -1493,11 +488,11 @@
 .glitch-text {
 	color: var(--md-sys-color-on-surface);
 	text-shadow:
-		calc(var(--glitch-split, 3px) * -1) 0 0 var(--md-ext-color-down),
+		calc(var(--glitch-split, 3px) * -1) 0 0 var(--down),
 		var(--glitch-split, 3px) 0 0 var(--md-sys-color-primary),
 		0 var(--glitch-drop, 5px) 0 var(--pixel-ink);
 }
-/* Neon label: cyan, letterspaced, glowing (krillion-style taglines and eyebrows). */
+/* Neon label: cyan, letterspaced, glowing (taglines and eyebrows). */
 .neon-text {
 	color: var(--md-sys-color-primary);
 	text-transform: uppercase;

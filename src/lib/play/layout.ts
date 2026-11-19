@@ -27,35 +27,25 @@ export interface Frame {
  */
 export type ChartPoint = [bar: number, logPrice: number];
 
-/** A chart's live scale, for layers drawn over it. */
-export interface ChartProjection {
-	toPx(p: ChartPoint): [x: number, y: number];
-	fromPx(px: [x: number, y: number]): ChartPoint;
-}
-
-export function plotWidth(f: Frame) {
-	return Math.max(1, f.width - f.padLeft - f.padRight);
+function widths(shape: ChartShape, f: Frame) {
+	const plot = Math.max(1, f.width - f.padLeft - f.padRight);
+	const context = plot * f.contextShare;
+	return { context, slot: (plot - context) / shape.calls, last: shape.contextBars - 1 };
 }
 
 /** x position for a (possibly fractional) bar index. */
 export function xFor(i: number, shape: ChartShape, f: Frame): number {
-	const w = plotWidth(f);
-	const contextW = w * f.contextShare;
-	const slotW = (w - contextW) / shape.calls;
-	const last = shape.contextBars - 1;
-	if (i <= last) return f.padLeft + (last === 0 ? contextW : (i / last) * contextW);
-	return f.padLeft + contextW + ((i - last) / shape.stepBars) * slotW;
+	const { context, slot, last } = widths(shape, f);
+	if (i <= last) return f.padLeft + (last === 0 ? context : (i / last) * context);
+	return f.padLeft + context + ((i - last) / shape.stepBars) * slot;
 }
 
 /** The (fractional) bar index at x: the inverse of `xFor`, carried on past both ends. */
 export function barFor(x: number, shape: ChartShape, f: Frame): number {
-	const w = plotWidth(f);
-	const contextW = w * f.contextShare;
-	const slotW = (w - contextW) / shape.calls;
-	const last = shape.contextBars - 1;
+	const { context, slot, last } = widths(shape, f);
 	const dx = x - f.padLeft;
-	if (dx <= contextW && last > 0) return (dx / contextW) * last;
-	return last + ((dx - contextW) / slotW) * shape.stepBars;
+	if (dx <= context && last > 0) return (dx / context) * last;
+	return last + ((dx - context) / slot) * shape.stepBars;
 }
 
 /** Left and right x of call slot `step` (1-based). */
@@ -68,39 +58,22 @@ export function slotBounds(step: number, shape: ChartShape, f: Frame): [number, 
 }
 
 /** y domain with breathing room, so the line never touches the edges. */
-export function domainFor(values: number[], pad = 0.12): [number, number] {
-	let lo = Infinity;
-	let hi = -Infinity;
-	for (const v of values) {
-		if (v < lo) lo = v;
-		if (v > hi) hi = v;
-	}
-	if (!Number.isFinite(lo)) return [0, 1];
+export function domainFor(values: number[], pad: number): [number, number] {
+	if (values.length === 0) return [0, 1];
+	const lo = Math.min(...values);
+	const hi = Math.max(...values);
 	const span = Math.max(hi - lo, Math.abs(hi) * 0.02, 1e-6);
 	return [lo - span * pad, hi + span * pad];
 }
 
-export function yFor(v: number, domain: [number, number], f: Frame): number {
-	const [lo, hi] = domain;
-	const h = Math.max(1, f.height - f.padTop - f.padBottom);
-	return f.padTop + (1 - (v - lo) / (hi - lo || 1)) * h;
-}
-
-/** Points for bars [from, to] (inclusive), clipped to a fractional end for the draw-on effect. */
-export function pointsFor(
-	values: number[],
-	from: number,
-	to: number,
-	end: number
-): Array<[number, number]> {
-	const out: Array<[number, number]> = [];
+/** Points for bars [from, to] (inclusive), cut off at a fractional `end` for the draw-on effect. */
+export function pointsFor(values: number[], from: number, to: number, end: number): ChartPoint[] {
+	const out: ChartPoint[] = [];
 	const stop = Math.min(to, end, values.length - 1);
-	for (let i = from; i <= Math.floor(stop); i++) out.push([i, values[i]]);
-	const frac = stop - Math.floor(stop);
-	if (frac > 0 && Math.floor(stop) + 1 < values.length) {
-		const a = values[Math.floor(stop)];
-		const b = values[Math.floor(stop) + 1];
-		out.push([stop, a + (b - a) * frac]);
+	const whole = Math.floor(stop);
+	for (let i = from; i <= whole; i++) out.push([i, values[i]]);
+	if (stop > whole && whole + 1 < values.length) {
+		out.push([stop, values[whole] + (values[whole + 1] - values[whole]) * (stop - whole)]);
 	}
 	return out;
 }

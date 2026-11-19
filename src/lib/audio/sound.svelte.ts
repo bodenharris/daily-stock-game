@@ -4,9 +4,10 @@ import { DEFAULT_PREFS, PREFS_KEY, parsePrefs } from './prefs.ts';
 /**
  * The game's sound: short 8-bit effects and an optional night ambience (wind, crickets, a far
  * off city hum), synthesized with the Web Audio API. The one recording is the wolf's bark
- * (`bark.wav`, credited in CREDITS.md), fetched on the first tap and played from memory. Nothing makes a sound until the player has tapped or pressed a key (browsers block
- * audio before that), and the game never waits on audio: every call here is fire and forget,
- * and does nothing where Web Audio is missing.
+ * (`bark.wav`, credited in CREDITS.md), fetched on the first tap and played from memory.
+ * Nothing makes a sound until the player has tapped or pressed a key (browsers block audio
+ * before that), and the game never waits on audio: every call here is fire and forget, and
+ * does nothing where Web Audio is missing.
  *
  * One board per browser tab. It is a module singleton rather than context because it only
  * ever changes in the browser (`load` and the setters run from effects and event handlers),
@@ -27,9 +28,8 @@ function fetchBark(): Promise<ArrayBuffer | null> {
 		.catch(() => null);
 }
 
-type Wave = OscillatorType;
 type Blip = {
-	wave?: Wave;
+	wave?: OscillatorType;
 	from: number;
 	to?: number;
 	at?: number;
@@ -43,7 +43,8 @@ class SoundBoard {
 
 	#ctx: AudioContext | null = null;
 	#fx: GainNode | null = null;
-	#amb: { bus: GainNode; stop: () => void } | null = null;
+	/** Fades the running ambience out; null while it is off. */
+	#fadeAmbience: (() => void) | null = null;
 	#unlocked = false;
 	#barkBytes: Promise<ArrayBuffer | null> | null = null;
 	#barkBuffer: Promise<AudioBuffer | null> | null = null;
@@ -266,7 +267,7 @@ class SoundBoard {
 	}
 
 	#startAmbience() {
-		if (this.#amb || !this.#unlocked) return;
+		if (this.#fadeAmbience || !this.#unlocked) return;
 		const ctx = this.#context();
 		if (!ctx) return;
 		const t = ctx.currentTime;
@@ -334,23 +335,20 @@ class SoundBoard {
 		};
 		timer = setTimeout(chirp, 1500);
 
-		this.#amb = {
-			bus,
-			stop: () => {
-				clearTimeout(timer);
-				const now = ctx.currentTime;
-				bus.gain.cancelScheduledValues(now);
-				bus.gain.setValueAtTime(Math.max(bus.gain.value, 0.0001), now);
-				bus.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
-				for (const s of sources) s.stop(now + 0.85);
-				setTimeout(() => bus.disconnect(), 1000);
-			}
+		this.#fadeAmbience = () => {
+			clearTimeout(timer);
+			const now = ctx.currentTime;
+			bus.gain.cancelScheduledValues(now);
+			bus.gain.setValueAtTime(Math.max(bus.gain.value, 0.0001), now);
+			bus.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+			for (const s of sources) s.stop(now + 0.85);
+			setTimeout(() => bus.disconnect(), 1000);
 		};
 	}
 
 	#stopAmbience() {
-		this.#amb?.stop();
-		this.#amb = null;
+		this.#fadeAmbience?.();
+		this.#fadeAmbience = null;
 	}
 }
 

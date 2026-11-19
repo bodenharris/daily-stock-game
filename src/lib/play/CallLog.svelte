@@ -6,7 +6,7 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
-	import { dollars, paidByCall } from './money.ts';
+	import { dollars, formatMove, paidByCall } from './format.ts';
 	import type { CallResult } from './types.ts';
 
 	/**
@@ -17,12 +17,6 @@
 
 	/** The same per-call amounts as the phone pips, so they add up to the balance shown. */
 	const paid = $derived(paidByCall(results, START_BALANCE_CENTS));
-
-	function fmtMove(pct: number) {
-		const abs = Math.abs(pct);
-		const body = abs >= 10 ? Math.round(abs).toString() : abs.toFixed(1);
-		return `${pct >= 0 ? '+' : '−'}${body}%`;
-	}
 </script>
 
 <ol class="flex flex-col gap-1">
@@ -31,13 +25,13 @@
 		{@const next = i === results.length}
 		<li
 			class={[
-				'row grid grid-cols-[1.75rem_1fr_auto] items-center gap-3 rounded-none px-3',
-				r ? 'bg-surface-container' : next ? 'next' : ''
+				'row grid grid-cols-[1.75rem_1fr_auto] items-center gap-3 px-3',
+				r ? 'bg-surface-container' : next && 'next'
 			]}
 		>
 			<span
 				class={[
-					'grid size-7 place-items-center rounded-none',
+					'grid size-7 place-items-center',
 					r
 						? r.correct
 							? 'bg-up text-on-up'
@@ -48,18 +42,19 @@
 				]}
 				aria-hidden="true"
 			>
-				{#if r}
-					{#if r.correct}<Check class="size-4" strokeWidth={3} />{:else}<X
-							class="size-4"
-							strokeWidth={3}
-						/>{/if}
+				{#if r?.correct}
+					<Check class="size-4" strokeWidth={3} />
+				{:else if r}
+					<X class="size-4" strokeWidth={3} />
 				{:else}
 					<span
 						class={[
 							'type-label-lg type-numeric',
 							next ? 'text-on-surface' : 'text-on-surface-variant'
-						]}>{i + 1}</span
+						]}
 					>
+						{i + 1}
+					</span>
 				{/if}
 			</span>
 			{#if r}
@@ -68,15 +63,16 @@
 					in:fly={{ x: -8, duration: 300, easing: cubicOut }}
 				>
 					<span class="flex items-center gap-1 type-title-md text-on-surface">
-						{#if r.direction === 'up'}<ArrowUp class="size-4" strokeWidth={2.5} />{:else}<ArrowDown
-								class="size-4"
-								strokeWidth={2.5}
-							/>{/if}
+						{#if r.direction === 'up'}
+							<ArrowUp class="size-4" strokeWidth={2.5} />
+						{:else}
+							<ArrowDown class="size-4" strokeWidth={2.5} />
+						{/if}
 						<span class="sr-only">Call {r.step}: you called</span>
 						{r.direction === 'up' ? 'Up' : 'Down'}
 					</span>
 					<span class="truncate type-body-lg text-on-surface-variant type-numeric">
-						{dollars(r.stakeCents)} bet · price {fmtMove(r.move)}
+						{dollars(r.stakeCents)} bet · price {formatMove(r.move)}
 					</span>
 				</span>
 				<span class={['type-title-md type-numeric', r.correct ? 'text-up' : 'text-down']}>

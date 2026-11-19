@@ -1,38 +1,9 @@
-import Body from './dialog-body.svelte';
-import Close from './dialog-close.svelte';
-import Content, { dialogContentVariants } from './dialog-content.svelte';
+import { Dialog as DialogPrimitive } from 'bits-ui';
+import Content from './dialog-content.svelte';
 import Description from './dialog-description.svelte';
-import Footer from './dialog-footer.svelte';
 import Header from './dialog-header.svelte';
-import Overlay from './dialog-overlay.svelte';
-import Portal from './dialog-portal.svelte';
-import Title from './dialog-title.svelte';
-import Trigger from './dialog-trigger.svelte';
-import Root from './dialog.svelte';
 
-export {
-	Root,
-	Title,
-	Portal,
-	Footer,
-	Header,
-	Trigger,
-	Overlay,
-	Content,
-	Description,
-	Close,
-	Body,
-	dialogContentVariants,
-	//
-	Root as Dialog,
-	Title as DialogTitle,
-	Portal as DialogPortal,
-	Footer as DialogFooter,
-	Header as DialogHeader,
-	Trigger as DialogTrigger,
-	Overlay as DialogOverlay,
-	Content as DialogContent,
-	Description as DialogDescription,
-	Close as DialogClose,
-	Body as DialogBody
-};
+// Title and Close need no styling of their own: the title takes the content's colour.
+const { Root, Title, Close } = DialogPrimitive;
+
+export { Root, Content, Header, Title, Description, Close };

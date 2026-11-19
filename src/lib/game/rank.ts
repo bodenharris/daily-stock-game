@@ -15,6 +15,7 @@
  * Spoiler rule: a rank only says how a finish compares with other players, never which way the
  * chart went, so it is safe in the share text.
  */
+import type { Standing } from '#lib/play/standing.ts';
 
 export type PackRankKey = 'pup' | 'scout' | 'sentinel' | 'hunter' | 'elder' | 'alpha';
 
@@ -43,10 +44,7 @@ export const PACK_EMOJI = '🐺';
  * The one rank sentence, the same on the end card, the share text and the stats page:
  * "Hunter · 3rd of 6 today", or just "Alpha" when there is no standing to add.
  */
-export function rankLine(
-	rank: Pick<PackRank, 'label'>,
-	standing: string | null | undefined
-): string {
+export function rankLine(rank: Pick<PackRank, 'label'>, standing: string | null): string {
 	return standing ? `${rank.label} · ${standing}` : rank.label;
 }
 
@@ -55,17 +53,12 @@ export function rankLine(
  * read). `betterThan` is the share (0..1) of the other finished players this finish beat; 1 means
  * first place, ties included.
  */
-export function packRank(
-	standing: { betterThan: number | null; finished: number } | null
-): PackRank | null {
+export function packRank(standing: Standing | null): PackRank | null {
 	if (!standing || standing.finished < 1) return null;
 	const { betterThan, finished } = standing;
 	// Nobody else has finished yet: first, and so the Alpha for now.
-	if (finished === 1) return ALPHA;
+	if (finished === 1 || betterThan === 1) return ALPHA;
 	if (betterThan == null) return null;
-	if (betterThan >= 1) return ALPHA;
-	const percent = Math.round(Math.max(0, betterThan) * 100);
-	let rank: PackRank = PACK_RANKS[0];
-	for (const r of PACK_RANKS) if (percent >= r.from) rank = r;
-	return { key: rank.key, label: rank.label, line: rank.line };
+	const percent = Math.round(betterThan * 100);
+	return PACK_RANKS.findLast((r) => percent >= r.from) ?? PACK_RANKS[0];
 }

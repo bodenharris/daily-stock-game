@@ -5,9 +5,7 @@ CREATE TABLE "games" (
 	"puzzle_slug" text NOT NULL,
 	"step" smallint DEFAULT 0 NOT NULL,
 	"balance_cents" integer NOT NULL,
-	"archetype" text,
-	"bonus_correct" smallint,
-	"bonus_total" smallint,
+	"name_guess" text,
 	"source" text DEFAULT 'real' NOT NULL,
 	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"finished_at" timestamp with time zone,
@@ -15,20 +13,18 @@ CREATE TABLE "games" (
 );
 --> statement-breakpoint
 CREATE TABLE "guesses" (
-	"ts" timestamp with time zone DEFAULT now() NOT NULL,
 	"game_id" uuid NOT NULL,
-	"puzzle_number" integer NOT NULL,
 	"step" smallint NOT NULL,
+	"ts" timestamp with time zone DEFAULT now() NOT NULL,
 	"up" boolean NOT NULL,
-	"stake_bp" smallint NOT NULL,
+	"stake_percent" smallint NOT NULL,
 	"stake_cents" integer NOT NULL,
 	"crowd_up_share" real NOT NULL,
-	"multiplier" real NOT NULL,
+	"multiplier_hundredths" smallint NOT NULL,
 	"correct" boolean NOT NULL,
 	"delta_cents" integer NOT NULL,
 	"balance_after_cents" integer NOT NULL,
-	"source" text DEFAULT 'real' NOT NULL,
-	CONSTRAINT "guesses_game_id_step_ts_pk" PRIMARY KEY("game_id","step","ts")
+	CONSTRAINT "guesses_game_id_step_pk" PRIMARY KEY("game_id","step")
 );
 --> statement-breakpoint
 CREATE TABLE "prices" (
@@ -54,6 +50,19 @@ CREATE TABLE "puzzles" (
 	"step_bars" integer NOT NULL,
 	"calls" smallint NOT NULL,
 	CONSTRAINT "puzzles_position_unique" UNIQUE("position")
+);
+--> statement-breakpoint
+CREATE TABLE "schedule" (
+	"number" integer PRIMARY KEY NOT NULL,
+	"slug" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "splits" (
+	"ticker" text NOT NULL,
+	"ts" date NOT NULL,
+	"factor" double precision NOT NULL,
+	CONSTRAINT "splits_ticker_ts_pk" PRIMARY KEY("ticker","ts")
 );
 --> statement-breakpoint
 CREATE TABLE "tickers" (
@@ -117,10 +126,11 @@ ALTER TABLE "games" ADD CONSTRAINT "games_user_id_user_id_fk" FOREIGN KEY ("user
 ALTER TABLE "games" ADD CONSTRAINT "games_puzzle_slug_puzzles_slug_fk" FOREIGN KEY ("puzzle_slug") REFERENCES "public"."puzzles"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "guesses" ADD CONSTRAINT "guesses_game_id_games_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."games"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "puzzles" ADD CONSTRAINT "puzzles_ticker_tickers_symbol_fk" FOREIGN KEY ("ticker") REFERENCES "public"."tickers"("symbol") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "schedule" ADD CONSTRAINT "schedule_slug_puzzles_slug_fk" FOREIGN KEY ("slug") REFERENCES "public"."puzzles"("slug") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "games_puzzle_finished_idx" ON "games" USING btree ("puzzle_number","finished_at");--> statement-breakpoint
-CREATE INDEX "guesses_puzzle_step_ts_idx" ON "guesses" USING btree ("puzzle_number","step","ts" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "guesses_ts_idx" ON "guesses" USING btree ("ts");--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");

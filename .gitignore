@@ -22,6 +22,9 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# The pre-rebuild app, kept locally for reference while porting
+/old
+
 # Local caches (price downloads etc.)
 /.cache
 

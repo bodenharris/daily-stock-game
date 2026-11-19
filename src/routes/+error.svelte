@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Button } from '#lib/components/ui/button/index.js';
 	import WolfNotice from '#lib/brand/WolfNotice.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { GAME_NAME } from '#lib/game/config.ts';
 
 	const notFound = $derived(page.status === 404);
@@ -17,14 +17,12 @@
 
 {#if notFound}
 	<WolfNotice title="This page got delisted.">
-		<Button href="/" variant="filled" size="md" class="pixel-frame">Today's chart</Button>
-		<Button href="/archive" variant="tonal" size="md" class="pixel-panel">Past charts</Button>
+		<Button href="/" variant="filled" size="md">Today's chart</Button>
+		<Button href="/archive" variant="tonal" size="md">Past charts</Button>
 	</WolfNotice>
 {:else}
 	<WolfNotice title="Something went sideways." {detail}>
-		<Button variant="filled" size="md" class="pixel-frame" onclick={() => location.reload()}>
-			Try again
-		</Button>
-		<Button href="/" variant="tonal" size="md" class="pixel-panel">Today's chart</Button>
+		<Button variant="filled" size="md" onclick={() => location.reload()}>Try again</Button>
+		<Button href="/" variant="tonal" size="md">Today's chart</Button>
 	</WolfNotice>
 {/if}

@@ -1,15 +1,5 @@
-import { START_BALANCE_CENTS } from '#lib/game/config.ts';
-
-/** Width of the finish buckets the server sends. */
-export const FINISH_BUCKET_CENTS = 1_000;
-/** Finishes at or above this land in one last bucket, so a wild outlier can't stretch the axis. */
-export const FINISH_CAP_CENTS = 100_000;
-
-/** Finishes in one bucket: `cents` is its lower edge; the FINISH_CAP_CENTS bucket is open-ended. */
-export interface FinishBucket {
-	cents: number;
-	count: number;
-}
+import { FINISH_BUCKET_CENTS, FINISH_CAP_CENTS, START_BALANCE_CENTS } from '#lib/game/config.ts';
+import type { FinishBucket } from '#lib/play/types.ts';
 
 /**
  * The day's range split into round-width groups ($10, $20, $25, $50 …): they set where the

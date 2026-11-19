@@ -1,202 +1,195 @@
 <script lang="ts">
-	import { untrack, type Snippet } from 'svelte';
-	import { area, curveLinear, line } from 'd3-shape';
+	import { untrack } from 'svelte';
 	import { Spring, Tween, prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
-	import type { CallResult, Direction } from './types.ts';
+	import Highlighter from '@lucide/svelte/icons/highlighter';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import Eraser from '@lucide/svelte/icons/eraser';
+	import { IconButton } from '#lib/components/ui/icon-button/index.js';
+	import { formatDate, formatMove, formatPrice } from './format.ts';
 	import {
 		barFor,
 		domainFor,
 		pointsFor,
 		slotBounds,
 		xFor,
-		type ChartProjection,
+		type ChartPoint,
 		type ChartShape,
 		type Frame
 	} from './layout.ts';
+	import { Marker } from './marker.svelte.ts';
 	import ChartScenery from './ChartScenery.svelte';
+	import MarkerLayer from './MarkerLayer.svelte';
+	import type { CallResult, Direction, Reveal } from './types.ts';
 
-	interface Props {
-		/** Visible values (normalised or real, the chart only cares about shape). */
-		values: number[];
-		shape: ChartShape;
-		/** Calls settled on the server (their stretches are in `values`). */
-		callsMade: number;
-		/** Settled calls, for colouring each stretch by whether the player was right. */
-		results: CallResult[];
-		/** The call being placed right now. */
-		pending?: Direction | null;
-		/** Show dates and prices (after the unmasking). */
-		labels?: { dates: string[]; closes: number[] } | null;
-		/** First and last dates alone, for the axis before the unmasking (no prices). */
-		span?: [string, string] | null;
-		/** The real ticker, once unmasked. Until then the tape shows "???". */
-		ticker?: string | null;
-		/** Buttons for the right end of the ticker tape (the marker's). */
-		tools?: Snippet;
-		/**
-		 * Drawn over the plot (the marker's layer), given the chart's live scale so whatever it
-		 * draws stays pinned to the prices as the range grows.
-		 */
-		overlay?: Snippet<[ChartProjection]>;
-		class?: string;
-	}
-
+	/**
+	 * The hidden chart, as a trading terminal: a ticker tape on top, the price line on a log
+	 * scale over a night city, an empty slot per call to come, and the player's red marker.
+	 * One instance per game: the line only ever grows while it lives.
+	 */
 	let {
 		values,
 		shape,
-		callsMade,
 		results,
 		pending = null,
-		labels = null,
+		reveal = null,
 		span = null,
-		ticker = null,
-		tools,
-		overlay,
-		class: className = ''
-	}: Props = $props();
-
-	const uid = $props.id();
-	let width = $state(0);
-	let height = $state(0);
-	const finished = $derived(callsMade >= shape.calls);
+		marks,
+		class: className
+	}: {
+		/** Visible bars, normalised (the chart only cares about shape). */
+		values: number[];
+		shape: ChartShape;
+		/** Settled calls; their stretches are in `values`. */
+		results: CallResult[];
+		/** The call being placed right now. */
+		pending?: Direction | null;
+		/** Once unmasked: the ticker, and a date and quoted price for every bar. */
+		reveal?: Pick<Reveal, 'ticker' | 'dates' | 'closes'> | null;
+		/** First and last dates alone, for the axis before the unmasking (no prices). */
+		span?: [string, string] | null;
+		/** Where the red marker keeps this chart's strokes. */
+		marks: string;
+		class?: string;
+	} = $props();
 
 	/** Height of the ticker tape across the top of the chart. */
 	const TAPE_H = 32;
 	/** Radius of the right/wrong mark at the end of each stretch. */
 	const MARK_R = 4;
+	/**
+	 * 9×5 pixel arrows: Press Start's ▲▼ fall back to a small system glyph. Five rows sit exactly
+	 * centred on its seven-row digits.
+	 */
+	const ARROW_UP = 'M4 0h1v1h1v1h1v1h1v1h1v1h-9v-1h1v-1h1v-1h1v-1h1z';
+	const ARROW_DOWN = 'M0 0h9v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1v-1h-1z';
+	const RANGE_SPRING = { stiffness: 0.1, damping: 0.9 };
 
+	const uid = $props.id();
+	let width = $state(0);
+	let height = $state(0);
+
+	const marker = new Marker();
+	$effect(() => marker.load(marks));
+
+	const callsMade = $derived(results.length);
+	const finished = $derived(callsMade >= shape.calls);
+	const nextStep = $derived(finished ? null : callsMade + 1);
 	const frame: Frame = $derived({
 		width,
 		height,
 		padLeft: 4,
 		padRight: 4,
-		padTop: TAPE_H + (labels ? 26 : 14),
-		padBottom: labels || span ? 30 : 14,
+		padTop: TAPE_H + (reveal ? 26 : 14),
+		padBottom: reveal || span ? 30 : 14,
 		contextShare: 0.5
 	});
+	/** The plot's top and bottom edges, a little outside the padded line area. */
+	const top = $derived(frame.padTop - 4);
+	const bottom = $derived(height - frame.padBottom + 4);
 
 	// Prices are drawn on a log scale: equal % moves look equal, so one spike can't flatten
 	// everything before it.
 	const logs = $derived(values.map((v) => Math.log(Math.max(v, 1e-6))));
 	const lastIndex = $derived(values.length - 1);
+	const contextEnd = $derived(shape.contextBars - 1);
+	/** How far the price moved before the first call. */
+	const setupMove = $derived(values[contextEnd] / values[0] - 1);
+	// Bars are only ever added, so this padded range only ever grows: a reveal makes room for its
+	// stretch but never re-zooms the history the player has already studied.
+	const domain = $derived(domainFor(logs, 0.1));
 
-	// The line draws itself forward when a stretch is revealed.
-	// svelte-ignore state_referenced_locally
-	const drawEnd = new Tween(values.length - 1, { duration: 900, easing: cubicOut });
-	// svelte-ignore state_referenced_locally
-	const lo = new Spring(domainFor(logs, 0.1)[0], { stiffness: 0.1, damping: 0.9 });
-	// svelte-ignore state_referenced_locally
-	const hi = new Spring(domainFor(logs, 0.1)[1], { stiffness: 0.1, damping: 0.9 });
-
-	// The vertical range only ever grows during a game: revealing a stretch adds room for it but
-	// never re-zooms what the player has already studied.
-	// svelte-ignore state_referenced_locally
-	let range = { first: values[0], length: values.length, lo: lo.target, hi: hi.target };
-	/**
-	 * Stretches already settled when this game was loaded. Their flash and burst are
-	 * skipped, so a reload doesn't replay every call at once.
-	 */
-	const firstValue = $derived(values[0]);
-	const settledOnLoad = $derived.by(() => {
-		void firstValue; // a different game: recount from what it arrived with
-		return untrack(() => callsMade);
-	});
+	// The line draws itself forward when a stretch is revealed, and the range eases out to fit.
+	const drawEnd = new Tween(
+		untrack(() => lastIndex),
+		{ duration: 900, easing: cubicOut }
+	);
+	const lo = new Spring(
+		untrack(() => domain[0]),
+		RANGE_SPRING
+	);
+	const hi = new Spring(
+		untrack(() => domain[1]),
+		RANGE_SPRING
+	);
 	$effect(() => {
 		const instant = prefersReducedMotion.current;
-		const [fa, fb] = domainFor(logs, 0.1);
-		const sameGame = values[0] === range.first && values.length >= range.length;
-		const a = sameGame ? Math.min(range.lo, fa) : fa;
-		const b = sameGame ? Math.max(range.hi, fb) : fb;
-		range = { first: values[0], length: values.length, lo: a, hi: b };
-		if (instant) {
-			drawEnd.set(lastIndex, { duration: 0 });
-			lo.set(a, { instant: true });
-			hi.set(b, { instant: true });
-		} else {
-			drawEnd.target = lastIndex;
-			lo.target = a;
-			hi.target = b;
-		}
+		void drawEnd.set(lastIndex, instant ? { duration: 0 } : undefined);
+		void lo.set(domain[0], { instant });
+		void hi.set(domain[1], { instant });
+	});
+	/** True while a stretch is drawing itself in. */
+	const drawing = $derived(drawEnd.current < lastIndex - 0.01);
+	/**
+	 * Stretches already settled when the chart appeared. Their flash and burst are skipped, so a
+	 * reload doesn't replay every call at once.
+	 */
+	const settledOnLoad = untrack(() => callsMade);
+
+	const plotH = $derived(Math.max(1, height - frame.padTop - frame.padBottom));
+	const x = (bar: number) => xFor(bar, shape, frame);
+	const y = (log: number) =>
+		frame.padTop + (1 - (log - lo.current) / (hi.current - lo.current || 1)) * plotH;
+	// The chart's live scale, for the marker: its strokes ease along when the range grows.
+	const toPx = ([bar, log]: ChartPoint): [number, number] => [x(bar), y(log)];
+	const fromPx = ([px, py]: [number, number]): ChartPoint => [
+		barFor(px, shape, frame),
+		lo.current + (1 - (py - frame.padTop) / plotH) * (hi.current - lo.current || 1)
+	];
+
+	/** Straight lines between bars: curves on a two-bar stretch look invented. */
+	const path = (points: ChartPoint[]) =>
+		points.length ? `M${points.map(([bar, log]) => `${x(bar)},${y(log)}`).join('L')}` : '';
+
+	const contextPath = $derived(path(pointsFor(logs, 0, contextEnd, drawEnd.current)));
+	const fillPath = $derived.by(() => {
+		const points = pointsFor(logs, 0, lastIndex, drawEnd.current);
+		const base = height - frame.padBottom;
+		return `${path(points)}L${x(points.at(-1)![0])},${base}L${x(0)},${base}Z`;
 	});
 
-	const x = (i: number) => xFor(i, shape, frame);
-	const y = (logValue: number) => {
-		const h = Math.max(1, height - frame.padTop - frame.padBottom);
-		return frame.padTop + (1 - (logValue - lo.current) / (hi.current - lo.current || 1)) * h;
-	};
-
-	/**
-	 * The chart's scale for overlays: chart points to pixels and back. It reads the live range,
-	 * so anything drawn through it eases along with the line when the range grows.
-	 */
-	const projection: ChartProjection = {
-		toPx: ([bar, logValue]) => [x(bar), y(logValue)],
-		fromPx: ([px, py]) => {
-			const h = Math.max(1, height - frame.padTop - frame.padBottom);
-			const span = hi.current - lo.current || 1;
-			return [barFor(px, shape, frame), lo.current + (1 - (py - frame.padTop) / h) * span];
-		}
-	};
-
-	const pathOf = line<[number, number]>()
-		.x((p) => x(p[0]))
-		.y((p) => y(p[1]))
-		.curve(curveLinear);
-
-	const areaOf = $derived(
-		area<[number, number]>()
-			.x((p) => x(p[0]))
-			.y0(height - frame.padBottom)
-			.y1((p) => y(p[1]))
-			.curve(curveLinear)
-	);
-
-	const contextEnd = $derived(shape.contextBars - 1);
-	const contextPath = $derived(pathOf(pointsFor(logs, 0, contextEnd, drawEnd.current)) ?? '');
-	const fillPath = $derived(areaOf(pointsFor(logs, 0, lastIndex, drawEnd.current)) ?? '');
-
-	const segments = $derived.by(() => {
-		// Read up front: deriveds are lazy, and read inside the map it would first be counted
-		// after call 1 had already settled.
-		const settled = settledOnLoad;
-		return results.slice(0, callsMade).map((r, k) => {
+	const segments = $derived(
+		results.map((r, k) => {
 			const from = contextEnd + k * shape.stepBars;
 			const to = from + shape.stepBars;
 			const [x0, x1] = slotBounds(k + 1, shape, frame);
 			return {
 				step: r.step,
 				right: r.correct,
-				d: drawEnd.current > from ? (pathOf(pointsFor(logs, from, to, drawEnd.current)) ?? '') : '',
+				d: drawEnd.current > from ? path(pointsFor(logs, from, to, drawEnd.current)) : '',
 				drawn: drawEnd.current >= to - 0.01,
 				/** The server's move, so the chart says what the pips and the log say. */
 				move: r.move / 100,
 				/** The same stretch measured off the drawn values (may round differently). */
 				drawnMove: values[to] / values[from] - 1,
-				fresh: r.step > settled,
+				fresh: r.step > settledOnLoad,
 				x0,
 				x1,
 				baseY: y(logs[from]),
 				endY: y(logs[to])
 			};
-		});
-	});
+		})
+	);
+	const drawn = $derived(segments.filter((s) => s.drawn));
 
 	const head = $derived.by(() => {
 		const end = Math.min(drawEnd.current, lastIndex);
-		const pts = pointsFor(logs, Math.floor(end), Math.ceil(end), end);
-		const p = pts[pts.length - 1] ?? [lastIndex, logs[lastIndex]];
-		return { x: x(p[0]), y: y(p[1]), log: p[1], end };
+		const [bar, log] = pointsFor(logs, Math.floor(end), Math.ceil(end), end).at(-1) ?? [
+			lastIndex,
+			logs[lastIndex]
+		];
+		return { x: x(bar), y: y(log), log, end };
 	});
 
-	/** True while a stretch is drawing itself in. */
-	const drawing = $derived(drawEnd.current < lastIndex - 0.01);
+	/** A move as the pips write it, for Press Start: it has no −, but its hyphen is a pixel minus. */
+	const pixelMove = (move: number) => formatMove(move * 100).replace('−', '-');
 
 	/**
 	 * The last-price tag on the right edge, like a trading terminal. It shows the move of the
 	 * stretch the line is in, ticking as the line draws (or the real price once unmasked).
 	 */
 	const tag = $derived.by(() => {
+		// The stretch the line's head is in: 0 for the setup, then each call.
 		const k =
 			head.end <= contextEnd + 0.001
 				? 0
@@ -206,19 +199,16 @@
 		// Ease the ticking value onto the server's move, so it lands on what the pips say.
 		const seg = segments[k - 1];
 		if (seg) move += (seg.move - seg.drawnMove) * Math.min(1, (head.end - base) / shape.stepBars);
-		const price = labels ? fmtPrice(labels.closes[Math.round(head.end)]) : null;
-		const text = price ?? fmtPixelMove(move);
+		const price = reveal ? formatPrice(reveal.closes[Math.round(head.end)]) : null;
+		const text = price ?? pixelMove(move);
 		// Press Start advances 8px a glyph; a move also carries a 9px arrow and a 4px gap.
 		const w = text.length * 8 + (price ? 0 : 13) + 14;
-		const top = frame.padTop - 4;
-		const bottom = height - frame.padBottom - 4;
-		const clamp = (v: number) => Math.min(Math.max(v, top + 10), bottom - 10);
+		const clamp = (v: number) => Math.min(Math.max(v, top + 10), height - frame.padBottom - 14);
 		// At the right edge the tag would sit on the line and the last mark: step it off, to the
 		// side the line isn't on under the tag.
 		let ty = head.y;
 		const left = width - frame.padRight - w;
 		if (head.x > left - MARK_R - 4) {
-			const off = 20;
 			let sum = 0;
 			let n = 0;
 			for (let i = Math.floor(head.end); i >= 0 && x(i) >= left - 8; i--) {
@@ -227,13 +217,13 @@
 			}
 			const last = segments.at(-1);
 			const above = n > 0 && sum / n !== head.y ? sum / n > head.y : !last || last.move >= 0;
-			ty = head.y + (above ? -off : off);
-			if (clamp(ty) !== ty) ty = head.y + (above ? off : -off);
+			ty = head.y + (above ? -20 : 20);
+			if (clamp(ty) !== ty) ty = head.y + (above ? 20 : -20);
 		}
 		return {
 			// Before the first call the setup's move would read like today's gain; after the last,
 			// the stretch's move would read like the player's result. The real price is fine.
-			show: labels != null || (k > 0 && (!finished || drawing)),
+			show: reveal != null || (k > 0 && (!finished || drawing)),
 			up: move >= 0,
 			arrow: price == null,
 			text,
@@ -246,77 +236,38 @@
 	 * The ticker tape: the setup, then every settled call. Listed newest first: the tape lays
 	 * them out right to left, so when they run long the oldest drop out whole.
 	 */
-	const tape = $derived.by(() => {
-		const items: { key: string; label: string; move: number; fresh: boolean }[] = [
-			{ key: 'setup', label: 'SETUP', move: values[contextEnd] / values[0] - 1, fresh: false }
-		];
-		for (const s of segments) {
-			if (s.drawn) {
-				items.push({ key: `c${s.step}`, label: `CALL ${s.step}`, move: s.move, fresh: s.fresh });
-			}
-		}
-		return items.reverse();
-	});
-
-	/**
-	 * 9×5 pixel arrows: Press Start's ▲▼ fall back to a small system glyph. Five rows sit exactly
-	 * centred on its seven-row digits.
-	 */
-	const ARROW_UP = 'M4 0h1v1h1v1h1v1h1v1h1v1h-9v-1h1v-1h1v-1h1v-1h1z';
-	const ARROW_DOWN = 'M0 0h9v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1v-1h-1z';
+	const tape = $derived([
+		...drawn
+			.map((s) => ({ key: `c${s.step}`, label: `CALL ${s.step}`, move: s.move, fresh: s.fresh }))
+			.reverse(),
+		{ key: 'setup', label: 'SETUP', move: setupMove, fresh: false }
+	]);
 
 	const slots = $derived(
 		Array.from({ length: shape.calls }, (_, k) => {
 			const [x0, x1] = slotBounds(k + 1, shape, frame);
-			return { step: k + 1, x0, x1 };
+			return { step: k + 1, x0, x1, mid: (x0 + x1) / 2 };
 		})
 	);
-
-	const nextStep = $derived(finished ? null : callsMade + 1);
+	const next = $derived(nextStep == null ? null : slots[nextStep - 1]);
 	const levelY = $derived(y(logs[lastIndex]));
 	/** The dashed level across the hidden future; not while a stretch draws (it would give it away). */
-	const showLevel = $derived(nextStep != null && !pending && !drawing);
-
-	/** A move as CallPips writes it. Rounded first, so 78.5% / 100 * 100 still reads +79%. */
-	function fmtMove(m: number) {
-		const pct = Number((m * 100).toFixed(6));
-		const abs = Math.abs(pct);
-		const body = abs >= 10 ? Math.round(abs).toString() : abs.toFixed(1);
-		return `${pct >= 0 ? '+' : '−'}${body}%`;
-	}
-	/** The same, for Press Start: it has no −, but its hyphen is a full-width pixel minus. */
-	const fmtPixelMove = (m: number) => fmtMove(m).replace('−', '-');
-	const fmtDate = (iso: string) =>
-		new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', {
-			month: 'short',
-			year: 'numeric',
-			timeZone: 'UTC'
-		});
-	const fmtPrice = (n: number) =>
-		n >= 100 ? `$${Math.round(n)}` : n >= 10 ? `$${n.toFixed(1)}` : `$${n.toFixed(2)}`;
-
-	/** Rough width of a VT323 label at 14px (size-adjusted 125%: about 8.75px a glyph). */
-	const labelW = (text: string) => text.length * 8.75;
+	const showLevel = $derived(next != null && !pending && !drawing);
 
 	/** The axis dates, first and last, along the bottom edge. */
 	const dates = $derived(
-		labels
-			? [fmtDate(labels.dates[0]), fmtDate(labels.dates[labels.dates.length - 1])]
-			: span
-				? [fmtDate(span[0]), fmtDate(span[1])]
-				: null
+		(reveal ? [reveal.dates[0], reveal.dates.at(-1)!] : span)?.map((d) =>
+			formatDate(d, { month: 'short', year: 'numeric' })
+		)
 	);
 
 	/** The high and low prices, above and below their points. */
 	const priceLabels = $derived.by(() => {
-		if (!labels || !dates) return null;
-		let iMax = 0;
-		let iMin = 0;
-		values.forEach((v, i) => {
-			if (v > values[iMax]) iMax = i;
-			if (v < values[iMin]) iMin = i;
-		});
-		const at = (i: number, text: string, above: boolean) => {
+		if (!reveal || !dates) return [];
+		// Rough width of a VT323 label at 14px (size-adjusted 125%: about 8.75px a glyph).
+		const labelW = (text: string) => text.length * 8.75;
+		const at = (i: number, above: boolean) => {
+			const text = formatPrice(reveal.closes[i]);
 			const lx = Math.min(Math.max(x(i), 28), width - 28);
 			const py = y(logs[i]);
 			let ly = py + (above ? -9 : 20);
@@ -328,10 +279,9 @@
 			if (!above && onDate && ly > height - 6 - 14 - 4) ly = py - 9;
 			return { key: above ? 'high' : 'low', text, x: lx, y: ly };
 		};
-		return [
-			at(iMax, fmtPrice(labels.closes[iMax]), true),
-			at(iMin, fmtPrice(labels.closes[iMin]), false)
-		];
+		const high = values.indexOf(Math.max(...values));
+		const low = values.indexOf(Math.min(...values));
+		return [at(high, true), at(low, false)];
 	});
 
 	/**
@@ -340,40 +290,40 @@
 	 * "−50%" on the chart reads like a loss.
 	 */
 	const grid = $derived.by(() => {
-		if (labels) return [];
+		if (reveal) return [];
 		const base = logs[lastIndex];
 		const up = Math.exp(hi.current - base) - 1;
 		const down = 1 - Math.exp(lo.current - base);
-		const span = Math.max(up, down);
-		const step = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].find((s) => span / s <= 1.6) ?? 20;
-		const lines: { key: string; y: number }[] = [];
+		const range = Math.max(up, down);
+		const step = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10].find((s) => range / s <= 1.6) ?? 20;
 		// One line each way at most: enough for scale, never a busy axis.
+		const lines: { key: string; y: number }[] = [];
 		if (step <= up) lines.push({ key: 'up', y: y(base + Math.log(1 + step)) });
 		if (step < down && step < 1) lines.push({ key: 'down', y: y(base + Math.log(1 - step)) });
 		return lines;
 	});
 
 	/** A plain-language summary for screen readers. */
-	const summary = $derived.by(() => {
-		const ctx = values[contextEnd] / values[0] - 1;
-		const parts = [`Price chart. Before the first call it moved ${fmtMove(ctx)}.`];
-		for (const s of segments.filter((x) => x.drawn)) {
-			const move = results.find((r) => r.step === s.step)?.move;
-			parts.push(
-				`Call ${s.step}: ${fmtMove(move == null ? s.move : move / 100)}, ${s.right ? 'you were right' : 'you missed'}.`
-			);
-		}
-		if (!finished) parts.push(`Call ${callsMade + 1} of ${shape.calls} is next.`);
-		return parts.join(' ');
-	});
+	const summary = $derived(
+		[
+			`Price chart. Before the first call it moved ${formatMove(setupMove * 100)}.`,
+			...drawn.map(
+				(s) =>
+					`Call ${s.step}: ${formatMove(s.move * 100)}, ${s.right ? 'you were right' : 'you missed'}.`
+			),
+			!finished && `Call ${callsMade + 1} of ${shape.calls} is next.`
+		]
+			.filter(Boolean)
+			.join(' ')
+	);
 </script>
 
-<div class="chart {className}" bind:clientWidth={width} bind:clientHeight={height}>
+<div class={['chart', className]} bind:clientWidth={width} bind:clientHeight={height}>
 	<!-- Ticker tape: the story so far, like the board on a trading floor. -->
 	<div class="tape" style:height="{TAPE_H}px">
 		<span class="tape-symbol" aria-hidden="true">
 			<span class={['live', finished && 'closed']}></span>
-			{ticker ?? '???'}
+			{reveal?.ticker ?? '???'}
 			<span class="tape-state">{finished ? 'CLOSED' : 'LIVE'}</span>
 		</span>
 		<div class="tape-window" aria-hidden="true">
@@ -383,16 +333,34 @@
 					<svg class="arrow" width="9" height="5" viewBox="0 0 9 5">
 						<path d={item.move >= 0 ? ARROW_UP : ARROW_DOWN} />
 					</svg>
-					{fmtPixelMove(item.move)}
+					{pixelMove(item.move)}
 				</span>
 			{/each}
 		</div>
-		{#if tools}
-			<div class="tape-tools">{@render tools()}</div>
-		{/if}
+		<div class="tape-tools">
+			<IconButton
+				size="xs"
+				toggle
+				bind:pressed={marker.active}
+				aria-label={marker.active ? 'Stop drawing' : 'Draw on the chart with a red marker'}
+				title="Red marker"
+			>
+				<Highlighter />
+			</IconButton>
+			{#if marker.strokes.length > 0}
+				<IconButton size="xs" aria-label="Undo the last mark" onclick={() => marker.undo()}>
+					<Undo2 />
+				</IconButton>
+				<IconButton size="xs" aria-label="Clear all marks" onclick={() => marker.clear()}>
+					<Eraser />
+				</IconButton>
+			{/if}
+		</div>
 	</div>
 
 	{#if width > 0 && height > 0}
+		{@const right = width - frame.padRight}
+		{@const plotTall = Math.max(0, bottom - top)}
 		<svg
 			class="plot"
 			{width}
@@ -402,7 +370,7 @@
 			aria-label={summary}
 		>
 			<defs>
-				<!-- Lines never spill into the header while the range eases out to fit a spike. -->
+				<!-- Lines never spill into the tape while the range eases out to fit a spike. -->
 				<clipPath id="{uid}-plot">
 					<rect x="-4" y={TAPE_H} width={width + 8} height={Math.max(0, height - TAPE_H)} />
 				</clipPath>
@@ -423,59 +391,55 @@
 
 			<rect
 				x={frame.padLeft}
-				y={frame.padTop - 4}
-				width={Math.max(0, width - frame.padLeft - frame.padRight)}
-				height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
+				y={top}
+				width={Math.max(0, right - frame.padLeft)}
+				height={plotTall}
 				fill="url(#{uid}-paper)"
 			/>
-			<ChartScenery
-				{uid}
-				x0={frame.padLeft}
-				x1={width - frame.padRight}
-				top={frame.padTop - 4}
-				bottom={height - frame.padBottom + 4}
-			/>
+			<ChartScenery {uid} x0={frame.padLeft} x1={right} {top} {bottom} />
 			{#each grid as g (g.key)}
-				<line class="grid" x1={frame.padLeft} x2={width - frame.padRight} y1={g.y} y2={g.y} />
+				<line class="grid" x1={frame.padLeft} x2={right} y1={g.y} y2={g.y} />
 			{/each}
 
 			<!-- The next call's slot, lit up. -->
 			{#each slots as s (s.step)}
 				<rect
-					class="slot"
-					class:next={s.step === nextStep}
+					class={['slot', s.step === nextStep && 'next']}
 					x={s.x0 + 1.5}
-					y={frame.padTop - 4}
+					y={top}
 					width={Math.max(0, s.x1 - s.x0 - 3)}
-					height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
+					height={plotTall}
 				/>
 			{/each}
 
 			<!-- Today's level, ruled across the hidden future: above it is up, below is down. -->
-			{#if showLevel && nextStep}
-				{@const [sx0, sx1] = slotBounds(nextStep, shape, frame)}
-				{@const cx = (sx0 + sx1) / 2}
+			{#if showLevel && next}
 				{@const upY = frame.padTop + 6}
 				{@const downY = height - frame.padBottom - 2}
 				<line
 					class="level"
 					x1={head.x}
-					x2={width - frame.padRight}
+					x2={right}
 					y1={Math.round(levelY)}
 					y2={Math.round(levelY)}
 				/>
 				<!-- A chevron that would sit on the level just muddles it. -->
 				{#if levelY - (upY + 6) > 12}
-					<path class="slot-arrow" d="M{cx - 5} {upY + 6} L{cx} {upY} L{cx + 5} {upY + 6}" />
+					<path
+						class="slot-arrow"
+						d="M{next.mid - 5} {upY + 6} L{next.mid} {upY} L{next.mid + 5} {upY + 6}"
+					/>
 				{/if}
 				{#if downY - 6 - levelY > 12}
-					<path class="slot-arrow" d="M{cx - 5} {downY - 6} L{cx} {downY} L{cx + 5} {downY - 6}" />
+					<path
+						class="slot-arrow"
+						d="M{next.mid - 5} {downY - 6} L{next.mid} {downY} L{next.mid + 5} {downY - 6}"
+					/>
 				{/if}
 			{/if}
 
-			{#if pending && nextStep}
-				{@const [sx0, sx1] = slotBounds(nextStep, shape, frame)}
-				<g class="ghost" transform="translate({(sx0 + sx1) / 2} {levelY})">
+			{#if pending && next}
+				<g class="ghost" transform="translate({next.mid} {levelY})">
 					<path d={pending === 'up' ? 'M0 -18 L-7 -8 L7 -8 Z' : 'M0 18 L-7 8 L7 8 Z'} />
 					<circle r="3" />
 				</g>
@@ -497,9 +461,9 @@
 				<rect
 					class="scan"
 					x={head.x - 1}
-					y={frame.padTop - 4}
+					y={top}
 					width="2"
-					height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
+					height={plotTall}
 					fill="url(#{uid}-scan)"
 				/>
 			{/if}
@@ -507,11 +471,11 @@
 			<!-- The last price, ruled across to its tag on the right edge. -->
 			{#if tag.show}
 				{#if !showLevel}
-					<line class="last" x1={head.x} x2={width - frame.padRight} y1={head.y} y2={head.y} />
+					<line class="last" x1={head.x} x2={right} y1={head.y} y2={head.y} />
 				{/if}
 				<g
 					class={['tag', tag.up ? 'up' : 'down']}
-					transform="translate({width - frame.padRight} {Math.round(tag.y)})"
+					transform="translate({right} {Math.round(tag.y)})"
 				>
 					<rect x={-tag.w} y="-10" width={tag.w} height="20" />
 					{#if tag.arrow}
@@ -527,32 +491,21 @@
 			{/if}
 
 			<!-- Right or wrong marks the end of each stretch, once it has fully drawn. -->
-			{#each segments.filter((x) => x.drawn) as seg (seg.step)}
+			{#each drawn as seg (seg.step)}
+				{@const verdict = seg.right ? 'right' : 'wrong'}
 				{#if seg.fresh}
 					<!-- The stretch's slot flashes green if the call was right, pink if not, and a
 					     burst rings the end of the line. -->
 					<rect
-						class={['flash', seg.right ? 'right' : 'wrong']}
+						class={['flash', verdict]}
 						x={seg.x0}
-						y={frame.padTop - 4}
+						y={top}
 						width={Math.max(0, seg.x1 - seg.x0)}
-						height={Math.max(0, height - frame.padTop - frame.padBottom + 8)}
+						height={plotTall}
 					/>
-					<circle
-						class={['burst', seg.right ? 'right' : 'wrong']}
-						cx={seg.x1}
-						cy={seg.endY}
-						r="6"
-					/>
+					<circle class={['burst', verdict]} cx={seg.x1} cy={seg.endY} r="6" />
 				{/if}
-				<circle
-					class="mark"
-					class:right={seg.right}
-					class:wrong={!seg.right}
-					cx={seg.x1}
-					cy={seg.endY}
-					r={MARK_R}
-				/>
+				<circle class={['mark', verdict]} cx={seg.x1} cy={seg.endY} r={MARK_R} />
 			{/each}
 
 			<g class="head" transform="translate({head.x} {head.y})">
@@ -563,28 +516,23 @@
 				<circle class="dot" r="3.5" />
 			</g>
 
-			{#if priceLabels}
-				{#each priceLabels as pl (pl.key)}
-					<text class="price" x={pl.x} y={pl.y} text-anchor="middle">{pl.text}</text>
-				{/each}
-			{/if}
+			{#each priceLabels as pl (pl.key)}
+				<text class="price" x={pl.x} y={pl.y} text-anchor="middle">{pl.text}</text>
+			{/each}
 			{#if dates}
 				<text class="date" x={frame.padLeft} y={height - 6}>{dates[0]}</text>
-				<text class="date" x={width - frame.padRight} y={height - 6} text-anchor="end"
-					>{dates[1]}</text
-				>
+				<text class="date" x={right} y={height - 6} text-anchor="end">{dates[1]}</text>
 			{/if}
 		</svg>
 	{/if}
-	{@render overlay?.(projection)}
+	<MarkerLayer {marker} {toPx} {fromPx} />
 </div>
 
 <style>
 	.chart {
-		--chart-ink: var(--chart-line, currentColor);
 		width: 100%;
 		height: 100%;
-		color: var(--chart-ink);
+		color: var(--chart-line);
 	}
 	.plot {
 		position: absolute;
@@ -607,13 +555,23 @@
 		filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 55%, transparent));
 	}
 	.context {
-		stroke: var(--chart-ink);
-		color: var(--chart-ink);
+		stroke: var(--chart-line);
 	}
 	.seg {
 		stroke: var(--md-sys-color-primary);
 		color: var(--md-sys-color-primary);
 		stroke-width: 3;
+	}
+	.paper {
+		fill: none;
+		stroke: var(--chart-grid);
+		stroke-width: 1;
+		opacity: 0.28;
+	}
+	.grid {
+		stroke: var(--chart-grid);
+		stroke-width: 1;
+		opacity: 0.6;
 	}
 	.slot {
 		fill: transparent;
@@ -629,7 +587,7 @@
 		opacity: 0.55;
 	}
 	.level {
-		stroke: var(--chart-ink);
+		stroke: var(--chart-line);
 		stroke-width: 2;
 		stroke-dasharray: 6 4;
 		opacity: 0.85;
@@ -643,82 +601,40 @@
 		stroke-linejoin: miter;
 		opacity: 0.7;
 	}
-	.mark {
-		stroke: var(--md-sys-color-surface);
-		stroke-width: 2;
-		animation: appear 200ms ease-out;
-	}
-	.mark.right {
-		fill: var(--chart-up);
-	}
-	.mark.wrong {
-		fill: var(--chart-down);
-	}
-	.grid {
-		stroke: var(--chart-grid);
-		stroke-width: 1;
-		opacity: 0.6;
-	}
-	.ghost path,
-	.ghost circle {
-		fill: var(--md-sys-color-primary);
-	}
 	.ghost {
+		fill: var(--md-sys-color-primary);
 		animation: appear 150ms ease-out;
 	}
-	.halo {
-		fill: var(--chart-ink);
-		opacity: 0.12;
-	}
-	.dot {
-		fill: var(--chart-ink);
-	}
-	/* VT323 at the type scale's label size (it has one weight: no faux bold). */
-	.price,
-	.date {
-		font: 400 14px/1 var(--md-ref-typeface-plain, monospace);
-		font-variant-numeric: tabular-nums;
-		fill: var(--chart-axis);
-	}
-	.price {
-		fill: var(--md-sys-color-on-surface);
-	}
-	/* ── Trading-floor dressing ─────────────────────────────────────────────── */
-	.chart {
-		--mono: var(--md-ref-typeface-pixel, ui-monospace, monospace);
-	}
-	.paper {
-		fill: none;
-		stroke: var(--chart-grid);
-		stroke-width: 1;
-		opacity: 0.28;
-	}
 	.last {
-		stroke: var(--chart-ink);
+		stroke: var(--chart-line);
 		stroke-width: 1;
 		stroke-dasharray: 1 3;
 		opacity: 0.5;
 	}
-	.tag rect {
-		transition: fill 250ms ease;
-	}
-	.tag.up rect {
-		fill: var(--chart-up);
-	}
-	.tag.down rect {
-		fill: var(--chart-down);
-	}
-	.tag text,
-	.tag .arrow {
-		font: 400 8px/1 var(--mono);
-		font-variant-numeric: tabular-nums;
-		fill: var(--pixel-ink, var(--md-sys-color-surface));
-	}
-	.arrow {
-		shape-rendering: crispEdges;
-	}
 	.scan {
 		pointer-events: none;
+	}
+	/* Green for a right call or a rise, pink for a miss or a fall. */
+	.right,
+	.up {
+		--tone: var(--chart-up);
+	}
+	.wrong,
+	.down {
+		--tone: var(--chart-down);
+	}
+	.mark {
+		fill: var(--tone);
+		stroke: var(--md-sys-color-surface);
+		stroke-width: 2;
+		animation: appear 200ms ease-out;
+	}
+	.halo {
+		fill: var(--chart-line);
+		opacity: 0.12;
+	}
+	.dot {
+		fill: var(--chart-line);
 	}
 	.ping {
 		fill: none;
@@ -739,14 +655,9 @@
 		}
 	}
 	.flash {
+		fill: var(--tone);
 		opacity: 0;
 		animation: flash 900ms ease-out;
-	}
-	.flash.right {
-		fill: var(--chart-up);
-	}
-	.flash.wrong {
-		fill: var(--chart-down);
 	}
 	@keyframes flash {
 		from {
@@ -758,17 +669,12 @@
 	}
 	.burst {
 		fill: none;
+		stroke: var(--tone);
 		stroke-width: 2.5;
 		opacity: 0;
 		transform-box: fill-box;
 		transform-origin: center;
 		animation: burst 700ms ease-out;
-	}
-	.burst.right {
-		stroke: var(--chart-up);
-	}
-	.burst.wrong {
-		stroke: var(--chart-down);
 	}
 	@keyframes burst {
 		from {
@@ -780,15 +686,31 @@
 			opacity: 0;
 		}
 	}
-	/* The tape. */
-	.tape-tools {
-		display: flex;
-		flex: none;
-		align-items: center;
-		gap: 2px;
-		padding: 0 2px;
-		background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+	/* VT323 at the type scale's label size (it has one weight: no faux bold). */
+	.price,
+	.date {
+		font: 400 14px/1 var(--md-ref-typeface-plain);
+		font-variant-numeric: tabular-nums;
+		fill: var(--chart-axis);
 	}
+	.price {
+		fill: var(--md-sys-color-on-surface);
+	}
+	.tag rect {
+		fill: var(--tone);
+		transition: fill 250ms ease;
+	}
+	.tag text,
+	.tag .arrow {
+		font: 400 8px/1 var(--md-ref-typeface-pixel);
+		font-variant-numeric: tabular-nums;
+		fill: var(--pixel-ink);
+	}
+	.arrow {
+		shape-rendering: crispEdges;
+	}
+
+	/* The tape. Press Start 2P sits on an 8px grid: 8px or 16px, never in between. */
 	.tape {
 		position: absolute;
 		inset: 0 0 auto;
@@ -796,19 +718,25 @@
 		display: flex;
 		align-items: stretch;
 		background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
-		/* Press Start 2P sits on an 8px grid: 8px or 16px, never in between. */
-		font: 400 8px/1 var(--mono);
+		font: 400 8px/1 var(--md-ref-typeface-pixel);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
-	.tape-symbol {
+	.tape-symbol,
+	.tape-tools {
 		display: flex;
 		flex: none;
 		align-items: center;
+		background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+	}
+	.tape-symbol {
 		gap: 0.4rem;
 		padding: 0 0.6rem;
-		background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
 		color: var(--md-sys-color-on-surface);
+	}
+	.tape-tools {
+		gap: 2px;
+		padding: 0 2px;
 	}
 	.tape-state {
 		color: var(--md-sys-color-on-surface-variant);
@@ -839,40 +767,21 @@
 		min-width: 0;
 		overflow: hidden;
 	}
-	/* On a phone the tape is too short to read as a story, so it keeps just the symbol and the
-	   tools, sitting as two small chips on the chart's top edge. */
-	@media (max-width: 767.98px) {
-		.tape {
-			background: transparent;
-		}
-		.tape-window {
-			display: none;
-		}
-		.tape-tools {
-			margin-left: auto;
-		}
-	}
 	.tape-item {
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
 		height: 100%;
 		padding: 0 14px;
-		color: var(--chart-axis);
+		color: var(--tone);
 	}
 	/* A short rule between items (the list runs newest first, so it goes on the right). */
 	.tape-item + .tape-item {
-		background: linear-gradient(var(--tape-rule), var(--tape-rule)) right center / 1px 8px no-repeat;
 		--tape-rule: color-mix(in srgb, var(--chart-axis) 25%, transparent);
+		background: linear-gradient(var(--tape-rule), var(--tape-rule)) right center / 1px 8px no-repeat;
 	}
 	.tape-label {
 		color: var(--md-sys-color-on-surface);
-	}
-	.tape-item.up {
-		color: var(--chart-up);
-	}
-	.tape-item.down {
-		color: var(--chart-down);
 	}
 	/* Digits fill the top seven of the line's eight pixel rows: lift the arrow half a row (as
 	   a whole pixel) to centre it on them. */
@@ -893,12 +802,24 @@
 			background-color: transparent;
 		}
 	}
+	/* On a phone the tape is too short to read as a story, so it keeps just the symbol and the
+	   tools, sitting as two small chips on the chart's top edge. */
+	@media (max-width: 767.98px) {
+		.tape {
+			background: transparent;
+		}
+		.tape-window {
+			display: none;
+		}
+		.tape-tools {
+			margin-left: auto;
+		}
+	}
 
 	@media (prefers-reduced-motion: reduce) {
 		.plot,
 		.mark,
 		.ghost,
-		.ping,
 		.live,
 		.tape-item.fresh {
 			animation: none;

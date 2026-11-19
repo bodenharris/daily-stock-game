@@ -5,9 +5,9 @@ static/icon-512.png, src/lib/assets/favicon.svg and static/manifest.webmanifest.
 
 Everything is drawn from code in the site's pixel style: the game name comes from
 src/lib/game/config.ts, the mascot from src/lib/brand/wolf.json (the same sprite the site draws),
-the colors are the tokens in src/routes/layout.css, and the type is the self-hosted pixel fonts
-in static/fonts. Pixel art is drawn at 1x and scaled up with nearest-neighbour, so every pixel
-stays a crisp square.
+the colors are the tokens in src/routes/layout.css and the header scene, and the type is the
+self-hosted pixel fonts in static/fonts. Pixel art is drawn at 1x and scaled up with
+nearest-neighbour, so every pixel stays a crisp square.
 
 Needs Pillow, fontTools and brotli (fontTools uses brotli to read woff2). From the repo root:
 
@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 FONTS = STATIC / "fonts"
 
-# Tokens from src/routes/layout.css.
+# Tokens from src/routes/layout.css; SKY is the header scene's (src/lib/brand/WolfScene.svelte).
 INK = "#050a14"
 SURFACE = "#0a1428"
 PANEL = "#101d33"

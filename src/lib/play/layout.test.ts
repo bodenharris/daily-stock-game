@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barFor, xFor, type ChartShape, type Frame } from './layout.ts';
+import { barFor, domainFor, pointsFor, xFor, type ChartShape, type Frame } from './layout.ts';
 
 const shape: ChartShape = { contextBars: 61, stepBars: 5, calls: 5 };
 const frame: Frame = {
@@ -28,5 +28,27 @@ describe('barFor', () => {
 	it('handles a one-bar context', () => {
 		const one = { ...shape, contextBars: 1 };
 		for (const x of [210, 300]) expect(xFor(barFor(x, one, frame), one, frame)).toBeCloseTo(x, 9);
+	});
+});
+
+describe('domainFor', () => {
+	it('only grows as bars are added, so a reveal never re-zooms the history', () => {
+		const bars = [100, 104, 98, 101, 140, 90, 95].map(Math.log);
+		for (let n = 2; n < bars.length; n++) {
+			const [lo, hi] = domainFor(bars.slice(0, n), 0.1);
+			const [lo2, hi2] = domainFor(bars.slice(0, n + 1), 0.1);
+			expect(lo2).toBeLessThanOrEqual(lo);
+			expect(hi2).toBeGreaterThanOrEqual(hi);
+		}
+	});
+});
+
+describe('pointsFor', () => {
+	it('ends partway between two bars', () => {
+		expect(pointsFor([1, 2, 4], 0, 2, 1.5)).toEqual([
+			[0, 1],
+			[1, 2],
+			[1.5, 3]
+		]);
 	});
 });

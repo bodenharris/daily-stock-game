@@ -92,8 +92,9 @@
 
 	/**
 	 * The home page's title screen: `children` is the title block, `actions` the buttons pinned
-	 * top right (left of the wolf on the compact strip). With `title` it is the compact strip for the inner pages instead: a back button
-	 * (`back`), the page `title` with `children` as the line under it, and a smaller wolf.
+	 * top right (left of the wolf on the compact strip). With `title` it is the compact strip for
+	 * the inner pages instead: a back button (`back`), the page `title` with `children` as the
+	 * line under it, and a smaller wolf.
 	 * The foreground sits on the same column as the page's `<main>` (max-w-md, md:max-w-2xl,
 	 * and from 1024px `maxWidth`, which the home page defaults to 80rem, with px-safe gutters
 	 * of 1 / 1.5 / 2rem), so the wolf, back button and icons line up with the content edges.
@@ -265,13 +266,7 @@
 			{#if compact}
 				<div class="bar">
 					{#if back}
-						<IconButton
-							class="pixel-panel"
-							variant="tonal"
-							size="sm"
-							href={back.href}
-							aria-label={back.label}
-						>
+						<IconButton variant="tonal" size="sm" href={back.href} aria-label={back.label}>
 							<ArrowLeft />
 						</IconButton>
 					{/if}
@@ -392,11 +387,7 @@
 	.wolf-button {
 		position: relative;
 		display: block;
-		padding: 0;
-		border: 0;
-		background: none;
 		cursor: pointer;
-		-webkit-tap-highlight-color: transparent;
 	}
 	/* A tap target a little bigger than the sprite: above his ears and either side of him, but
 	   short of the title and the buttons. Not below, where the street line is. */

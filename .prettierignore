@@ -9,10 +9,10 @@ bun.lockb
 /static/
 /drizzle/
 
-# Vendored agent skills and generated files
+# The pre-rebuild app, vendored agent skills and generated files
+/old/
 .agents/
 .claude/
-drizzle/meta/
 skills-lock.json
 .cache/
-docs/
+/private/

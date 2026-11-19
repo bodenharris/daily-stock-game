@@ -1,23 +1,14 @@
 <script lang="ts">
-	import { getDay } from '#lib/remote/game.remote.ts';
-	import Game from '#lib/play/Game.svelte';
 	import WolfScene from '#lib/brand/WolfScene.svelte';
-	import SoundButton from '#lib/play/SoundButton.svelte';
 	import { GAME_NAME } from '#lib/game/config.ts';
+	import Game from '#lib/play/Game.svelte';
+	import SoundButton from '#lib/play/SoundButton.svelte';
+	import { formatDate } from '#lib/play/format.ts';
+	import { getDay } from '#lib/remote/game.remote.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const view = $derived(await getDay(data.number));
-
-	const date = $derived(
-		new Date(`${view.date}T12:00:00Z`).toLocaleDateString('en-US', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			timeZone: 'UTC'
-		})
-	);
 </script>
 
 <svelte:head>
@@ -31,7 +22,9 @@
 		back={{ href: '/archive', label: 'Back to past charts' }}
 		maxWidth="80rem"
 	>
-		<time datetime={view.date}>{date}</time>
+		<time datetime={view.date}>
+			{formatDate(view.date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+		</time>
 		{#snippet actions()}
 			<SoundButton />
 		{/snippet}

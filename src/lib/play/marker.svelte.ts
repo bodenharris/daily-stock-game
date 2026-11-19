@@ -7,15 +7,6 @@ import type { ChartPoint } from './layout.ts';
  */
 export type Stroke = ChartPoint[];
 
-/** A stroke as the first version kept it: shares of the layer's width and height. */
-type BoxStroke = [x: number, y: number][];
-
-/** What's stored per chart. A bare array is the old, box-relative format. */
-interface Saved {
-	v: 2;
-	strokes: Stroke[];
-}
-
 /** Most strokes kept per chart, so a scribbling session can't fill up storage. */
 const MAX_STROKES = 200;
 
@@ -28,35 +19,21 @@ export class Marker {
 	/** Marker mode: pointer input draws instead of passing through. */
 	active = $state(false);
 	strokes = $state.raw<Stroke[]>([]);
-	/** Strokes saved in the old box-relative format, waiting for `adopt` to pin them. */
-	boxStrokes = $state.raw<BoxStroke[] | null>(null);
 	#key = '';
 
 	/** Switch to the strokes saved under `key` (one key per chart). */
 	load(key: string) {
 		this.#key = key;
 		this.strokes = [];
-		this.boxStrokes = null;
 		try {
-			const raw = localStorage.getItem(key);
-			const parsed: unknown = raw ? JSON.parse(raw) : null;
-			if (Array.isArray(parsed)) this.boxStrokes = parsed as BoxStroke[];
-			else if ((parsed as Saved | null)?.v === 2) this.strokes = (parsed as Saved).strokes;
+			// Saved as { v: 2, strokes }. (Version 1, a bare array of screen positions, is ignored.)
+			const saved: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
+			if ((saved as { v?: number } | null)?.v === 2) {
+				this.strokes = (saved as { strokes: Stroke[] }).strokes;
+			}
 		} catch {
 			// Unreadable: start clean.
 		}
-	}
-
-	/**
-	 * Pin old box-relative strokes to the chart as it looks now (which is where the player
-	 * sees them), then save them in the new format.
-	 */
-	adopt(pin: (share: [number, number]) => ChartPoint) {
-		if (!this.boxStrokes) return;
-		const pinned = this.boxStrokes.map((s) => s.map((p) => round(pin(p))));
-		this.boxStrokes = null;
-		this.strokes = [...pinned, ...this.strokes].slice(-MAX_STROKES);
-		this.#save();
 	}
 
 	start(p: ChartPoint) {
@@ -69,26 +46,21 @@ export class Marker {
 		this.strokes = [...this.strokes.slice(0, -1), [...last, ...points.map(round)]];
 	}
 
-	end() {
-		this.#save();
-	}
-
 	undo() {
 		this.strokes = this.strokes.slice(0, -1);
-		this.#save();
+		this.save();
 	}
 
 	clear() {
 		this.strokes = [];
-		this.#save();
+		this.save();
 	}
 
-	#save() {
+	save() {
 		if (!this.#key) return;
 		try {
 			if (this.strokes.length) {
-				const saved: Saved = { v: 2, strokes: this.strokes };
-				localStorage.setItem(this.#key, JSON.stringify(saved));
+				localStorage.setItem(this.#key, JSON.stringify({ v: 2, strokes: this.strokes }));
 			} else localStorage.removeItem(this.#key);
 		} catch {
 			// Storage blocked or full: the marks stay for this visit only.

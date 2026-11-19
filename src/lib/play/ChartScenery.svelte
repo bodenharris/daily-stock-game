@@ -5,16 +5,8 @@
 	function sprite(rows: string[]): string {
 		let d = '';
 		rows.forEach((row, y) => {
-			for (let x = 0; x < row.length;) {
-				if (row[x] !== '#') {
-					x++;
-					continue;
-				}
-				let n = 0;
-				while (row[x + n] === '#') n++;
-				d += `M${x} ${y}h${n}v1h${-n}z`;
-				x += n;
-			}
+			for (const run of row.matchAll(/#+/g))
+				d += `M${run.index} ${y}h${run[0].length}v1h-${run[0].length}z`;
 		});
 		return d;
 	}
@@ -38,15 +30,13 @@
 		seed: number,
 		from = 2,
 		widthAt: (y: number) => number = () => w
-	) {
+	): Light[] {
 		const out: Light[] = [];
 		let i = 0;
 		for (let y = from; y < h - 2; y += 3) {
-			const rowW = widthAt(y);
-			const pad = (w - rowW) / 2;
-			for (let x = Math.ceil(pad) + 1; x < pad + rowW - 1; x += 2) {
-				i++;
-				const r = rand(i, seed);
+			const pad = (w - widthAt(y)) / 2;
+			for (let x = Math.ceil(pad) + 1; x < w - pad - 1; x += 2) {
+				const r = rand(++i, seed);
 				if (r < 0.35) continue; // dark office
 				out.push({ x, y, blink: r > 0.975 ? 9 + rand(i, seed + 2) * 9 : null });
 			}
@@ -69,12 +59,13 @@
 	const towerWidthAt = (y: number) => TOWER_STEPS.find(([until]) => y < until)![1];
 	const TOWER = sprite(
 		Array.from({ length: TOWER_H }, (_, y) => {
-			const w = towerWidthAt(y);
-			const pad = (TOWER_W - w) / 2;
-			return '.'.repeat(pad) + '#'.repeat(w) + '.'.repeat(pad);
+			const pad = '.'.repeat((TOWER_W - towerWidthAt(y)) / 2);
+			return pad + '#'.repeat(towerWidthAt(y)) + pad;
 		})
 	);
 	const TOWER_LIGHTS = lights(TOWER_W, TOWER_H, 7, 19, towerWidthAt);
+	/** Where the tower stands, as a share of the plot width (its centre). */
+	const TOWER_AT = 0.62;
 
 	/** Low blocks around the tower: [x share of the plot, width, height] in art pixels. */
 	const BLOCKS = [
@@ -101,16 +92,14 @@
 </script>
 
 <script lang="ts">
-	interface Props {
-		/** The plot area the scenery fills (it is clipped to it). */
-		x0: number;
-		x1: number;
-		top: number;
-		bottom: number;
-		uid: string;
-	}
-
-	let { x0, x1, top, bottom, uid }: Props = $props();
+	/** The night city behind the price line, filling (and clipped to) the plot area. */
+	let {
+		x0,
+		x1,
+		top,
+		bottom,
+		uid
+	}: { x0: number; x1: number; top: number; bottom: number; uid: string } = $props();
 
 	const w = $derived(Math.max(1, x1 - x0));
 	const h = $derived(Math.max(1, bottom - top));
@@ -119,13 +108,23 @@
 	 * on a tall chart the tower just stands shorter.
 	 */
 	const p = $derived(Math.min(4, Math.max(2, Math.floor((h * 0.85) / TOWER_H))));
-	const at = (share: number) => Math.round(x0 + w * share);
 	const base = $derived(Math.round(bottom));
 	const star = $derived(Math.max(1, Math.floor(p / 2)));
-
-	/** Where the tower stands, as a share of the plot width (its centre). */
-	const TOWER_AT = 0.62;
+	const at = (share: number) => Math.round(x0 + w * share);
 </script>
+
+{#snippet windows(lights: Light[])}
+	{#each lights as l (`${l.x},${l.y}`)}
+		<rect
+			class={['window', l.blink && 'blink']}
+			style:--every="{l.blink ?? 0}s"
+			x={l.x}
+			y={l.y}
+			width="1"
+			height="1"
+		/>
+	{/each}
+{/snippet}
 
 <defs>
 	<clipPath id="{uid}-scene">
@@ -151,16 +150,7 @@
 			TOWER_H * p}) scale({p})"
 	>
 		<path class="building" d={TOWER} />
-		{#each TOWER_LIGHTS as l, i (i)}
-			<rect
-				class={['window', l.blink && 'blink']}
-				style:--every="{l.blink ?? 0}s"
-				x={l.x}
-				y={l.y}
-				width="1"
-				height="1"
-			/>
-		{/each}
+		{@render windows(TOWER_LIGHTS)}
 		<!-- The mast's aircraft warning light. -->
 		<rect class="beacon" x={(TOWER_W - 1) / 2} y="0" width="1" height="1" />
 	</g>
@@ -168,16 +158,7 @@
 	{#each BLOCKS as b (b.share)}
 		<g transform="translate({at(b.share)} {base - b.h * p}) scale({p})">
 			<rect class="building" width={b.w} height={b.h} />
-			{#each b.lights as l, i (i)}
-				<rect
-					class={['window', l.blink && 'blink']}
-					style:--every="{l.blink ?? 0}s"
-					x={l.x}
-					y={l.y}
-					width="1"
-					height="1"
-				/>
-			{/each}
+			{@render windows(b.lights)}
 		</g>
 	{/each}
 </g>
@@ -187,8 +168,6 @@
 	.scene {
 		pointer-events: none;
 	}
-
-	/* Sky. */
 	.star {
 		fill: #fff2c4;
 		opacity: 0.4;
@@ -201,8 +180,6 @@
 			opacity: 0.08;
 		}
 	}
-
-	/* City. */
 	.building {
 		fill: color-mix(in srgb, var(--md-sys-color-on-surface) 7%, var(--md-sys-color-surface));
 	}
@@ -228,7 +205,6 @@
 			opacity: 0.2;
 		}
 	}
-
 	@media (prefers-reduced-motion: reduce) {
 		.star.twinkle,
 		.window.blink,

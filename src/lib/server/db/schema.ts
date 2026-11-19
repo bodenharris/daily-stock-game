@@ -14,9 +14,9 @@ import {
 	unique,
 	uuid
 } from 'drizzle-orm/pg-core';
-import { user } from './auth.schema';
+import { user } from './auth.schema.ts';
 
-/** Every ticker we hold price history for. Ordinary table. */
+/** Every ticker we hold price history for. `bars` is its row count in `prices`. */
 export const tickers = pgTable('tickers', {
 	symbol: text('symbol').primaryKey(),
 	name: text('name').notNull(),
@@ -25,11 +25,7 @@ export const tickers = pgTable('tickers', {
 	bars: integer('bars').notNull().default(0)
 });
 
-/**
- * Daily bars, split-adjusted (not dividend-adjusted).
- * TimescaleDB hypertable partitioned on `ts`, compressed (columnstore) segmented by ticker.
- * The hypertable, compression and policies live in a hand-written migration.
- */
+/** Daily bars, split-adjusted but not dividend-adjusted, so prices match the quotes people remember. */
 export const prices = pgTable(
 	'prices',
 	{
@@ -44,10 +40,7 @@ export const prices = pgTable(
 	(t) => [primaryKey({ columns: [t.ticker, t.ts] })]
 );
 
-/**
- * Stock splits from Tiingo. Prices are stored split-adjusted; this lets the reveal show the
- * quotes people actually saw at the time (GameStop's $347, not $87).
- */
+/** Stock splits. The reveal undoes later ones to show the quotes of the day (GameStop's $347, not $87). */
 export const splits = pgTable(
 	'splits',
 	{
@@ -58,7 +51,7 @@ export const splits = pgTable(
 	(t) => [primaryKey({ columns: [t.ticker, t.ts] })]
 );
 
-/** Hand-picked famous market moments. Ordinary table, seeded from the catalog in code. */
+/** The private catalog of famous market moments. A negative position retires a puzzle. */
 export const puzzles = pgTable('puzzles', {
 	slug: text('slug').primaryKey(),
 	position: integer('position').notNull().unique(),
@@ -75,9 +68,8 @@ export const puzzles = pgTable('puzzles', {
 });
 
 /**
- * Which puzzle each daily number shows. Written once, the first time a number is played, so a
- * day's puzzle never changes afterwards (even if the catalog is edited) and the order is not
- * readable from the public repo (it comes from a server secret).
+ * Which puzzle each daily number shows. Written the first time the number is loaded, so a day's
+ * puzzle never changes afterwards, even if the catalog is edited.
  */
 export const schedule = pgTable('schedule', {
 	number: integer('number').primaryKey(),
@@ -87,7 +79,10 @@ export const schedule = pgTable('schedule', {
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
 
-/** One row per player per daily puzzle. Ordinary table; holds the game state. */
+export const sources = ['real', 'dev'] as const;
+export type Source = (typeof sources)[number];
+
+/** One row per player per daily puzzle. */
 export const games = pgTable(
 	'games',
 	{
@@ -99,20 +94,13 @@ export const games = pgTable(
 		puzzleSlug: text('puzzle_slug')
 			.notNull()
 			.references(() => puzzles.slug),
+		/** Calls made so far. */
 		step: smallint('step').notNull().default(0),
 		balanceCents: integer('balance_cents').notNull(),
-		archetype: text('archetype'),
-		/** The Real or Random bonus round's columns. The round was removed; kept, unused. */
-		bonusCorrect: smallint('bonus_correct'),
-		/** Real-or-random guesses in order, stored before each answer is revealed. */
-		bonusGuesses: boolean('bonus_guesses').array(),
-		bonusTotal: smallint('bonus_total'),
-		/**
-		 * "Name it" guess, stored before the reveal is sent: the slug picked, '' when skipped,
-		 * null until answered. The reveal is withheld while it is null.
-		 */
+		/** "Name it": the slug picked, '' when skipped, null until answered. The reveal waits for it. */
 		nameGuess: text('name_guess'),
-		source: text('source').notNull().default('real'),
+		/** 'dev' plays never count toward the real crowd. */
+		source: text('source', { enum: sources }).notNull().default('real'),
 		startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
 		finishedAt: timestamp('finished_at', { withTimezone: true })
 	},
@@ -122,36 +110,28 @@ export const games = pgTable(
 	]
 );
 
-/**
- * One row per call. TimescaleDB hypertable on `ts` (hand-written migration).
- * Feeds the crowd-split continuous aggregate, which feeds the payout and the stats page.
- */
+/** One row per call. The primary key is what makes a call count once, however often it is sent. */
 export const guesses = pgTable(
 	'guesses',
 	{
-		ts: timestamp('ts', { withTimezone: true }).notNull().defaultNow(),
 		gameId: uuid('game_id')
 			.notNull()
 			.references(() => games.id, { onDelete: 'cascade' }),
-		puzzleNumber: integer('puzzle_number').notNull(),
+		/** 1-based call number. */
 		step: smallint('step').notNull(),
+		ts: timestamp('ts', { withTimezone: true }).notNull().defaultNow(),
 		up: boolean('up').notNull(),
-		stakeBp: smallint('stake_bp').notNull(),
+		stakePercent: smallint('stake_percent').notNull(),
 		stakeCents: integer('stake_cents').notNull(),
+		/** Share of earlier players (prior blended in) who had called up when this call was made. */
 		crowdUpShare: real('crowd_up_share').notNull(),
-		multiplier: real('multiplier').notNull(),
+		/** The crowd multiplier locked at the call. */
+		multiplierHundredths: smallint('multiplier_hundredths').notNull(),
 		correct: boolean('correct').notNull(),
 		deltaCents: integer('delta_cents').notNull(),
-		balanceAfterCents: integer('balance_after_cents').notNull(),
-		source: text('source').notNull().default('real')
+		balanceAfterCents: integer('balance_after_cents').notNull()
 	},
-	(t) => [
-		primaryKey({ columns: [t.gameId, t.step, t.ts] }),
-		index('guesses_puzzle_step_ts_idx').on(t.puzzleNumber, t.step, t.ts.desc())
-	]
+	(t) => [primaryKey({ columns: [t.gameId, t.step] }), index('guesses_ts_idx').on(t.ts)]
 );
 
-export const sources = ['real', 'dev', 'sim'] as const;
-export type Source = (typeof sources)[number];
-
-export * from './auth.schema';
+export * from './auth.schema.ts';

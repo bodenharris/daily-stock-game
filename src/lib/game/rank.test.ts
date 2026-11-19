@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exactStanding, standingText } from '../play/standing.ts';
+import { exactStanding, standingText } from '#lib/play/standing.ts';
 import { ALPHA, PACK_EMOJI, PACK_RANKS, packRank, rankLine } from './rank.ts';
 
 const at = (betterThan: number, finished = 500) => packRank({ betterThan, finished })?.label;

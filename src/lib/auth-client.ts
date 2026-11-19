@@ -1,6 +1,4 @@
 import { createAuthClient } from 'better-auth/svelte';
-import { anonymousClient } from 'better-auth/client/plugins';
 
-export const authClient = createAuthClient({
-	plugins: [anonymousClient()]
-});
+/** Email and password only: anonymous players are created by the server on a first call. */
+export const authClient = createAuthClient();

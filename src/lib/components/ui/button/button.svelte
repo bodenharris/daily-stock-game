@@ -1,226 +1,81 @@
 <script lang="ts" module>
-	import { type VariantProps, tv } from 'tailwind-variants';
-	import { cn, type WithElementRef } from '#lib/utils.js';
+	import { tv, type VariantProps } from 'tailwind-variants';
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
+	import type { WithElementRef } from '#lib/utils.js';
 
 	/*
-	 * M3 Expressive common button (material-expressive-svelte docs/research/buttons.md §1).
+	 * The arcade button: capitals with tracking, a flat state layer and an instant one-step
+	 * press. `filled` (primary actions) wears the cabinet frame and `tonal` the panel, both of
+	 * which sink into their drop instead (`.pixel-frame` / `.pixel-panel` in layout.css); give
+	 * them 6px of room (12px below). `text` is unframed.
 	 *
-	 * Every size-dependent value is a CSS custom property set by the `size` variant, so other
-	 * components (button group) can re-shape a button by overriding variables instead of fighting
-	 * class order:
-	 *   --btn-h        container height          --btn-px     leading/trailing space
-	 *   --btn-gap      icon-label space          --btn-icon   icon size
-	 *   --btn-r-full   height / 2 (animatable "full", never 9999px)
-	 *   --btn-r-square square corner             --btn-r-pressed  pressed corner
-	 *   --btn-r        current corner (rest → selected → pressed)
-	 *   --btn-r-ss/-se/-es/-ee  optional per-corner overrides (logical corners)
-	 *   --btn-outline  outlined stroke width
-	 *
-	 * Press feedback, arcade style: a flat state layer (hover, focus, press) and an instant step
-	 * down. A `.pixel-frame` / `.pixel-panel` button sinks into its drop instead (layout.css).
-	 * Corners are all 0 in this theme, so the --btn-r* shape protocol is kept but never morphs.
+	 * Sizes are CSS variables, so a caller can re-size one without fighting class order:
+	 * --btn-h (height), --btn-px (side padding), --btn-gap (icon to label), --btn-icon.
 	 */
 
-	// 48px minimum touch target for the 32/40px sizes (buttons.md §1.5).
+	// 48px minimum touch target around the 40px size.
 	const TARGET =
 		"after:absolute after:top-1/2 after:left-1/2 after:size-full after:min-h-12 after:min-w-12 after:-translate-1/2 after:content-['']";
+	const DISABLED_FILL =
+		'disabled:bg-on-surface/10 disabled:text-on-surface/38 aria-disabled:bg-on-surface/10 aria-disabled:text-on-surface/38';
 
-	// Disabled: container on-surface 10%, content on-surface 38%, elevation 0 (buttons.md §1.3).
-	const DISABLED_CONTAINED =
-		'disabled:bg-on-surface/10 disabled:text-on-surface/38 disabled:shadow-none aria-disabled:bg-on-surface/10 aria-disabled:text-on-surface/38 aria-disabled:shadow-none';
-	const DISABLED_TEXT = 'disabled:text-on-surface/38 aria-disabled:text-on-surface/38';
-	const OUTLINE = 'shadow-[inset_0_0_0_var(--btn-outline)_var(--md-sys-color-outline-variant)]';
-
-	export const buttonVariants = tv({
+	const buttonVariants = tv({
 		base: [
-			'group/button relative inline-flex shrink-0 cursor-pointer items-center justify-center align-middle whitespace-nowrap no-underline select-none',
-			// arcade: capitals with tracking, and a one-step press down
+			'state-layer inline-flex shrink-0 cursor-pointer items-center justify-center align-middle whitespace-nowrap no-underline select-none',
 			'uppercase tracking-[0.12em] active:translate-y-0.5',
 			'h-(--btn-h) gap-(--btn-gap) px-(--btn-px)',
-			// shape: rest → (selected) → pressed; "full" is the real half-height so it can animate
-			'[--btn-r-full:0px] [--btn-r:var(--btn-r-rest)] active:[--btn-r:var(--btn-r-pressed)]',
-			'[border-start-start-radius:var(--btn-r-ss,var(--btn-r))] [border-start-end-radius:var(--btn-r-se,var(--btn-r))] [border-end-start-radius:var(--btn-r-es,var(--btn-r))] [border-end-end-radius:var(--btn-r-ee,var(--btn-r))]',
-			'[--btn-shape-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)] [--btn-color-t:var(--md-sys-motion-spring-default-effects-duration)_var(--md-sys-motion-spring-default-effects-easing)]',
-			// colors ease; the press (translate, a framed button's drop) is instant
-			'[transition:background-color_var(--btn-color-t),color_var(--btn-color-t)]',
-			// icons (lucide <svg>): size from the button, no per-icon sizing classes needed
+			// colours ease; the press (translate, a framed button's drop) is instant
+			'transition-[background-color,color] duration-(--md-sys-motion-spring-default-effects-duration) ease-(--md-sys-motion-spring-default-effects-easing)',
 			'[&_svg]:pointer-events-none [&_svg]:size-(--btn-icon) [&_svg]:shrink-0',
 			'disabled:pointer-events-none disabled:cursor-default aria-disabled:pointer-events-none aria-disabled:cursor-default'
 		],
 		variants: {
 			variant: {
-				filled: `bg-m3-primary text-on-primary ${DISABLED_CONTAINED}`,
-				tonal: `bg-secondary-container text-on-secondary-container ${DISABLED_CONTAINED}`,
-				outlined: `bg-transparent text-on-surface-variant ${OUTLINE} ${DISABLED_TEXT}`,
-				elevated: `bg-surface-container-low text-m3-primary shadow-m3-1 ${DISABLED_CONTAINED}`,
-				text: `bg-transparent text-m3-primary ${DISABLED_TEXT}`,
-				// game calls: strong fill, or the calmer container fill
-				up: `bg-up text-on-up ${DISABLED_CONTAINED}`,
-				down: `bg-down text-on-down ${DISABLED_CONTAINED}`,
-				'up-tonal': `bg-up-container text-on-up-container ${DISABLED_CONTAINED}`,
-				'down-tonal': `bg-down-container text-on-down-container ${DISABLED_CONTAINED}`,
-				// shadcn compatibility aliases
-				default: `bg-m3-primary text-on-primary ${DISABLED_CONTAINED}`,
-				secondary: `bg-secondary-container text-on-secondary-container ${DISABLED_CONTAINED}`,
-				outline: `bg-transparent text-on-surface-variant ${OUTLINE} ${DISABLED_TEXT}`,
-				ghost: `bg-transparent text-on-surface-variant ${DISABLED_TEXT}`,
-				destructive: `bg-error text-on-error ${DISABLED_CONTAINED}`,
-				link: `bg-transparent text-m3-primary underline-offset-4 hover:underline ${DISABLED_TEXT}`
+				filled: `pixel-frame bg-m3-primary text-on-primary ${DISABLED_FILL}`,
+				tonal: `pixel-panel bg-secondary-container text-on-secondary-container ${DISABLED_FILL}`,
+				text: 'bg-transparent text-m3-primary disabled:text-on-surface/38 aria-disabled:text-on-surface/38'
 			},
 			size: {
-				xs: `[--btn-h:32px] [--btn-px:12px] [--btn-gap:4px] [--btn-icon:20px] [--btn-r-square:var(--radius-m3-md)] [--btn-r-pressed:var(--radius-m3-sm)] [--btn-outline:1px] type-label-lg ${TARGET}`,
-				sm: `[--btn-h:40px] [--btn-px:16px] [--btn-gap:8px] [--btn-icon:20px] [--btn-r-square:var(--radius-m3-md)] [--btn-r-pressed:var(--radius-m3-sm)] [--btn-outline:1px] type-label-lg ${TARGET}`,
-				md: '[--btn-h:56px] [--btn-px:24px] [--btn-gap:8px] [--btn-icon:24px] [--btn-r-square:var(--radius-m3-lg)] [--btn-r-pressed:var(--radius-m3-md)] [--btn-outline:1px] type-title-md',
-				lg: '[--btn-h:96px] [--btn-px:48px] [--btn-gap:12px] [--btn-icon:32px] [--btn-r-square:var(--radius-m3-xl)] [--btn-r-pressed:var(--radius-m3-lg)] [--btn-outline:2px] type-headline-sm',
-				xl: '[--btn-h:136px] [--btn-px:64px] [--btn-gap:16px] [--btn-icon:40px] [--btn-r-square:var(--radius-m3-xl)] [--btn-r-pressed:var(--radius-m3-lg)] [--btn-outline:3px] type-headline-lg',
-				/** The Up / Down call buttons: 80px tall, fills its cell, emphasized headline label. */
-				hero: '[--btn-h:80px] [--btn-px:20px] [--btn-gap:10px] [--btn-icon:28px] [--btn-r-square:var(--radius-m3-xl)] [--btn-r-pressed:var(--radius-m3-lg-increased)] [--btn-outline:2px] type-headline-sm-emphasized [--btn-shape-t:var(--md-sys-motion-spring-fast-spatial-duration)_var(--md-sys-motion-spring-fast-spatial-easing)]',
-				// shadcn compatibility aliases
-				default: `[--btn-h:40px] [--btn-px:16px] [--btn-gap:8px] [--btn-icon:20px] [--btn-r-square:var(--radius-m3-md)] [--btn-r-pressed:var(--radius-m3-sm)] [--btn-outline:1px] type-label-lg ${TARGET}`,
-				icon: `w-(--btn-h) [--btn-h:40px] [--btn-px:0px] [--btn-gap:0px] [--btn-icon:24px] [--btn-r-square:var(--radius-m3-md)] [--btn-r-pressed:var(--radius-m3-sm)] [--btn-outline:1px] type-label-lg ${TARGET}`,
-				'icon-xs': `w-(--btn-h) [--btn-h:32px] [--btn-px:0px] [--btn-gap:0px] [--btn-icon:20px] [--btn-r-square:var(--radius-m3-md)] [--btn-r-pressed:var(--radius-m3-sm)] [--btn-outline:1px] type-label-lg ${TARGET}`,
-				'icon-sm': `w-(--btn-h) [--btn-h:32px] [--btn-px:0px] [--btn-gap:0px] [--btn-icon:20px] [--btn-r-square:var(--radius-m3-md)] [--btn-r-pressed:var(--radius-m3-sm)] [--btn-outline:1px] type-label-lg ${TARGET}`,
-				'icon-lg':
-					'w-(--btn-h) [--btn-h:56px] [--btn-px:0px] [--btn-gap:0px] [--btn-icon:24px] [--btn-r-square:var(--radius-m3-lg)] [--btn-r-pressed:var(--radius-m3-md)] [--btn-outline:1px] type-label-lg'
-			},
-			shape: {
-				round: '[--btn-r-rest:var(--btn-r-full)] [--btn-r-sel:var(--btn-r-square)]',
-				square: '[--btn-r-rest:var(--btn-r-square)] [--btn-r-sel:var(--btn-r-full)]'
-			},
-			/** Toggle (selection) button: shape morphs use fast-spatial (buttons.md §1.4). */
-			toggle: {
-				true: '[--btn-shape-t:var(--md-sys-motion-spring-fast-spatial-duration)_var(--md-sys-motion-spring-fast-spatial-easing)]',
-				false: ''
-			},
-			selected: {
-				true: '',
-				false: ''
+				sm: `[--btn-h:40px] [--btn-px:16px] [--btn-gap:8px] [--btn-icon:20px] type-label-lg ${TARGET}`,
+				md: '[--btn-h:56px] [--btn-px:24px] [--btn-gap:8px] [--btn-icon:24px] type-title-md',
+				/** The Up / Down calls. */
+				hero: '[--btn-h:80px] [--btn-px:20px] [--btn-gap:10px] [--btn-icon:28px] type-headline-sm-emphasized'
 			}
 		},
-		compoundVariants: [
-			// selected: round → square, square → round
-			{ toggle: true, selected: true, class: '[--btn-r:var(--btn-r-sel)]' },
-			// toggle colors (buttons.md §1.3 "Toggle button")
-			{
-				toggle: true,
-				selected: false,
-				variant: ['filled', 'default', 'up', 'down'],
-				class: 'bg-surface-container text-on-surface-variant'
-			},
-			{
-				toggle: true,
-				selected: false,
-				variant: ['up-tonal', 'down-tonal'],
-				class: 'bg-surface-container-high text-on-surface-variant'
-			},
-			{
-				toggle: true,
-				selected: true,
-				variant: ['up-tonal'],
-				class: 'bg-up text-on-up'
-			},
-			{
-				toggle: true,
-				selected: true,
-				variant: ['down-tonal'],
-				class: 'bg-down text-on-down'
-			},
-			{
-				toggle: true,
-				selected: true,
-				variant: ['tonal', 'secondary'],
-				class: 'bg-m3-secondary text-on-secondary'
-			},
-			{
-				toggle: true,
-				selected: true,
-				variant: ['outlined', 'outline'],
-				class:
-					'bg-inverse-surface text-inverse-on-surface shadow-[inset_0_0_0_0_var(--md-sys-color-outline-variant)] disabled:bg-on-surface/10'
-			},
-			{ toggle: true, selected: true, variant: 'elevated', class: 'bg-m3-primary text-on-primary' }
-		],
-		defaultVariants: {
-			variant: 'filled',
-			size: 'sm',
-			shape: 'round',
-			toggle: false,
-			selected: false
-		}
+		defaultVariants: { variant: 'filled', size: 'sm' }
 	});
 
-	export type ButtonVariant = VariantProps<typeof buttonVariants>['variant'];
-	export type ButtonSize = VariantProps<typeof buttonVariants>['size'];
-	export type ButtonShape = VariantProps<typeof buttonVariants>['shape'];
-
-	export type ButtonProps = WithElementRef<HTMLButtonAttributes> &
-		WithElementRef<HTMLAnchorAttributes> & {
-			/** `filled` (default) | `tonal` | `outlined` | `elevated` | `text` | `up` | `down` | `up-tonal` | `down-tonal`. */
-			variant?: ButtonVariant;
-			/** `xs` 32 | `sm` 40 (default) | `md` 56 | `hero` 80 | `lg` 96 | `xl` 136, or `icon*`. */
-			size?: ButtonSize;
-			/** Resting shape: `round` (full, default) or `square`. */
-			shape?: ButtonShape;
-			/** Selection (toggle) button. Not available for `text` (ignored). */
-			toggle?: boolean;
-			/** Selected state of a toggle button (bindable). */
-			pressed?: boolean;
-			onPressedChange?: (pressed: boolean) => void;
-		};
+	type ButtonProps = WithElementRef<HTMLButtonAttributes> &
+		WithElementRef<HTMLAnchorAttributes> &
+		VariantProps<typeof buttonVariants>;
 </script>
 
 <script lang="ts">
-	import { stateLayer } from '#lib/m3/ripple.svelte.js';
+	import { cn } from '#lib/utils.js';
 
 	let {
 		class: className,
-		variant = 'filled',
-		size = 'sm',
-		shape = 'round',
-		toggle = false,
-		pressed = $bindable(false),
-		onPressedChange,
+		variant,
+		size,
 		ref = $bindable(null),
-		href = undefined,
+		href,
 		type = 'button',
 		disabled,
-		onclick,
 		children,
 		...restProps
 	}: ButtonProps = $props();
-
-	const isToggle = $derived(toggle && variant !== 'text' && variant !== 'link' && !href);
-	const classes = $derived(
-		cn(
-			buttonVariants({ variant, size, shape, toggle: isToggle, selected: isToggle && pressed }),
-			className
-		)
-	);
-
-	function handleClick(e: MouseEvent & { currentTarget: EventTarget & HTMLButtonElement }) {
-		(onclick as ((e: MouseEvent) => void) | undefined)?.(e);
-		if (!isToggle || e.defaultPrevented) return;
-		pressed = !pressed;
-		onPressedChange?.(pressed);
-	}
 </script>
 
 {#if href}
 	<a
 		bind:this={ref}
 		data-slot="button"
-		data-variant={variant}
-		data-size={size}
-		data-shape={shape}
-		class={classes}
+		class={cn(buttonVariants({ variant, size }), className)}
 		href={disabled ? undefined : href}
 		aria-disabled={disabled}
 		role={disabled ? 'link' : undefined}
 		tabindex={disabled ? -1 : undefined}
-		onclick={onclick as HTMLAnchorAttributes['onclick']}
 		{...restProps}
-		{@attach stateLayer()}
 	>
 		{@render children?.()}
 	</a>
@@ -228,17 +83,10 @@
 	<button
 		bind:this={ref}
 		data-slot="button"
-		data-variant={variant}
-		data-size={size}
-		data-shape={shape}
-		data-selected={isToggle ? pressed : undefined}
-		aria-pressed={isToggle ? pressed : undefined}
-		class={classes}
+		class={cn(buttonVariants({ variant, size }), className)}
 		{type}
 		{disabled}
-		onclick={handleClick}
 		{...restProps}
-		{@attach stateLayer()}
 	>
 		{@render children?.()}
 	</button>

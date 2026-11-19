@@ -1,5 +1,5 @@
 {
-  "id": "a6a5fcc9-a419-44e7-9f0c-94a2e82775d6",
+  "id": "6a6ee56f-9522-4b20-9440-8c5e71745681",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -46,21 +46,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "archetype": {
-          "name": "archetype",
+        "name_guess": {
+          "name": "name_guess",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bonus_correct": {
-          "name": "bonus_correct",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bonus_total": {
-          "name": "bonus_total",
-          "type": "smallint",
           "primaryKey": false,
           "notNull": false
         },
@@ -155,22 +143,9 @@
       "name": "guesses",
       "schema": "",
       "columns": {
-        "ts": {
-          "name": "ts",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
         "game_id": {
           "name": "game_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "puzzle_number": {
-          "name": "puzzle_number",
-          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -180,14 +155,21 @@
           "primaryKey": false,
           "notNull": true
         },
+        "ts": {
+          "name": "ts",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
         "up": {
           "name": "up",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },
-        "stake_bp": {
-          "name": "stake_bp",
+        "stake_percent": {
+          "name": "stake_percent",
           "type": "smallint",
           "primaryKey": false,
           "notNull": true
@@ -204,9 +186,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "multiplier": {
-          "name": "multiplier",
-          "type": "real",
+        "multiplier_hundredths": {
+          "name": "multiplier_hundredths",
+          "type": "smallint",
           "primaryKey": false,
           "notNull": true
         },
@@ -227,35 +209,16 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'real'"
         }
       },
       "indexes": {
-        "guesses_puzzle_step_ts_idx": {
-          "name": "guesses_puzzle_step_ts_idx",
+        "guesses_ts_idx": {
+          "name": "guesses_ts_idx",
           "columns": [
-            {
-              "expression": "puzzle_number",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "step",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
             {
               "expression": "ts",
               "isExpression": false,
-              "asc": false,
+              "asc": true,
               "nulls": "last"
             }
           ],
@@ -281,12 +244,11 @@
         }
       },
       "compositePrimaryKeys": {
-        "guesses_game_id_step_ts_pk": {
-          "name": "guesses_game_id_step_ts_pk",
+        "guesses_game_id_step_pk": {
+          "name": "guesses_game_id_step_pk",
           "columns": [
             "game_id",
-            "step",
-            "ts"
+            "step"
           ]
         }
       },
@@ -449,6 +411,91 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.schedule": {
+      "name": "schedule",
+      "schema": "",
+      "columns": {
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "schedule_slug_puzzles_slug_fk": {
+          "name": "schedule_slug_puzzles_slug_fk",
+          "tableFrom": "schedule",
+          "tableTo": "puzzles",
+          "columnsFrom": [
+            "slug"
+          ],
+          "columnsTo": [
+            "slug"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.splits": {
+      "name": "splits",
+      "schema": "",
+      "columns": {
+        "ticker": {
+          "name": "ticker",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ts": {
+          "name": "ts",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "factor": {
+          "name": "factor",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "splits_ticker_ts_pk": {
+          "name": "splits_ticker_ts_pk",
+          "columns": [
+            "ticker",
+            "ts"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

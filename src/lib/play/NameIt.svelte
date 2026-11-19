@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Check from '@lucide/svelte/icons/check';
 	import X from '@lucide/svelte/icons/x';
-	import { rise } from '#lib/m3/transitions.ts';
-	import { stateLayer } from '#lib/m3/ripple.svelte.ts';
+	import { isHttpError } from '@sveltejs/kit';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import { nameIt as sendGuess } from '#lib/remote/game.remote.ts';
+	import { rise } from '#lib/transitions.ts';
+	import { getDay, getGame, nameIt as sendGuess } from '#lib/remote/game.remote.ts';
 	import type { NameIt } from './types.ts';
 
 	/**
@@ -38,23 +38,28 @@
 		picked = choice;
 		error = null;
 		try {
-			const view = await sendGuess({ puzzleNumber: number, choice, archive });
-			const n = view.nameIt;
-			onAnswered(!!n && n.guess != null && n.guess === n.answer);
-		} catch {
+			const { nameIt: n } = await sendGuess({ puzzleNumber: number, choice, archive });
+			onAnswered(n?.guess != null && n.guess === n.answer);
+		} catch (e) {
 			picked = null;
-			error = navigator.onLine
-				? 'That did not go through. Try again.'
-				: 'You are offline. Try again when you are back.';
+			if (isHttpError(e) && e.status === 409) {
+				// A new day started: catch up, as a call does.
+				error = e.body.message;
+				await (archive ? getDay(number) : getGame())
+					.refresh()
+					.catch(() => (error = 'Refresh the page to continue.'));
+			} else {
+				error = navigator.onLine
+					? 'That did not go through. Try again.'
+					: 'You are offline. Try again when you are back.';
+			}
 		} finally {
 			busy = false;
 		}
 	}
 
-	function optionState(i: number): 'right' | 'wrong' | 'picked' | 'other' | 'idle' {
-		if (done && nameIt.answer === i) return 'right';
-		if (done && nameIt.guess === i) return 'wrong';
-		if (done) return 'other';
+	function optionState(i: number) {
+		if (done) return nameIt.answer === i ? 'right' : nameIt.guess === i ? 'wrong' : 'other';
 		if (picked === i) return 'picked';
 		return picked != null ? 'other' : 'idle';
 	}
@@ -64,7 +69,7 @@
 	<div
 		class="outline-none"
 		tabindex="-1"
-		{@attach (node) => {
+		{@attach (node: HTMLElement) => {
 			// The call buttons just went away; keep keyboard and screen-reader users here.
 			if (document.activeElement === document.body) node.focus({ preventScroll: true });
 		}}
@@ -83,11 +88,10 @@
 			{@const s = optionState(i)}
 			<button
 				type="button"
-				class="option {s}"
+				class="option state-layer {s}"
 				disabled={busy || done}
 				aria-pressed={picked === i || nameIt.guess === i}
 				onclick={() => choose(i)}
-				{@attach stateLayer()}
 			>
 				<span class="min-w-0 flex-1 text-left">{option}</span>
 				{#if s === 'right'}
@@ -106,13 +110,11 @@
 			<p class="type-body-sm text-error" role="alert">{error}</p>
 		{:else if done}
 			<p class="type-title-md text-on-surface" role="status">
-				{#if nameIt.guess == null}
-					Here it is.
-				{:else if nameIt.guess === nameIt.answer}
-					You named it.
-				{:else}
-					Not that one.
-				{/if}
+				{nameIt.guess == null
+					? 'Here it is.'
+					: nameIt.guess === nameIt.answer
+						? 'You named it.'
+						: 'Not that one.'}
 			</p>
 		{:else}
 			<Button variant="text" size="sm" disabled={busy} onclick={() => choose(null)}>
@@ -129,17 +131,12 @@
 		gap: 0.75rem;
 		min-height: 3.25rem;
 		padding: 0.625rem 1.25rem;
-		border-radius: var(--md-sys-shape-corner-large, 16px);
 		background: var(--md-sys-color-surface-container-high);
 		color: var(--md-sys-color-on-surface);
-		font: inherit;
 		font-size: 1rem;
 		line-height: 1.375rem;
-		transition:
-			background-color 200ms ease,
-			color 200ms ease,
-			opacity 200ms ease,
-			border-radius 250ms ease;
+		transition-property: background-color, color, opacity;
+		transition-duration: 200ms;
 	}
 	.option:focus-visible {
 		outline: 2px solid var(--md-sys-color-primary);
@@ -151,7 +148,6 @@
 	.option.picked {
 		background: var(--md-sys-color-primary);
 		color: var(--md-sys-color-on-primary);
-		border-radius: var(--md-sys-shape-corner-small, 8px);
 	}
 	.option.right {
 		background: var(--up-container);

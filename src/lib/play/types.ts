@@ -1,17 +1,14 @@
-import type { FinishBucket } from '#lib/stats/finishes.ts';
-
 /** Shapes sent from the server to the game screen. Shared by client and server. */
+import type { Direction } from '#lib/game/economy.ts';
+import type { Standing } from './standing.ts';
 
-export type Direction = 'up' | 'down';
+export type { Direction };
 
 export interface CallResult {
 	/** 1-based call number. */
 	step: number;
 	direction: Direction;
-	stakePercent: number;
 	stakeCents: number;
-	/** Crowd multiplier locked when the call was made, in hundredths. */
-	multiplierHundredths: number;
 	correct: boolean;
 	deltaCents: number;
 	balanceAfterCents: number;
@@ -25,15 +22,12 @@ export interface CallResult {
 
 export interface Reveal {
 	ticker: string;
-	company: string;
 	headline: string;
 	story: string;
 	/** ISO dates for every bar in `closes`. */
 	dates: string[];
 	/** Closes as quoted on each day (later splits undone), for every bar. */
 	closes: number[];
-	/** Percent move of each stretch, e.g. -12.3. */
-	moves: number[];
 	/** A year after the puzzle ended, if the stock still traded. */
 	hindsight: { date: string; close: number; change: number } | null;
 }
@@ -63,7 +57,6 @@ export interface GameView {
 	calls: number;
 	contextBars: number;
 	stepBars: number;
-	totalBars: number;
 	/**
 	 * Visible bars only, normalised so the last context close is 100.
 	 * Raw prices and dates stay on the server until the reveal.
@@ -80,11 +73,17 @@ export interface GameView {
 	email: string | null;
 	streak: number;
 	/** Where this finish stands among today's players (finished games only). */
-	standing: { betterThan: number | null; finished: number } | null;
+	standing: Standing | null;
 	/** "Name it" for a finished game; null before the last call. */
 	nameIt: NameIt | null;
 	/** Where everyone finished that day, sent with the reveal only. */
 	finishes: Finishes | null;
+}
+
+/** Finishes in one bucket: `cents` is its lower edge; the FINISH_CAP_CENTS bucket is open-ended. */
+export interface FinishBucket {
+	cents: number;
+	count: number;
 }
 
 /** The day's final balances, for the end screen's curve. Nobody is named. */
@@ -97,9 +96,4 @@ export interface Finishes {
 	finished: number;
 	/** The day's best final balance (the pack leader's), exact. Never who it belongs to. */
 	leaderCents: number;
-}
-
-export interface CallResponse {
-	view: GameView;
-	result: CallResult;
 }

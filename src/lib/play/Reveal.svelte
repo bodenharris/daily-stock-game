@@ -1,78 +1,70 @@
 <script lang="ts">
-	import { pop, rise } from '#lib/m3/transitions.ts';
-	import { MediaQuery } from 'svelte/reactivity';
 	import { page } from '$app/state';
-	import Share2 from '@lucide/svelte/icons/share-2';
-	import Check from '@lucide/svelte/icons/check';
-	import { Button } from '#lib/components/ui/button/index.js';
-	import { packRank } from '#lib/game/rank.ts';
-	import { buildShareText } from '#lib/game/share.ts';
-	import { dollars } from './money.ts';
-	import { toRecords } from './records.ts';
-	import { standingText } from './standing.ts';
-	import Countdown from './Countdown.svelte';
-	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
-	import Wolf from '#lib/brand/Wolf.svelte';
-	import RankBadge from '#lib/brand/RankBadge.svelte';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
-	import type { GameView } from './types.ts';
+	import Check from '@lucide/svelte/icons/check';
+	import Share2 from '@lucide/svelte/icons/share-2';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import RankBadge from '#lib/brand/RankBadge.svelte';
+	import Wolf from '#lib/brand/Wolf.svelte';
+	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
+	import { packRank } from '#lib/game/rank.ts';
+	import { buildShareText } from '#lib/game/share.ts';
+	import { pop, rise } from '#lib/transitions.ts';
+	import FinishHistogram from '#lib/stats/FinishHistogram.svelte';
+	import Countdown from './Countdown.svelte';
+	import { dollars, formatDate, formatPrice } from './format.ts';
+	import { toRecords } from './records.ts';
+	import { standingText } from './standing.ts';
+	import type { GameView, Reveal } from './types.ts';
 
+	/**
+	 * The unmasking: what the chart was, the player's Wolf Pack Rank, Share, the story, and where
+	 * everyone finished. `fresh`: it happens now (not on a reload), so it builds in beats.
+	 */
 	let {
 		view,
+		reveal,
 		fresh = false,
 		archive = false
-	}: { view: GameView; fresh?: boolean; archive?: boolean } = $props();
-	const reveal = $derived(view.reveal!);
-	const records = $derived(toRecords(view.results));
+	}: { view: GameView; reveal: Reveal; fresh?: boolean; archive?: boolean } = $props();
+
 	const rank = $derived(packRank(view.standing));
 	const standing = $derived(standingText(view.standing, archive ? 'players' : 'today'));
 	// How far this finish trails the day's best one. Nothing to show for the leader (the rank
 	// already says so) or when nobody else has finished.
-	const behindLeader = $derived.by(() => {
-		const f = view.finishes;
-		if (!f || f.finished < 2) return null;
-		const gap = f.leaderCents - view.balanceCents;
-		return gap > 0 ? { leader: f.leaderCents, gap } : null;
-	});
-	const n = $derived(view.nameIt);
-	const named = $derived(!!n && n.guess != null && n.guess === n.answer);
-	const wrongGuess = $derived(
-		n && n.guess != null && n.guess !== n.answer ? n.options[n.guess] : null
+	const leader = $derived(
+		view.finishes && view.finishes.finished > 1 && view.finishes.leaderCents > view.balanceCents
+			? view.finishes.leaderCents
+			: null
 	);
-	const light = new MediaQuery('(prefers-color-scheme: light)');
+	const n = $derived(view.nameIt);
+	const named = $derived(n?.guess != null && n.guess === n.answer);
+	const wrongGuess = $derived(n?.guess != null && !named ? n.options[n.guess] : null);
 
+	// The whole chart, so it agrees with the axis under it.
 	const range = $derived.by(() => {
-		const fmt = (iso: string, withYear: boolean) =>
-			new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', {
-				month: 'short',
-				day: 'numeric',
-				...(withYear ? { year: 'numeric' } : {}),
-				timeZone: 'UTC'
-			});
-		// The whole chart, so it agrees with the axis under it.
 		const first = reveal.dates[0];
 		const last = reveal.dates.at(-1)!;
+		const day = { month: 'short', day: 'numeric' } as const;
+		const year = { ...day, year: 'numeric' } as const;
 		const sameYear = first.slice(0, 4) === last.slice(0, 4);
-		return `${fmt(first, !sameYear)} – ${fmt(last, true)}`;
+		return `${formatDate(first, sameYear ? day : year)} – ${formatDate(last, year)}`;
 	});
 
-	const shareText = $derived(
-		buildShareText({
+	let copied = $state(false);
+	/** The share text, shown ready to select when the clipboard is blocked (some in-app browsers). */
+	let manualCopy = $state<string | null>(null);
+
+	async function share() {
+		const text = buildShareText({
 			puzzleNumber: view.number,
-			calls: records,
+			calls: toRecords(view.results),
 			rank,
-			theme: light.current ? 'light' : 'dark',
 			standing,
 			named,
 			url: page.url.origin
-		})
-	);
-
-	let copied = $state(false);
-
-	async function share() {
-		const text = shareText;
+		});
 		try {
 			if (navigator.share && matchMedia('(pointer: coarse)').matches) {
 				await navigator.share({ text });
@@ -86,32 +78,27 @@
 			copied = true;
 			setTimeout(() => (copied = false), 2000);
 		} catch {
-			// Clipboard blocked (some in-app browsers): show the text so it can be copied by hand.
 			manualCopy = text;
 		}
 	}
 
-	let manualCopy = $state<string | null>(null);
 	function selectAll(node: HTMLElement) {
-		const range = document.createRange();
-		range.selectNodeContents(node);
-		const selection = window.getSelection();
-		selection?.removeAllRanges();
-		selection?.addRange(range);
+		const all = document.createRange();
+		all.selectNodeContents(node);
+		getSelection()?.removeAllRanges();
+		getSelection()?.addRange(all);
 	}
 
-	const d = (ms: number) => (fresh ? ms : 0);
-	const price = (n: number) =>
-		n >= 100 ? `$${Math.round(n)}` : n >= 10 ? `$${n.toFixed(1)}` : `$${n.toFixed(2)}`;
+	const delay = (ms: number) => ({ delay: fresh ? ms : 0 });
 </script>
 
 <!-- A fresh unmasking builds top-down in three beats: the name, the verdict, then the rest. -->
 <section class="flex flex-col gap-6 pt-6 pb-6">
-	<div in:rise={{ delay: d(100) }}>
+	<div in:rise={delay(100)}>
 		<h2
 			class="type-headline-sm-emphasized text-balance text-on-surface outline-none"
 			tabindex="-1"
-			{@attach (node) => {
+			{@attach (node: HTMLElement) => {
 				// Bring keyboard and screen-reader users to the unmasking when it lands.
 				if (fresh) node.focus({ preventScroll: true });
 			}}
@@ -133,11 +120,11 @@
 	<div
 		class={[
 			'pixel-panel mx-1.5 flex items-center gap-4 px-5 py-3',
-			view.balanceCents >= 10000
+			view.balanceCents >= START_BALANCE_CENTS
 				? 'bg-primary-container text-on-primary-container'
 				: 'bg-surface-container-high text-on-surface'
 		]}
-		in:pop={{ delay: d(250), start: 0.92 }}
+		in:pop={{ ...delay(250), start: 0.92 }}
 	>
 		<div class="wolf shrink-0" aria-hidden="true"><Wolf scale={2} /></div>
 		<div class="min-w-0 flex-1">
@@ -159,10 +146,9 @@
 			{#if rank}
 				<p class="mt-2 type-body-md opacity-80">{rank.line}</p>
 			{/if}
-			{#if behindLeader}
-				{@const { gap, leader } = behindLeader}
+			{#if leader}
 				<p class="mt-1 type-label-lg text-pretty type-numeric opacity-80">
-					{dollars(gap)} behind the pack leader's {dollars(leader)}
+					{dollars(leader - view.balanceCents)} behind the pack leader's {dollars(leader)}
 				</p>
 			{/if}
 		</div>
@@ -170,13 +156,13 @@
 
 	<!-- One beat for everything below the verdict. Transitions inside {#if} blocks are local and
 	     would not play on their own, so they ride on this one. -->
-	<div class="flex flex-col gap-6" in:rise={{ delay: d(400) }}>
+	<div class="flex flex-col gap-6" in:rise={delay(400)}>
 		<div class="flex flex-col gap-3">
 			<div class="actions grid grid-cols-2 gap-4 px-1.5 pt-1.5 pb-3">
 				<Button
 					variant="filled"
 					size="md"
-					class="pixel-frame [--btn-px:12px]"
+					class="[--btn-px:12px]"
 					onclick={share}
 					aria-live="polite"
 				>
@@ -186,7 +172,7 @@
 						<Share2 /> Share
 					{/if}
 				</Button>
-				<Button variant="tonal" size="md" class="pixel-panel [--btn-px:12px]" href="/archive">
+				<Button variant="tonal" size="md" class="[--btn-px:12px]" href="/archive">
 					<CalendarDays /> Past charts
 				</Button>
 			</div>
@@ -203,8 +189,9 @@
 					<a
 						href="/"
 						class="inline-flex min-h-11 items-center type-label-lg text-m3-primary underline underline-offset-4"
-						>Today's chart</a
 					>
+						Today's chart
+					</a>
 				{:else}
 					<Countdown to={view.nextPuzzleAt} />
 				{/if}
@@ -217,11 +204,10 @@
 				{@const h = reveal.hindsight}
 				<p class="hindsight mt-1 type-body-md text-on-surface-variant">
 					In hindsight: a year later it was
-					<span class="text-on-surface type-numeric">{price(h.close)}</span>
-					<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}
-						>({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}% from where the chart
-						ends)</span
-					>.
+					<span class="text-on-surface type-numeric">{formatPrice(h.close)}</span>
+					<span class={['type-numeric', h.change >= 0 ? 'text-up' : 'text-down']}>
+						({h.change >= 0 ? '+' : '−'}{Math.abs(Math.round(h.change))}% from where the chart ends)
+					</span>.
 				</p>
 			{/if}
 		</div>
@@ -264,8 +250,8 @@
 		line-height: 1.5rem;
 		letter-spacing: 0;
 	}
-	/* The mascot shows up for the verdict; on the narrowest phones the title needs the room. */
-	/* …and the two buttons need their labels more than their icons. */
+	/* The mascot shows up for the verdict; on the narrowest phones the title needs the room, and
+	   the two buttons need their labels more than their icons. */
 	@media (max-width: 359px) {
 		.wolf,
 		.actions :global(svg) {

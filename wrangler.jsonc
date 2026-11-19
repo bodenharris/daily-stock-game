@@ -1,0 +1,14 @@
+{
+	"name": "thewolfgame",
+	"compatibility_date": "2026-10-01",
+	// Give each pull request Preview its workers.dev URL.
+	"preview_urls": true,
+	"observability": {
+		"enabled": true
+	},
+	"previews": {
+		"observability": {
+			"enabled": true
+		}
+	}
+}

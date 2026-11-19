@@ -1,9 +1,14 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { START_BALANCE_CENTS } from '#lib/game/config.ts';
-	import { dollars } from '#lib/play/money.ts';
-	import { FINISH_CAP_CENTS, finishCurve, groupFinishes, type FinishBucket } from './finishes.ts';
+	import { FINISH_CAP_CENTS, START_BALANCE_CENTS } from '#lib/game/config.ts';
+	import { dollars } from '#lib/play/format.ts';
+	import type { FinishBucket } from '#lib/play/types.ts';
+	import { finishCurve, groupFinishes } from './finishes.ts';
 
+	/**
+	 * Where everyone finished: a smooth curve over the final balances, pink below the $100 start
+	 * and green above it, with a dot for the viewer's exact finish. Nobody is named.
+	 */
 	let {
 		finishes,
 		you,
@@ -23,11 +28,9 @@
 	const W = 1000;
 	const H = 100;
 
-	// The groups still set the axis and back the hover readout and the screen-reader text.
+	// The groups set the axis and back the hover readout and the screen-reader text.
 	const chart = $derived(groupFinishes(finishes, you, 20));
 	const curve = $derived(finishCurve(finishes, chart.end, SAMPLES));
-
-	const money = (cents: number) => dollars(cents);
 
 	/** Where along the axis (0–1) everyone started and where the viewer ended. */
 	const startAt = $derived(START_BALANCE_CENTS / chart.end);
@@ -41,12 +44,10 @@
 	});
 
 	const points = $derived(curve.map((v, i) => `${(i / SAMPLES) * W},${H - v * H}`).join(' L'));
-	const line = $derived(`M${points}`);
-	const area = $derived(`M0,${H} L${points} L${W},${H} Z`);
 
 	/**
-	 * The fill, as hard colour stops: red below the start, green above it, and everything
-	 * past the viewer's finish (the players who beat them) stepped back to a faint tint.
+	 * The fill, as hard colour stops: pink below the start, green above it, and everything past
+	 * the viewer's finish (the players who beat them) stepped back to a faint tint.
 	 */
 	const fillStops = $derived.by(() => {
 		const edges = [...new Set([0, startAt, youAt ?? 1, 1])]
@@ -78,24 +79,23 @@
 
 	/** The group under the pointer, for the exact count the smooth line can't show. */
 	let hovered = $state<number | null>(null);
-	function pick(e: PointerEvent) {
-		const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+	function pick(e: PointerEvent & { currentTarget: HTMLElement }) {
+		const box = e.currentTarget.getBoundingClientRect();
 		const at = (e.clientX - box.left) / box.width;
 		hovered = Math.max(0, Math.min(chart.groups.length - 1, Math.floor(at * chart.groups.length)));
 	}
 	const hover = $derived(hovered == null ? null : chart.groups[hovered]);
-	const range = (g: (typeof chart.groups)[number]) =>
-		g.open ? `${money(g.from)}+` : `${money(g.from)}–${money(g.to)}`;
+
+	type Group = (typeof chart.groups)[number];
+	const range = (g: Group, to = '–') =>
+		g.open ? `${dollars(g.from)}+` : `${dollars(g.from)}${to}${dollars(g.to)}`;
 
 	const label = $derived.by(() => {
-		const parts = [`Curve of ${chart.total} final balances.`];
 		const g = chart.groups[chart.mine];
-		if (g) {
-			parts.push(
-				`Your ${money(you!)} is in the ${g.open ? `${money(g.from)} or more` : `${money(g.from)} to ${money(g.to)}`} range, with ${g.count - 1} ${g.count === 2 ? 'other' : 'others'}.`
-			);
-		}
-		return parts.join(' ');
+		const mine = g
+			? ` Your ${dollars(you!)} is in the ${g.open ? `${dollars(g.from)} or more` : range(g, ' to ')} range, with ${g.count - 1} ${g.count === 2 ? 'other' : 'others'}.`
+			: '';
+		return `Curve of ${chart.total} final balances.${mine}`;
 	});
 </script>
 
@@ -131,9 +131,9 @@
 						<stop offset="1" style:stop-color="var(--up)" />
 					</linearGradient>
 				</defs>
-				<path d={area} fill="url(#{id}-fill)" />
+				<path d="M0,{H} L{points} L{W},{H} Z" fill="url(#{id}-fill)" />
 				<path
-					d={line}
+					d="M{points}"
 					fill="none"
 					stroke="url(#{id}-line)"
 					stroke-width="2"
@@ -152,19 +152,21 @@
 				<span
 					class={['you font-pixel', hover && 'hidden']}
 					style:left="clamp(0.75rem, {youAt * 100}%, 100% - 0.75rem)"
-					style:bottom="calc({youHeight * 100}% + 10px)">YOU</span
+					style:bottom="calc({youHeight * 100}% + 10px)"
 				>
+					YOU
+				</span>
 			{/if}
 
 			{#if hover}
 				<p
 					class="tip type-label-md type-numeric"
-					style:left="clamp(3.5rem, {((hover.from + hover.to) / 2 / chart.end) * 100}%, 100% -
-					3.5rem)"
+					style:--at="{((hover.from + hover.to) / 2 / chart.end) * 100}%"
 				>
-					<span class="text-on-surface"
-						>{hover.count} {hover.count === 1 ? 'player' : 'players'}</span
-					>
+					<span class="text-on-surface">
+						{hover.count}
+						{hover.count === 1 ? 'player' : 'players'}
+					</span>
 					<span class="text-on-surface-variant">{range(hover)}</span>
 				</p>
 			{/if}
@@ -173,12 +175,12 @@
 
 	<figcaption class="axis type-label-lg text-on-surface-variant" aria-hidden="true">
 		<span class="absolute left-0">$0</span>
-		<span class="absolute -translate-x-1/2" style:left="max({startAt * 100}%, 4rem)"
-			>Start {money(START_BALANCE_CENTS)}</span
-		>
-		<span class="absolute right-0"
-			>{chart.capped ? `${money(chart.groups.at(-1)!.from)}+` : money(chart.end)}</span
-		>
+		<span class="absolute -translate-x-1/2" style:left="max({startAt * 100}%, 4rem)">
+			Start {dollars(START_BALANCE_CENTS)}
+		</span>
+		<span class="absolute right-0">
+			{chart.capped ? `${dollars(chart.groups.at(-1)!.from)}+` : dollars(chart.end)}
+		</span>
 	</figcaption>
 </figure>
 
@@ -234,7 +236,7 @@
 		height: 10px;
 		translate: -50% 50%;
 		background: var(--md-sys-color-primary);
-		box-shadow: 0 0 0 2px var(--pixel-ink, #000);
+		box-shadow: 0 0 0 2px var(--pixel-ink);
 	}
 	.you {
 		position: absolute;
@@ -247,6 +249,8 @@
 	.tip {
 		position: absolute;
 		top: -1.5rem;
+		/* centred over the group, kept inside the plot */
+		left: clamp(3.5rem, var(--at), 100% - 3.5rem);
 		z-index: 1;
 		display: flex;
 		gap: 0.375rem;
@@ -254,7 +258,7 @@
 		padding: 0.125rem 0.375rem;
 		white-space: nowrap;
 		background: var(--md-sys-color-surface-container-highest);
-		box-shadow: 0 0 0 2px var(--pixel-ink, #000);
+		box-shadow: 0 0 0 2px var(--pixel-ink);
 		pointer-events: none;
 	}
 	.axis {

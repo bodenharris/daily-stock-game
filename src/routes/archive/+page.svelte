@@ -1,20 +1,11 @@
 <script lang="ts">
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import { getArchive } from '#lib/remote/game.remote.ts';
-	import { GAME_NAME, START_BALANCE_CENTS } from '#lib/game/config.ts';
-	import { dollars } from '#lib/play/money.ts';
-	import { stateLayer } from '#lib/m3/ripple.svelte.ts';
 	import WolfScene from '#lib/brand/WolfScene.svelte';
+	import { CALLS_PER_GAME, GAME_NAME, START_BALANCE_CENTS } from '#lib/game/config.ts';
+	import { dollars, formatDate } from '#lib/play/format.ts';
+	import { getArchive } from '#lib/remote/game.remote.ts';
 
 	const archive = $derived(await getArchive());
-
-	const fmt = (iso: string) =>
-		new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			timeZone: 'UTC'
-		});
 	const played = $derived(archive.days.filter((d) => d.played?.finished).length);
 </script>
 
@@ -40,7 +31,7 @@
 		     finished ones sink back. -->
 		<ol class="list pixel-panel mt-6">
 			<li>
-				<a href="/" class="row today" {@attach stateLayer()}>
+				<a href="/" class="row today state-layer">
 					<span class="flex flex-col">
 						<span class="type-title-md type-numeric">Issue #{archive.today}</span>
 						<span class="type-body-sm text-on-primary-container/80">Today</span>
@@ -53,28 +44,32 @@
 			{#each archive.days as day (day.number)}
 				{@const p = day.played}
 				<li>
-					<a href="/day/{day.number}" class={['row', p?.finished && 'done']} {@attach stateLayer()}>
+					<a href="/day/{day.number}" class={['row state-layer', p?.finished && 'done']}>
 						<span class="flex flex-col">
 							<span class="type-title-md type-numeric">Issue #{day.number}</span>
-							<span class="type-body-sm text-on-surface-variant">{fmt(day.date)}</span>
+							<span class="type-body-sm text-on-surface-variant">
+								{formatDate(day.date, { weekday: 'short', month: 'short', day: 'numeric' })}
+							</span>
 						</span>
 						<span class="ml-auto flex items-center gap-3">
 							{#if p?.finished}
-								<span class="type-body-sm text-on-surface-variant type-numeric"
-									>{p.right}/5 right</span
-								>
+								<span class="type-body-sm text-on-surface-variant type-numeric">
+									{p.right}/{CALLS_PER_GAME} right
+								</span>
 								<span
 									class={[
 										'px-2.5 py-0.5 type-label-lg type-numeric',
 										p.balanceCents >= START_BALANCE_CENTS
 											? 'bg-up-container text-on-up-container'
 											: 'bg-down-container text-on-down-container'
-									]}>{dollars(p.balanceCents)}</span
+									]}
 								>
+									{dollars(p.balanceCents)}
+								</span>
 							{:else if p && p.step > 0}
-								<span class="text-m3-tertiary type-label-lg uppercase type-numeric"
-									>Call {p.step + 1} of 5</span
-								>
+								<span class="type-label-lg uppercase type-numeric">
+									Call {p.step + 1} of {CALLS_PER_GAME}
+								</span>
 							{:else}
 								<span class="type-label-lg text-m3-primary uppercase">Play</span>
 							{/if}

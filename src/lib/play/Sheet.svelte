@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { MediaQuery } from 'svelte/reactivity';
-	import * as Drawer from '#lib/components/ui/drawer/index.js';
-	import * as Dialog from '#lib/components/ui/dialog/index.js';
-	import { IconButton } from '#lib/components/ui/icon-button/index.js';
-	import X from '@lucide/svelte/icons/x';
 	import type { Snippet } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
+	import X from '@lucide/svelte/icons/x';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import * as Drawer from '#lib/components/ui/drawer/index.js';
+	import { IconButton } from '#lib/components/ui/icon-button/index.js';
 
 	/**
 	 * A bottom sheet on phones, a centred dialog from tablet width up (M3: sheets for compact
@@ -32,7 +32,7 @@
 			     the DOM so focus starts on the form, drawn top right. -->
 			<Dialog.Close>
 				{#snippet child({ props })}
-					<IconButton {...props} shape="square" class="absolute end-3 top-3" aria-label="Close">
+					<IconButton {...props} class="absolute end-3 top-3" aria-label="Close">
 						<X />
 					</IconButton>
 				{/snippet}

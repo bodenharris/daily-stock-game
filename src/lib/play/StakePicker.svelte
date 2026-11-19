@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { stateLayer } from '#lib/m3/ripple.svelte.ts';
-	import { dollars } from './money.ts';
 	import { sound } from '#lib/audio/sound.svelte.ts';
+	import { dollars } from './format.ts';
 
 	/**
 	 * The stake chips: a connected row of toggles built on native radio inputs, so it needs no UI
@@ -13,19 +12,20 @@
 		options,
 		disabled = false
 	}: {
-		value: string;
-		options: { value: string; percent: number; cents: number }[];
+		/** The chosen stake, in percent of the balance. */
+		value: number;
+		options: { percent: number; cents: number }[];
 		disabled?: boolean;
 	} = $props();
 </script>
 
 <div class="group" role="radiogroup" aria-label="Stake">
-	{#each options as o (o.value)}
-		<label class="chip" class:on={value === o.value} class:disabled {@attach stateLayer()}>
+	{#each options as o (o.percent)}
+		<label class={['chip state-layer', value === o.percent && 'on', disabled && 'disabled']}>
 			<input
 				type="radio"
 				name="stake"
-				value={o.value}
+				value={o.percent}
 				bind:group={value}
 				onchange={() => sound.play('select')}
 				{disabled}
@@ -45,21 +45,17 @@
 		gap: 2px;
 	}
 	.chip {
-		position: relative;
 		flex: 1 1 0;
 		display: grid;
 		place-items: center;
 		min-height: 44px;
 		cursor: pointer;
 		user-select: none;
-		-webkit-tap-highlight-color: transparent;
 		background: var(--md-sys-color-surface-container-highest);
 		color: var(--md-sys-color-on-surface);
-		transition:
-			background-color var(--md-sys-motion-spring-default-effects-duration, 200ms)
-				var(--md-sys-motion-spring-default-effects-easing, ease),
-			color var(--md-sys-motion-spring-default-effects-duration, 200ms)
-				var(--md-sys-motion-spring-default-effects-easing, ease);
+		transition-property: background-color, color;
+		transition-duration: var(--md-sys-motion-spring-default-effects-duration);
+		transition-timing-function: var(--md-sys-motion-spring-default-effects-easing);
 	}
 	/* Small phones: a slimmer chip, with the touch target kept at 44px. */
 	@media (max-width: 1023px) and (max-height: 620px) {
@@ -92,7 +88,6 @@
 		position: absolute;
 		inset: 0;
 		opacity: 0;
-		margin: 0;
 		cursor: inherit;
 	}
 	.chip:has(input:focus-visible) {

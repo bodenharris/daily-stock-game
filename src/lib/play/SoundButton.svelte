@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
 	import Volume2 from '@lucide/svelte/icons/volume-2';
 	import VolumeX from '@lucide/svelte/icons/volume-x';
 	import { IconButton } from '#lib/components/ui/icon-button/index.js';
@@ -10,7 +9,7 @@
 
 	let open = $state(false);
 	// The sheet (and its drawer library) loads on first open, keeping the first paint light.
-	let SoundSheet = $state<Component<{ open?: boolean }> | null>(null);
+	let SoundSheet = $state<typeof import('./SoundSheet.svelte').default>();
 
 	async function show() {
 		SoundSheet ??= (await import('./SoundSheet.svelte')).default;
@@ -19,9 +18,7 @@
 </script>
 
 <IconButton
-	class="pixel-panel"
 	variant="tonal"
-	size="sm"
 	aria-label={on ? 'Sound settings (on)' : 'Sound settings (muted)'}
 	onclick={show}
 >

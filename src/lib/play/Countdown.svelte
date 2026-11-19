@@ -6,8 +6,9 @@
 	 * nobody loses the result they are looking at.
 	 */
 	let { to }: { to: number } = $props();
-	let now = $state<number | null>(null);
 
+	// Unknown until the browser ticks, so the server and the first paint agree.
+	let now = $state<number | null>(null);
 	$effect(() => {
 		now = Date.now();
 		const id = setInterval(() => (now = Date.now()), 1000);
@@ -20,9 +21,8 @@
 		const s = Math.floor(left / 1000);
 		const h = Math.floor(s / 3600);
 		const m = Math.floor((s % 3600) / 60);
-		const sec = s % 60;
 		if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
-		return `${m}:${String(sec).padStart(2, '0')}`;
+		return `${m}:${String(s % 60).padStart(2, '0')}`;
 	});
 </script>
 

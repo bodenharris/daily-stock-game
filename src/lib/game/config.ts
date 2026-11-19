@@ -5,11 +5,10 @@
  * every calculation is exact and identical on every device.
  */
 
-/** Working name. Change it here and everywhere follows. */
 export const GAME_NAME = 'The Wolf';
 
-/** Placeholder until the domain is decided. Used by the share text. */
-export const SITE_URL = 'https://thewolf.example';
+/** The production site, linked from the share text. */
+export const SITE_URL = 'https://thewolfof.nyc';
 
 /** Every game starts with $100. */
 export const START_BALANCE_CENTS = 10_000;
@@ -33,7 +32,7 @@ export interface StakeOption {
  * The three stake chips. Bonus shares 100/40/20 make the crowd bonus the same number of dollars
  * on every chip: (multiplier - 1) x 10% of the balance, so at most +10% of the balance. Bigger
  * stakes raise what you risk and win at even money, not the bonus; that is what stops
- * "always stake 50%" from beating careful sizing (see scripts/simulate.ts --sweep).
+ * "always stake 50%" from beating careful sizing.
  */
 export const STAKE_OPTIONS: readonly StakeOption[] = [
 	{ percent: 10, payoutPercent: 100 },
@@ -47,12 +46,12 @@ export interface CrowdRules {
 	 * 200 makes it 2 x the other side's share: 50/50 -> 1.00x, beating 80/20 -> 1.60x.
 	 */
 	readonly slopeHundredths: number;
-	/** Must be at least 100: a right call never pays less than the stake. */
+	/** At least 100: a right call never pays less than the stake. */
 	readonly minMultiplierHundredths: number;
 	readonly maxMultiplierHundredths: number;
 	/**
 	 * A 50/50 prior worth this many imaginary players is blended into the real split, so the
-	 * first few players cannot swing the multiplier. Must be even (half up, half down).
+	 * first few players cannot swing the multiplier. Even, so it splits half up, half down.
 	 */
 	readonly priorPlayers: number;
 }
@@ -65,39 +64,17 @@ export const CROWD_RULES: CrowdRules = {
 	priorPlayers: 10
 };
 
-export interface PayoutRules {
-	readonly stakeOptions: readonly StakeOption[];
-	readonly crowd: CrowdRules;
-}
+/** Width of the buckets the day's finishes are sent in. */
+export const FINISH_BUCKET_CENTS = 1_000;
 
-/** The rules the app plays by. The simulator passes alternatives to compare. */
-export const PAYOUT_RULES: PayoutRules = {
-	stakeOptions: STAKE_OPTIONS,
-	crowd: CROWD_RULES
-};
-
-/** Thresholds for the end-of-game archetype. See archetype.ts for the priority order. */
-export const ARCHETYPE_RULES = {
-	/** Diamond Hands: at least this many calls at the biggest chip, finishing at or above $100. */
-	diamondHandsMaxStakes: 4,
-	/** Margin Call: at least this many calls at the biggest chip... */
-	marginCallMaxStakes: 3,
-	/** ...finishing below this percent of the start balance. */
-	marginCallBelowPercent: 50,
-	/** The Contrarian: at least this many calls on the minority side... */
-	contrarianCalls: 3,
-	/** ...with at least this many of them right. */
-	contrarianWins: 2,
-	/** Comeback Kid: dipped below this percent of the start, then finished above the start. */
-	comebackLowPercent: 75,
-	/** Herd Animal: at least this many calls on the majority side. */
-	herdCalls: 4,
-	/** The Index Fund: at least this many calls at the smallest chip. */
-	indexFundMinStakes: 4
-} as const;
+/** Finishes at or above this land in one last bucket, so a wild outlier can't stretch the axis. */
+export const FINISH_CAP_CENTS = 100_000;
 
 /** Calendar date (in PUZZLE_TIME_ZONE) of puzzle #1. */
 export const LAUNCH_DATE = '2026-11-01';
 
 /** The daily puzzle rolls over at midnight in this time zone. */
 export const PUZZLE_TIME_ZONE = 'America/New_York';
+
+/** A game started before midnight can still be finished for this long after the rollover. */
+export const GRACE_MS = 3 * 60 * 60 * 1000;
