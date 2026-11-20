@@ -56,5 +56,3 @@ The Worker reads `DATABASE_URL`, `BETTER_AUTH_SECRET` and `PUZZLE_SECRET` (see `
 - **Production**: `npx wrangler secret put <NAME>` for each.
 - **Previews** inherit nothing from production. `BETTER_AUTH_SECRET` and `PUZZLE_SECRET` are set once for all of them with `npx wrangler preview base-config secret put <NAME>`; each Preview's `DATABASE_URL` comes from its Neon branch in the workflow.
 - **GitHub** (Settings → Secrets and variables → Actions): secrets `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (an account API token from the "Edit Cloudflare Workers" template) and `NEON_API_KEY`; variable `NEON_PROJECT_ID`; and `DATABASE_URL`, the production connection string, as a secret of the `production` environment.
-
-Sign-in with a password hashes it on the Worker (scrypt, about 70 ms of CPU), which needs the Workers Paid plan; the Free plan stops a request after 10 ms of CPU. Playing without an account is not affected.
