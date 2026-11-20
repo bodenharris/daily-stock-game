@@ -17,15 +17,15 @@ export const START_BALANCE_CENTS = 10_000;
 export const CALLS_PER_GAME = 5;
 
 export interface StakeOption {
-	/** Share of the current balance put at risk, in percent. */
-	readonly percent: number;
-	/**
-	 * Share of the crowd bonus (multiplier - 1) this chip earns on a right call, in percent.
-	 * A right call always wins the stake as profit; on top it wins balance x percent / 100 x
-	 * (multiplier - 1) x payoutPercent / 100, rounded down to whole dollars (worked out before the
-	 * stake is rounded, so it's the same on every chip). So a right call never pays below 1.00x.
-	 */
-	readonly payoutPercent: number;
+  /** Share of the current balance put at risk, in percent. */
+  readonly percent: number;
+  /**
+   * Share of the crowd bonus (multiplier - 1) this chip earns on a right call, in percent.
+   * A right call always wins the stake as profit; on top it wins balance x percent / 100 x
+   * (multiplier - 1) x payoutPercent / 100, rounded down to whole dollars (worked out before the
+   * stake is rounded, so it's the same on every chip). So a right call never pays below 1.00x.
+   */
+  readonly payoutPercent: number;
 }
 
 /**
@@ -35,33 +35,33 @@ export interface StakeOption {
  * "always stake 50%" from beating careful sizing.
  */
 export const STAKE_OPTIONS: readonly StakeOption[] = [
-	{ percent: 10, payoutPercent: 100 },
-	{ percent: 25, payoutPercent: 40 },
-	{ percent: 50, payoutPercent: 20 }
+  { percent: 10, payoutPercent: 100 },
+  { percent: 25, payoutPercent: 40 },
+  { percent: 50, payoutPercent: 20 },
 ];
 
 export interface CrowdRules {
-	/**
-	 * multiplier = 1 + slope x (share of players who called the other way - 1/2), in hundredths.
-	 * 200 makes it 2 x the other side's share: 50/50 -> 1.00x, beating 80/20 -> 1.60x.
-	 */
-	readonly slopeHundredths: number;
-	/** At least 100: a right call never pays less than the stake. */
-	readonly minMultiplierHundredths: number;
-	readonly maxMultiplierHundredths: number;
-	/**
-	 * A 50/50 prior worth this many imaginary players is blended into the real split, so the
-	 * first few players cannot swing the multiplier. Even, so it splits half up, half down.
-	 */
-	readonly priorPlayers: number;
+  /**
+   * multiplier = 1 + slope x (share of players who called the other way - 1/2), in hundredths.
+   * 200 makes it 2 x the other side's share: 50/50 -> 1.00x, beating 80/20 -> 1.60x.
+   */
+  readonly slopeHundredths: number;
+  /** At least 100: a right call never pays less than the stake. */
+  readonly minMultiplierHundredths: number;
+  readonly maxMultiplierHundredths: number;
+  /**
+   * A 50/50 prior worth this many imaginary players is blended into the real split, so the
+   * first few players cannot swing the multiplier. Even, so it splits half up, half down.
+   */
+  readonly priorPlayers: number;
 }
 
 /** Joining the majority pays even money (the floor); beating it pays a bonus. */
 export const CROWD_RULES: CrowdRules = {
-	slopeHundredths: 200,
-	minMultiplierHundredths: 100,
-	maxMultiplierHundredths: 200,
-	priorPlayers: 10
+  slopeHundredths: 200,
+  minMultiplierHundredths: 100,
+  maxMultiplierHundredths: 200,
+  priorPlayers: 10,
 };
 
 /** Width of the buckets the day's finishes are sent in. */

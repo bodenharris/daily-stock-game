@@ -25,41 +25,41 @@ import { PACK_EMOJI, rankLine, type PackRank } from './rank.ts';
 
 /** One settled call, as the share text reads it. */
 export interface CallRecord {
-	readonly correct: boolean;
-	/**
-	 * Share (0..1) of the crowd on the player's side when the call was locked, prior included,
-	 * player excluded. Below 0.5 = minority side.
-	 */
-	readonly crowdShareOwn: number;
-	readonly balanceAfterCents: number;
+  readonly correct: boolean;
+  /**
+   * Share (0..1) of the crowd on the player's side when the call was locked, prior included,
+   * player excluded. Below 0.5 = minority side.
+   */
+  readonly crowdShareOwn: number;
+  readonly balanceAfterCents: number;
 }
 
 export interface ShareInput {
-	readonly puzzleNumber: number;
-	readonly calls: readonly CallRecord[];
-	/** The player's Wolf Pack Rank. Without one (the day's finishes couldn't be read), no rank line. */
-	readonly rank?: PackRank | null;
-	/** Optional standing, e.g. "2nd of 5 today", added to the rank line. */
-	readonly standing?: string | null;
-	/** Named the moment before the reveal: adds a 🎯 after the row. */
-	readonly named?: boolean;
-	/** Defaults to SITE_URL. */
-	readonly url?: string;
+  readonly puzzleNumber: number;
+  readonly calls: readonly CallRecord[];
+  /** The player's Wolf Pack Rank. Without one (the day's finishes couldn't be read), no rank line. */
+  readonly rank?: PackRank | null;
+  /** Optional standing, e.g. "2nd of 5 today", added to the rank line. */
+  readonly standing?: string | null;
+  /** Named the moment before the reveal: adds a 🎯 after the row. */
+  readonly named?: boolean;
+  /** Defaults to SITE_URL. */
+  readonly url?: string;
 }
 
 /** One cell per call, in order. */
 export function shareRow(calls: readonly CallRecord[]): string {
-	return calls.map((c) => (!c.correct ? '🟥' : c.crowdShareOwn < 0.5 ? '⭐' : '🟩')).join('');
+  return calls.map((c) => (!c.correct ? '🟥' : c.crowdShareOwn < 0.5 ? '⭐' : '🟩')).join('');
 }
 
 /** The full share text, lines joined with "\n". */
 export function buildShareText(input: ShareInput): string {
-	const final = input.calls.at(-1)?.balanceAfterCents ?? START_BALANCE_CENTS;
-	const lines = [
-		`${GAME_NAME} #${input.puzzleNumber.toLocaleString('en-US')} · ${dollars(START_BALANCE_CENTS)} → ${dollars(final)}`,
-		shareRow(input.calls) + (input.named ? ' 🎯' : '')
-	];
-	if (input.rank) lines.push(`${PACK_EMOJI} ${rankLine(input.rank, input.standing ?? null)}`);
-	lines.push(input.url ?? SITE_URL);
-	return lines.join('\n');
+  const final = input.calls.at(-1)?.balanceAfterCents ?? START_BALANCE_CENTS;
+  const lines = [
+    `${GAME_NAME} #${input.puzzleNumber.toLocaleString('en-US')} · ${dollars(START_BALANCE_CENTS)} → ${dollars(final)}`,
+    shareRow(input.calls) + (input.named ? ' 🎯' : ''),
+  ];
+  if (input.rank) lines.push(`${PACK_EMOJI} ${rankLine(input.rank, input.standing ?? null)}`);
+  lines.push(input.url ?? SITE_URL);
+  return lines.join('\n');
 }
