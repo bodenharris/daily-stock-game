@@ -77,6 +77,12 @@ describe('formatDate', () => {
 			'Jan 27, 2021'
 		);
 	});
+
+	it('keeps each set of options apart', () => {
+		expect(formatDate('2021-01-27', { year: 'numeric' })).toBe('2021');
+		expect(formatDate('2021-01-28', { month: 'short', day: 'numeric' })).toBe('Jan 28');
+		expect(formatDate('2022-03-01', { year: 'numeric' })).toBe('2022');
+	});
 });
 
 describe('callSpan', () => {
