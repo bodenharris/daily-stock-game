@@ -74,8 +74,11 @@
       if (document.activeElement === document.body) node.focus({ preventScroll: true });
     }}
   >
-    <h2 class="type-title-lg-emphasized text-on-surface">Name the moment</h2>
-    <p class="type-body-md text-on-surface-variant">Which one was it? Just for bragging rights.</p>
+    <h2 class="type-title-lg-emphasized text-on-surface">Which event was this?</h2>
+    <p class="type-body-md text-on-surface-variant">
+      The chart is a real stock during one of these famous market events. Pick the one you think it
+      was. Just for bragging rights: your balance won't change.
+    </p>
     <!-- The calls share the chart's width equally, so the chart alone can't show how long they were. -->
     <p class="mt-2 type-body-sm text-on-surface-variant">
       <span class="font-medium text-on-surface">The chart:</span>
@@ -83,7 +86,7 @@
     </p>
   </div>
 
-  <div class="flex flex-col gap-2" role="group" aria-label="Which moment was this?">
+  <div class="flex flex-col gap-2" role="group" aria-label="Which event was this?">
     {#each nameIt.options as option, i (i)}
       {@const s = optionState(i)}
       <button
@@ -118,7 +121,7 @@
       </p>
     {:else}
       <Button variant="text" size="sm" disabled={busy} onclick={() => choose(null)}>
-        Skip to the reveal
+        Skip and see the answer
       </Button>
     {/if}
   </div>
