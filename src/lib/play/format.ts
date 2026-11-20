@@ -45,12 +45,21 @@ export function formatPrice(n: number): string {
 	return n >= 100 ? `$${Math.round(n)}` : n >= 10 ? `$${n.toFixed(1)}` : `$${n.toFixed(2)}`;
 }
 
+/** Building a formatter is the slow part, and the archive formats a date per row: keep one per set of options. */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
 /**
  * A calendar date ("YYYY-MM-DD") in words. Read at noon UTC and written in UTC, so the day never
  * shifts with the viewer's time zone and the server and the browser agree.
  */
 export function formatDate(iso: string, options: Intl.DateTimeFormatOptions): string {
-	return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { ...options, timeZone: 'UTC' });
+	const key = JSON.stringify(options);
+	let formatter = formatters.get(key);
+	if (!formatter) {
+		formatter = new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' });
+		formatters.set(key, formatter);
+	}
+	return formatter.format(new Date(`${iso}T12:00:00Z`));
 }
 
 /*
