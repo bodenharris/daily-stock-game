@@ -15,6 +15,13 @@
       "when": 1795132128474,
       "tag": "0001_delete_test_games",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795132643465,
+      "tag": "0002_drop_play_source",
+      "breakpoints": true
     }
   ]
 }
