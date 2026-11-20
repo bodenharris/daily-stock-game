@@ -7,7 +7,14 @@
 
 export const GAME_NAME = 'The Wolf';
 
-/** The production site, linked from the share text. */
+/** The search result snippet, link preview text and web app manifest description. */
+export const GAME_DESCRIPTION =
+  'One famous stock chart a day, name hidden. Five up-or-down calls on what it did next.';
+
+/**
+ * The production site, linked from the share text. Search engines are pointed here from every
+ * other host the Worker answers on (see src/hooks.server.ts and src/routes/+layout.svelte).
+ */
 export const SITE_URL = 'https://thewolfof.nyc';
 
 /** Every game starts with $100. */

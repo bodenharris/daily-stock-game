@@ -62,6 +62,10 @@
 
 <svelte:head>
   <title>Live · {GAME_NAME}</title>
+  <meta
+    name="description"
+    content="Live numbers for today's chart: how many are playing, how the crowd is calling it and how the finishes stack up."
+  />
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col">
