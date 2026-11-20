@@ -11,29 +11,29 @@ import { createHash } from 'node:crypto';
  * puzzle is chosen by hand), and a new pass never starts with the puzzle that ended the last one.
  */
 export function nextSlug(
-	number: number,
-	active: string[],
-	history: string[],
-	secret: string
+  number: number,
+  active: string[],
+  history: string[],
+  secret: string,
 ): string {
-	if (active.length === 0) throw new Error('Empty catalog');
-	if (number === 1 && history.length === 0) return active[0];
+  if (active.length === 0) throw new Error('Empty catalog');
+  if (number === 1 && history.length === 0) return active[0];
 
-	const inCatalog = new Set(active);
-	let pass = new Set<string>();
-	for (const slug of history) {
-		if (!inCatalog.has(slug)) continue; // retired puzzles don't count
-		if (pass.has(slug)) pass = new Set();
-		pass.add(slug);
-		if (pass.size === active.length) pass = new Set();
-	}
-	let candidates = active.filter((s) => !pass.has(s));
-	const previous = history.at(-1);
-	if (pass.size === 0 && candidates.length > 1 && previous) {
-		candidates = candidates.filter((s) => s !== previous);
-	}
+  const inCatalog = new Set(active);
+  let pass = new Set<string>();
+  for (const slug of history) {
+    if (!inCatalog.has(slug)) continue; // retired puzzles don't count
+    if (pass.has(slug)) pass = new Set();
+    pass.add(slug);
+    if (pass.size === active.length) pass = new Set();
+  }
+  let candidates = active.filter((s) => !pass.has(s));
+  const previous = history.at(-1);
+  if (pass.size === 0 && candidates.length > 1 && previous) {
+    candidates = candidates.filter((s) => s !== previous);
+  }
 
-	const key = (slug: string) =>
-		createHash('sha256').update(`${secret}:${number}:${slug}`).digest('hex');
-	return candidates.reduce((best, s) => (key(s) < key(best) ? s : best));
+  const key = (slug: string) =>
+    createHash('sha256').update(`${secret}:${number}:${slug}`).digest('hex');
+  return candidates.reduce((best, s) => (key(s) < key(best) ? s : best));
 }

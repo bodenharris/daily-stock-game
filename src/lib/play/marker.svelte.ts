@@ -16,56 +16,56 @@ const MAX_STROKES = 200;
  * they last until the page closes.
  */
 export class Marker {
-	/** Marker mode: pointer input draws instead of passing through. */
-	active = $state(false);
-	strokes = $state.raw<Stroke[]>([]);
-	#key = '';
+  /** Marker mode: pointer input draws instead of passing through. */
+  active = $state(false);
+  strokes = $state.raw<Stroke[]>([]);
+  #key = '';
 
-	/** Switch to the strokes saved under `key` (one key per chart). */
-	load(key: string) {
-		this.#key = key;
-		this.strokes = [];
-		try {
-			// Saved as { v: 2, strokes }. (Version 1, a bare array of screen positions, is ignored.)
-			const saved: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
-			if ((saved as { v?: number } | null)?.v === 2) {
-				this.strokes = (saved as { strokes: Stroke[] }).strokes;
-			}
-		} catch {
-			// Unreadable: start clean.
-		}
-	}
+  /** Switch to the strokes saved under `key` (one key per chart). */
+  load(key: string) {
+    this.#key = key;
+    this.strokes = [];
+    try {
+      // Saved as { v: 2, strokes }. (Version 1, a bare array of screen positions, is ignored.)
+      const saved: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
+      if ((saved as { v?: number } | null)?.v === 2) {
+        this.strokes = (saved as { strokes: Stroke[] }).strokes;
+      }
+    } catch {
+      // Unreadable: start clean.
+    }
+  }
 
-	start(p: ChartPoint) {
-		this.strokes = [...this.strokes, [round(p)]].slice(-MAX_STROKES);
-	}
+  start(p: ChartPoint) {
+    this.strokes = [...this.strokes, [round(p)]].slice(-MAX_STROKES);
+  }
 
-	extend(points: ChartPoint[]) {
-		const last = this.strokes.at(-1);
-		if (!last || points.length === 0) return;
-		this.strokes = [...this.strokes.slice(0, -1), [...last, ...points.map(round)]];
-	}
+  extend(points: ChartPoint[]) {
+    const last = this.strokes.at(-1);
+    if (!last || points.length === 0) return;
+    this.strokes = [...this.strokes.slice(0, -1), [...last, ...points.map(round)]];
+  }
 
-	undo() {
-		this.strokes = this.strokes.slice(0, -1);
-		this.save();
-	}
+  undo() {
+    this.strokes = this.strokes.slice(0, -1);
+    this.save();
+  }
 
-	clear() {
-		this.strokes = [];
-		this.save();
-	}
+  clear() {
+    this.strokes = [];
+    this.save();
+  }
 
-	save() {
-		if (!this.#key) return;
-		try {
-			if (this.strokes.length) {
-				localStorage.setItem(this.#key, JSON.stringify({ v: 2, strokes: this.strokes }));
-			} else localStorage.removeItem(this.#key);
-		} catch {
-			// Storage blocked or full: the marks stay for this visit only.
-		}
-	}
+  save() {
+    if (!this.#key) return;
+    try {
+      if (this.strokes.length) {
+        localStorage.setItem(this.#key, JSON.stringify({ v: 2, strokes: this.strokes }));
+      } else localStorage.removeItem(this.#key);
+    } catch {
+      // Storage blocked or full: the marks stay for this visit only.
+    }
+  }
 }
 
 /**
@@ -73,5 +73,5 @@ export class Marker {
  * thousandth of a percent).
  */
 function round([bar, logPrice]: ChartPoint): ChartPoint {
-	return [Math.round(bar * 1000) / 1000, Math.round(logPrice * 100_000) / 100_000];
+  return [Math.round(bar * 1000) / 1000, Math.round(logPrice * 100_000) / 100_000];
 }

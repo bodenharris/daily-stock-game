@@ -21,39 +21,39 @@ const DEFAULT_EFFECTS: Spring = { damping: 1, stiffness: 1600, ms: 231 };
 
 /** How far a spring released at 0 has travelled towards 1 after `ms`. */
 function progress({ damping: z, stiffness, ms: settle }: Spring, ms: number) {
-	if (ms >= settle) return 1;
-	const t = ms / 1000;
-	const w0 = Math.sqrt(stiffness);
-	if (z === 1) return 1 - Math.exp(-w0 * t) * (1 + w0 * t);
-	const wd = w0 * Math.sqrt(1 - z * z);
-	return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + ((z * w0) / wd) * Math.sin(wd * t));
+  if (ms >= settle) return 1;
+  const t = ms / 1000;
+  const w0 = Math.sqrt(stiffness);
+  if (z === 1) return 1 - Math.exp(-w0 * t) * (1 + w0 * t);
+  const wd = w0 * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + ((z * w0) / wd) * Math.sin(wd * t));
 }
 
 function spring(
-	move: Spring,
-	fade: Spring,
-	delay: number,
-	style: (p: number) => string
+  move: Spring,
+  fade: Spring,
+  delay: number,
+  style: (p: number) => string,
 ): TransitionConfig {
-	const reduced = prefersReducedMotion.current;
-	const duration = reduced ? fade.ms : Math.max(move.ms, fade.ms);
-	return {
-		delay,
-		duration,
-		css: (t) => {
-			const ms = t * duration;
-			const opacity = `opacity: ${progress(fade, ms)}`;
-			return reduced ? opacity : `${opacity}; ${style(progress(move, ms))}`;
-		}
-	};
+  const reduced = prefersReducedMotion.current;
+  const duration = reduced ? fade.ms : Math.max(move.ms, fade.ms);
+  return {
+    delay,
+    duration,
+    css: (t) => {
+      const ms = t * duration;
+      const opacity = `opacity: ${progress(fade, ms)}`;
+      return reduced ? opacity : `${opacity}; ${style(progress(move, ms))}`;
+    },
+  };
 }
 
 /** For the result chip and the verdict card. `start` is the scale it grows from. */
 export function pop(_node: Element, { start = 0.8, delay = 0 } = {}): TransitionConfig {
-	return spring(FAST_SPATIAL, FAST_EFFECTS, delay, (p) => `scale: ${start + (1 - start) * p}`);
+  return spring(FAST_SPATIAL, FAST_EFFECTS, delay, (p) => `scale: ${start + (1 - start) * p}`);
 }
 
 /** For content that builds up in beats, like the unmasking. */
 export function rise(_node: Element, { delay = 0 } = {}): TransitionConfig {
-	return spring(DEFAULT_SPATIAL, DEFAULT_EFFECTS, delay, (p) => `translate: 0 ${(1 - p) * 16}px`);
+  return spring(DEFAULT_SPATIAL, DEFAULT_EFFECTS, delay, (p) => `translate: 0 ${(1 - p) * 16}px`);
 }

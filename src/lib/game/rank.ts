@@ -20,19 +20,19 @@ import type { Standing } from '#lib/play/standing.ts';
 export type PackRankKey = 'pup' | 'scout' | 'sentinel' | 'hunter' | 'elder' | 'alpha';
 
 export interface PackRank {
-	readonly key: PackRankKey;
-	readonly label: string;
-	/** What the rank means, under it on the end card. Short enough for one line on a phone. */
-	readonly line: string;
+  readonly key: PackRankKey;
+  readonly label: string;
+  /** What the rank means, under it on the end card. Short enough for one line on a phone. */
+  readonly line: string;
 }
 
 /** Lowest first. `from` is the smallest whole "beat X%" that earns the rank. */
 export const PACK_RANKS: readonly (PackRank & { readonly from: number })[] = [
-	{ key: 'pup', label: 'Pup', line: 'Beat under 10% of the pack.', from: 0 },
-	{ key: 'scout', label: 'Scout', line: 'Beat 10–24% of the pack.', from: 10 },
-	{ key: 'sentinel', label: 'Sentinel', line: 'Beat 25–44% of the pack.', from: 25 },
-	{ key: 'hunter', label: 'Hunter', line: 'Beat 45–79% of the pack.', from: 45 },
-	{ key: 'elder', label: 'Elder', line: 'Beat 80% or more of the pack.', from: 80 }
+  { key: 'pup', label: 'Pup', line: 'Beat under 10% of the pack.', from: 0 },
+  { key: 'scout', label: 'Scout', line: 'Beat 10–24% of the pack.', from: 10 },
+  { key: 'sentinel', label: 'Sentinel', line: 'Beat 25–44% of the pack.', from: 25 },
+  { key: 'hunter', label: 'Hunter', line: 'Beat 45–79% of the pack.', from: 45 },
+  { key: 'elder', label: 'Elder', line: 'Beat 80% or more of the pack.', from: 80 },
 ];
 
 export const ALPHA: PackRank = { key: 'alpha', label: 'Alpha', line: 'Top of the pack.' };
@@ -45,7 +45,7 @@ export const PACK_EMOJI = '🐺';
  * "Hunter · 3rd of 6 today", or just "Alpha" when there is no standing to add.
  */
 export function rankLine(rank: Pick<PackRank, 'label'>, standing: string | null): string {
-	return standing ? `${rank.label} · ${standing}` : rank.label;
+  return standing ? `${rank.label} · ${standing}` : rank.label;
 }
 
 /**
@@ -54,11 +54,11 @@ export function rankLine(rank: Pick<PackRank, 'label'>, standing: string | null)
  * first place, ties included.
  */
 export function packRank(standing: Standing | null): PackRank | null {
-	if (!standing || standing.finished < 1) return null;
-	const { betterThan, finished } = standing;
-	// Nobody else has finished yet: first, and so the Alpha for now.
-	if (finished === 1 || betterThan === 1) return ALPHA;
-	if (betterThan == null) return null;
-	const percent = Math.round(betterThan * 100);
-	return PACK_RANKS.findLast((r) => percent >= r.from) ?? PACK_RANKS[0];
+  if (!standing || standing.finished < 1) return null;
+  const { betterThan, finished } = standing;
+  // Nobody else has finished yet: first, and so the Alpha for now.
+  if (finished === 1 || betterThan === 1) return ALPHA;
+  if (betterThan == null) return null;
+  const percent = Math.round(betterThan * 100);
+  return PACK_RANKS.findLast((r) => percent >= r.from) ?? PACK_RANKS[0];
 }
