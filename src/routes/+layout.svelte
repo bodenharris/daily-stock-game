@@ -5,7 +5,7 @@
   import { sound } from '#lib/audio/sound.svelte.ts';
   import WolfNotice from '#lib/brand/WolfNotice.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
-  import { GAME_NAME } from '#lib/game/config.ts';
+  import { GAME_NAME, SITE_URL } from '#lib/game/config.ts';
   import type { LayoutProps } from './$types';
 
   let { children }: LayoutProps = $props();
@@ -31,6 +31,8 @@
   <link rel="icon" href={favicon} />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
+  <!-- Search engines index the production domain, not the workers.dev or Preview copies. -->
+  <link rel="canonical" href={new URL(page.url.pathname, SITE_URL).href} />
   <!-- Link previews (iMessage, WhatsApp, Slack, Discord), drawn by scripts/make-images.py. -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content={GAME_NAME} />

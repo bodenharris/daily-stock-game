@@ -54,10 +54,10 @@
 </script>
 
 <svelte:head>
-  <title>{GAME_NAME} #{view.number}</title>
+  <title>{GAME_NAME} #{view.number} · The daily stock chart game</title>
   <meta
     name="description"
-    content="One famous chart a day. Five calls. Bet on what happens next."
+    content="One famous stock chart a day, name hidden. Five up-or-down calls on what it did next."
   />
 </svelte:head>
 

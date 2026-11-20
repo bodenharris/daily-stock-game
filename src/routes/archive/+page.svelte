@@ -11,6 +11,10 @@
 
 <svelte:head>
   <title>Past charts · {GAME_NAME}</title>
+  <meta
+    name="description"
+    content="Every past day of {GAME_NAME}, the daily stock chart game. Play the charts you missed."
+  />
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col">
