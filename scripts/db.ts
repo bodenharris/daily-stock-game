@@ -15,8 +15,8 @@ export const db = drizzle(neon(process.env.DATABASE_URL), { schema });
 
 /** The `set` of an upsert that overwrites `keys` with the incoming row's values. */
 export function excluded<T extends PgTable>(table: T, keys: (keyof T['_']['columns'])[]) {
-	const columns = getTableColumns(table);
-	return Object.fromEntries(
-		keys.map((k) => [k, sql.raw(`excluded."${columns[k as string].name}"`)])
-	);
+  const columns = getTableColumns(table);
+  return Object.fromEntries(
+    keys.map((k) => [k, sql.raw(`excluded."${columns[k as string].name}"`)]),
+  );
 }

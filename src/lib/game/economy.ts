@@ -14,22 +14,22 @@ export type Direction = 'up' | 'down';
 
 /** How many players called each way before this player, this player excluded. */
 export interface CrowdCounts {
-	readonly up: number;
-	readonly down: number;
+  readonly up: number;
+  readonly down: number;
 }
 
 export interface SettleInput {
-	readonly balanceCents: number;
-	readonly stakePercent: number;
-	/** The multiplier locked when the call was made (see lockMultiplier). */
-	readonly multiplierHundredths: number;
-	readonly correct: boolean;
+  readonly balanceCents: number;
+  readonly stakePercent: number;
+  /** The multiplier locked when the call was made (see lockMultiplier). */
+  readonly multiplierHundredths: number;
+  readonly correct: boolean;
 }
 
 function assertCount(value: number, name: string): void {
-	if (!Number.isSafeInteger(value) || value < 0) {
-		throw new RangeError(`${name} must be a non-negative integer, got ${value}`);
-	}
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`${name} must be a non-negative integer, got ${value}`);
+  }
 }
 
 /**
@@ -37,9 +37,9 @@ function assertCount(value: number, name: string): void {
  * (count + prior / 2) / (total + prior). Stored with each call; the share text reads it.
  */
 export function blendedShare(counts: CrowdCounts, direction: Direction): number {
-	const { priorPlayers } = CROWD_RULES;
-	const own = direction === 'up' ? counts.up : counts.down;
-	return (own + priorPlayers / 2) / (counts.up + counts.down + priorPlayers);
+  const { priorPlayers } = CROWD_RULES;
+  const own = direction === 'up' ? counts.up : counts.down;
+  return (own + priorPlayers / 2) / (counts.up + counts.down + priorPlayers);
 }
 
 /**
@@ -50,31 +50,31 @@ export function blendedShare(counts: CrowdCounts, direction: Direction): number 
  * Lock this value at the moment of the call; later players do not change it.
  */
 export function lockMultiplier(counts: CrowdCounts, direction: Direction): number {
-	const crowd = CROWD_RULES;
-	assertCount(counts.up, 'up');
-	assertCount(counts.down, 'down');
-	const other = direction === 'up' ? counts.down : counts.up;
-	const total = counts.up + counts.down;
-	// other share - 1/2 = (2 x other - total) / (2 x (total + prior)), kept in integers and
-	// rounded half up: floor((2n + d) / 2d).
-	const denominator = 2 * (total + crowd.priorPlayers);
-	const numerator = 100 * denominator + crowd.slopeHundredths * (2 * other - total);
-	const raw = Math.floor((2 * numerator + denominator) / (2 * denominator));
-	return Math.min(crowd.maxMultiplierHundredths, Math.max(crowd.minMultiplierHundredths, raw));
+  const crowd = CROWD_RULES;
+  assertCount(counts.up, 'up');
+  assertCount(counts.down, 'down');
+  const other = direction === 'up' ? counts.down : counts.up;
+  const total = counts.up + counts.down;
+  // other share - 1/2 = (2 x other - total) / (2 x (total + prior)), kept in integers and
+  // rounded half up: floor((2n + d) / 2d).
+  const denominator = 2 * (total + crowd.priorPlayers);
+  const numerator = 100 * denominator + crowd.slopeHundredths * (2 * other - total);
+  const raw = Math.floor((2 * numerator + denominator) / (2 * denominator));
+  return Math.min(crowd.maxMultiplierHundredths, Math.max(crowd.minMultiplierHundredths, raw));
 }
 
 function stakeOptionFor(stakePercent: number) {
-	const option = STAKE_OPTIONS.find((o) => o.percent === stakePercent);
-	if (!option) {
-		const allowed = STAKE_OPTIONS.map((o) => o.percent).join(', ');
-		throw new RangeError(`stake must be one of ${allowed}%, got ${stakePercent}%`);
-	}
-	return option;
+  const option = STAKE_OPTIONS.find((o) => o.percent === stakePercent);
+  if (!option) {
+    const allowed = STAKE_OPTIONS.map((o) => o.percent).join(', ');
+    throw new RangeError(`stake must be one of ${allowed}%, got ${stakePercent}%`);
+  }
+  return option;
 }
 
 /** Cents rounded down to whole dollars. */
 function wholeDollarsDown(cents: number): number {
-	return Math.floor(cents / 100) * 100;
+  return Math.floor(cents / 100) * 100;
 }
 
 /**
@@ -82,9 +82,9 @@ function wholeDollarsDown(cents: number): number {
  * small chip can come to $0, which risks and wins nothing.
  */
 export function stakeCentsFor(balanceCents: number, stakePercent: number): number {
-	assertCount(balanceCents, 'balanceCents');
-	const { percent } = stakeOptionFor(stakePercent);
-	return wholeDollarsDown(Math.floor((balanceCents * percent) / 100));
+  assertCount(balanceCents, 'balanceCents');
+  const { percent } = stakeOptionFor(stakePercent);
+  return wholeDollarsDown(Math.floor((balanceCents * percent) / 100));
 }
 
 /**
@@ -96,26 +96,26 @@ export function stakeCentsFor(balanceCents: number, stakePercent: number): numbe
  * the balance.
  */
 export function settleCall({
-	balanceCents,
-	stakePercent,
-	multiplierHundredths,
-	correct
+  balanceCents,
+  stakePercent,
+  multiplierHundredths,
+  correct,
 }: SettleInput) {
-	const { minMultiplierHundredths: min, maxMultiplierHundredths: max } = CROWD_RULES;
-	if (
-		!Number.isSafeInteger(multiplierHundredths) ||
-		multiplierHundredths < min ||
-		multiplierHundredths > max
-	) {
-		throw new RangeError(
-			`multiplier must be an integer in [${min}, ${max}] hundredths, got ${multiplierHundredths}`
-		);
-	}
-	const stakeCents = stakeCentsFor(balanceCents, stakePercent);
-	const { percent, payoutPercent } = stakeOptionFor(stakePercent);
-	const bonusCents = wholeDollarsDown(
-		Math.floor((balanceCents * percent * (multiplierHundredths - 100) * payoutPercent) / 1_000_000)
-	);
-	const deltaCents = correct ? stakeCents + bonusCents : -stakeCents;
-	return { stakeCents, deltaCents, balanceAfterCents: balanceCents + deltaCents };
+  const { minMultiplierHundredths: min, maxMultiplierHundredths: max } = CROWD_RULES;
+  if (
+    !Number.isSafeInteger(multiplierHundredths) ||
+    multiplierHundredths < min ||
+    multiplierHundredths > max
+  ) {
+    throw new RangeError(
+      `multiplier must be an integer in [${min}, ${max}] hundredths, got ${multiplierHundredths}`,
+    );
+  }
+  const stakeCents = stakeCentsFor(balanceCents, stakePercent);
+  const { percent, payoutPercent } = stakeOptionFor(stakePercent);
+  const bonusCents = wholeDollarsDown(
+    Math.floor((balanceCents * percent * (multiplierHundredths - 100) * payoutPercent) / 1_000_000),
+  );
+  const deltaCents = correct ? stakeCents + bonusCents : -stakeCents;
+  return { stakeCents, deltaCents, balanceAfterCents: balanceCents + deltaCents };
 }

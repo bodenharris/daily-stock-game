@@ -8,31 +8,31 @@ import wolf from './wolf.json';
 import ranks from './ranks.json';
 
 interface Sprite {
-	rows: string[];
-	palette: Record<string, string>;
+  rows: string[];
+  palette: Record<string, string>;
 }
 
 interface Run {
-	x: number;
-	y: number;
-	w: number;
-	fill: string;
+  x: number;
+  y: number;
+  w: number;
+  fill: string;
 }
 
 /** Horizontal runs of one color, so a sprite renders as a few dozen rects, not one per pixel. */
 export function spriteRuns({ rows, palette }: Sprite): Run[] {
-	const runs: Run[] = [];
-	rows.forEach((row, y) => {
-		let x = 0;
-		while (x < row.length) {
-			const key = row[x];
-			let end = x + 1;
-			while (end < row.length && row[end] === key) end++;
-			if (key !== '.') runs.push({ x, y, w: end - x, fill: palette[key] });
-			x = end;
-		}
-	});
-	return runs;
+  const runs: Run[] = [];
+  rows.forEach((row, y) => {
+    let x = 0;
+    while (x < row.length) {
+      const key = row[x];
+      let end = x + 1;
+      while (end < row.length && row[end] === key) end++;
+      if (key !== '.') runs.push({ x, y, w: end - x, fill: palette[key] });
+      x = end;
+    }
+  });
+  return runs;
 }
 
 export const WOLF: Sprite = wolf;
@@ -41,10 +41,10 @@ export const WOLF: Sprite = wolf;
 const badge = (rows: string[]): Sprite => ({ rows, palette: ranks.palette });
 const { pup, scout, sentinel, hunter, elder, alpha } = ranks.sprites;
 export const RANK_BADGES: Record<PackRankKey, Sprite> = {
-	pup: badge(pup),
-	scout: badge(scout),
-	sentinel: badge(sentinel),
-	hunter: badge(hunter),
-	elder: badge(elder),
-	alpha: badge(alpha)
+  pup: badge(pup),
+  scout: badge(scout),
+  sentinel: badge(sentinel),
+  hunter: badge(hunter),
+  elder: badge(elder),
+  alpha: badge(alpha),
 };
