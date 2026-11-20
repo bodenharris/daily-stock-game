@@ -2,17 +2,13 @@
   import './layout.css';
   import { page } from '$app/state';
   import favicon from '#lib/assets/favicon.svg';
-  import ogImage from '#lib/assets/og.png';
   import { sound } from '#lib/audio/sound.svelte.ts';
   import WolfNotice from '#lib/brand/WolfNotice.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
-  import { GAME_DESCRIPTION, GAME_NAME, SITE_URL } from '#lib/game/config.ts';
+  import { GAME_NAME, SITE_URL } from '#lib/game/config.ts';
   import type { LayoutProps } from './$types';
 
   let { children }: LayoutProps = $props();
-
-  /** This page on the production site, without the query string. */
-  const canonical = $derived(new URL(page.url.pathname, SITE_URL).href);
 
   $effect(() => sound.load());
 
@@ -35,18 +31,17 @@
   <link rel="icon" href={favicon} />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
-  <!-- One address per page for search engines, whichever host served it (error pages have none). -->
-  {#if !page.error}
-    <link rel="canonical" href={canonical} />
-    <meta property="og:url" content={canonical} />
-  {/if}
+  <!-- Search engines index the production domain, not the workers.dev or Preview copies. -->
+  <link rel="canonical" href={new URL(page.url.pathname, SITE_URL).href} />
   <!-- Link previews (iMessage, WhatsApp, Slack, Discord), drawn by scripts/make-images.py. -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content={GAME_NAME} />
   <meta property="og:title" content={GAME_NAME} />
-  <meta property="og:description" content={GAME_DESCRIPTION} />
-  <!-- From this host, so a Preview shows its own image; the hashed URL refreshes cached previews. -->
-  <meta property="og:image" content={new URL(ogImage, page.url.origin).href} />
+  <meta
+    property="og:description"
+    content="One famous stock chart a day, name hidden. Five up-or-down calls on what it did next."
+  />
+  <meta property="og:image" content={new URL('/og.png', page.url.origin).href} />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta

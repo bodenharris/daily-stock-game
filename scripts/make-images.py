@@ -1,10 +1,9 @@
 """Draw the link-preview image, the app icons, the favicon and the web app manifest.
 
-Writes src/lib/assets/og.png (1200x630), static/apple-touch-icon.png (180x180),
-static/icon-192.png, static/icon-512.png, src/lib/assets/favicon.svg and
-static/manifest.webmanifest.
+Writes static/og.png (1200x630), static/apple-touch-icon.png (180x180), static/icon-192.png,
+static/icon-512.png, src/lib/assets/favicon.svg and static/manifest.webmanifest.
 
-Everything is drawn from code in the site's pixel style: the game name and description come from
+Everything is drawn from code in the site's pixel style: the game name comes from
 src/lib/game/config.ts, the mascot from src/lib/brand/wolf.json (the same sprite the site draws),
 the colors are the tokens in src/routes/layout.css and the header scene, and the type is the
 self-hosted pixel fonts in static/fonts. Pixel art is drawn at 1x and scaled up with
@@ -31,7 +30,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
-ASSETS = ROOT / "src/lib/assets"
 FONTS = STATIC / "fonts"
 
 # Tokens from src/routes/layout.css; SKY is the header scene's (src/lib/brand/WolfScene.svelte).
@@ -51,19 +49,15 @@ BODY_FONT = "vt323-latin-400-normal.woff2"
 
 TAGLINE = "THE DAILY HUNT"
 SUBLINE = "One famous chart a day. Five calls. No hindsight."
-
-
-def config_string(name: str) -> str:
-    """A string constant from src/lib/game/config.ts, on one line or wrapped onto the next."""
-    config = (ROOT / "src/lib/game/config.ts").read_text(encoding="utf-8")
-    match = re.search(rf"export const {name} =\s*'([^']+)'", config)
-    if not match:
-        raise SystemExit(f"{name} not found in src/lib/game/config.ts")
-    return match.group(1)
+DESCRIPTION = "One famous stock chart a day, name hidden. Five up-or-down calls on what it did next."
 
 
 def game_name() -> str:
-    return config_string("GAME_NAME")
+    config = (ROOT / "src/lib/game/config.ts").read_text(encoding="utf-8")
+    match = re.search(r"export const GAME_NAME = '([^']+)'", config)
+    if not match:
+        raise SystemExit("GAME_NAME not found in src/lib/game/config.ts")
+    return match.group(1)
 
 
 def wolf() -> dict:
@@ -284,8 +278,7 @@ def make_og(name: str) -> None:
     draw.rectangle([hx - 9, hy - 9, hx + 9, hy + 9], fill=INK)
     draw.rectangle([hx - 6, hy - 6, hx + 6, hy + 6], fill=GREEN)
 
-    # An imported asset, so its URL changes whenever it is redrawn and link previews refresh.
-    img.save(ASSETS / "og.png", optimize=True)
+    img.save(STATIC / "og.png", optimize=True)
 
 
 # --------------------------------------------------------------------------------------------
@@ -308,7 +301,7 @@ def make_manifest(name: str) -> None:
     manifest = {
         "name": name,
         "short_name": name,
-        "description": config_string("GAME_DESCRIPTION"),
+        "description": DESCRIPTION,
         "start_url": "/",
         "display": "standalone",
         "background_color": SURFACE,
@@ -327,7 +320,7 @@ def main() -> None:
     make_favicon(name)
     make_manifest(name)
     for f in (
-        "src/lib/assets/og.png",
+        "static/og.png",
         "static/apple-touch-icon.png",
         "static/icon-192.png",
         "static/icon-512.png",

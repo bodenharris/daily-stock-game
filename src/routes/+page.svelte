@@ -5,21 +5,11 @@
   import CircleUser from '@lucide/svelte/icons/circle-user';
   import WolfScene from '#lib/brand/WolfScene.svelte';
   import { IconButton } from '#lib/components/ui/icon-button/index.js';
-  import { GAME_DESCRIPTION, GAME_NAME, SITE_URL } from '#lib/game/config.ts';
+  import { GAME_NAME } from '#lib/game/config.ts';
   import Game from '#lib/play/Game.svelte';
   import SoundButton from '#lib/play/SoundButton.svelte';
   import { formatDate } from '#lib/play/format.ts';
   import { getGame } from '#lib/remote/game.remote.ts';
-
-  /** The name Google shows for the site: https://developers.google.com/search/docs/appearance/site-names */
-  const siteNameJsonLd = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: GAME_NAME,
-    url: `${SITE_URL}/`,
-  });
-  // Split so the closing tag doesn't end this component's own script.
-  const siteNameScript = `<script type="application/ld+json">${siteNameJsonLd}</` + 'script>';
 
   const view = $derived(await getGame());
   /** The day's date, newspaper style ("Sat, Nov 14, 2026"), in parts so narrow phones can drop
@@ -65,9 +55,10 @@
 
 <svelte:head>
   <title>{GAME_NAME} #{view.number} · The daily stock chart game</title>
-  <meta name="description" content={GAME_DESCRIPTION} />
-  <!-- eslint-disable-next-line svelte/no-at-html-tags -- constants only, nothing from a player -->
-  {@html siteNameScript}
+  <meta
+    name="description"
+    content="One famous stock chart a day, name hidden. Five up-or-down calls on what it did next."
+  />
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col">
