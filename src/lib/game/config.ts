@@ -10,6 +10,9 @@ export const GAME_NAME = 'The Wolf';
 /** The production site, linked from the share text. */
 export const SITE_URL = 'https://thewolfof.nyc';
 
+/** The source code, linked from the home page header. */
+export const GITHUB_URL = 'https://github.com/bodenharris/the-wolf-game';
+
 /** Every game starts with $100. */
 export const START_BALANCE_CENTS = 10_000;
 

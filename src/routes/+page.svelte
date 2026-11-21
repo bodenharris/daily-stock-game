@@ -3,9 +3,10 @@
   import ChartColumn from '@lucide/svelte/icons/chart-column';
   import CircleHelp from '@lucide/svelte/icons/circle-help';
   import CircleUser from '@lucide/svelte/icons/circle-user';
+  import GithubIcon from '#lib/brand/GithubIcon.svelte';
   import WolfScene from '#lib/brand/WolfScene.svelte';
   import { IconButton } from '#lib/components/ui/icon-button/index.js';
-  import { GAME_NAME } from '#lib/game/config.ts';
+  import { GAME_NAME, GITHUB_URL } from '#lib/game/config.ts';
   import Game from '#lib/play/Game.svelte';
   import SoundButton from '#lib/play/SoundButton.svelte';
   import { formatDate } from '#lib/play/format.ts';
@@ -104,6 +105,17 @@
         onclick={openAccount}
       >
         <CircleUser />
+      </IconButton>
+      <!-- Narrower phones have room for five buttons beside the moon, not six. -->
+      <IconButton
+        variant="tonal"
+        class="max-[429px]:hidden"
+        href={GITHUB_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Source code on GitHub"
+      >
+        <GithubIcon />
       </IconButton>
     {/snippet}
   </WolfScene>
