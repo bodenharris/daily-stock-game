@@ -106,10 +106,8 @@
       >
         <CircleUser />
       </IconButton>
-      <!-- Narrower phones have room for five buttons beside the moon, not six. -->
       <IconButton
         variant="tonal"
-        class="max-[429px]:hidden"
         href={GITHUB_URL}
         target="_blank"
         rel="noopener noreferrer"

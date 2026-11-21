@@ -434,10 +434,31 @@
     /* framed 40px buttons: 12px apart, so their 6px frames meet edge to edge */
     gap: 0.75rem;
   }
-  /* The narrowest phones: five buttons share their frames instead, clear of the wolf's ears. */
-  @media (max-width: 359px) {
+  /* Six buttons on a phone: they share their frames, and the moon shrinks into the corner
+	   left of them. The narrowest phones also take the buttons one step smaller (32px, still a
+	   48px touch target). */
+  @media (max-width: 429px) {
     .actions {
       gap: 6px;
+    }
+  }
+  @media (max-width: 399px) {
+    .moon {
+      width: 30px;
+      height: 30px;
+      left: 1rem;
+      /* level with the buttons, clear of his ears */
+      top: calc(117px + 1rem - var(--scene-h));
+    }
+  }
+  @media (max-width: 374px) {
+    .scene:not(.compact) .actions :global([data-slot='icon-button']) {
+      width: 2rem;
+      height: 2rem;
+    }
+    .scene:not(.compact) .actions :global([data-slot='icon-button'] svg) {
+      width: 1.25rem;
+      height: 1.25rem;
     }
   }
   @media (max-height: 700px) and (max-width: 767px) {
@@ -462,7 +483,8 @@
     .scene:not(.compact) .moon {
       width: 30px;
       height: 30px;
-      left: 1.75rem;
+      /* in the corner, clear of the six buttons on narrow phones */
+      left: 1rem;
       top: calc(78px + 0.5rem - var(--scene-h));
     }
     .stage > .title {
